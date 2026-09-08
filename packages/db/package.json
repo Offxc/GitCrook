@@ -1,0 +1,24 @@
+{
+  "name": "@voiddocs/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "dev:pg": "tsx src/devServer.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@voiddocs/shared": "workspace:*",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0",
+    "embedded-postgres": "18.4.0-beta.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

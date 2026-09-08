@@ -1,0 +1,20 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  "@embedded-postgres/linux-x64": true
+  "@prisma/engines": true
+  argon2: true
+  esbuild: true
+  prisma: true
+
+onlyBuiltDependencies:
+  - embedded-postgres
+  - "@embedded-postgres/linux-x64"
+  - prisma
+  - "@prisma/client"
+  - "@prisma/engines"
+  - esbuild
+  - sharp
+  - argon2

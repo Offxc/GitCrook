@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+/*
+ * Tokens for VoidDocs' own app chrome (marketing, login, dashboard, editor).
+ * Published docs sites are themed separately and dynamically via each Site's
+ * ThemeConfig (see @voiddocs/shared/theme.ts) — these variables are NOT used
+ * there, only here in the app shell.
+ */
+:root {
+  --color-canvas: #ffffff;
+  --color-surface: #f7f7f8;
+  --color-border: #e5e5e8;
+  --color-ink: #18181b;
+  --color-ink-muted: #6b6b74;
+  --color-brand: #4f46e5;
+  --color-brand-ink: #ffffff;
+  --color-danger: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #101012;
+    --color-surface: #18181b;
+    --color-border: #2a2a2f;
+    --color-ink: #f4f4f5;
+    --color-ink-muted: #9a9aa2;
+    --color-brand: #818cf8;
+    --color-brand-ink: #101012;
+    --color-danger: #f87171;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-border: var(--color-border);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-brand: var(--color-brand);
+  --color-brand-ink: var(--color-brand-ink);
+  --color-danger: var(--color-danger);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/*
+ * Published-site tokens — deliberately separate namespace from the app
+ * shell's --color-* above. Phase 4 overrides --site-primary/--site-tint etc.
+ * inline per Site.theme; these are just sensible defaults until then.
+ * Dark mode: system preference by default, overridden by an explicit
+ * data-site-mode attribute set by the reader's toggle (see DarkModeToggle).
+ */
+[data-site-root] {
+  --site-canvas: #ffffff;
+  --site-surface: #f7f7f8;
+  --site-border: #e5e7eb;
+  --site-ink: #1f2328;
+  --site-ink-muted: #656d76;
+  --site-primary: #4f46e5;
+  --site-tint: transparent;
+
+  /* Phase 4 theming defaults — a Site whose ThemeConfig leaves an axis at its
+     schema default gets NO inline override for it (see themeToCssVars in
+     packages/shared/src/themeVars.ts), so these ARE what "default" looks
+     like, not just a pre-hydration flash. */
+  --site-info: #507aff;
+  --site-success: #22b022;
+  --site-warning: #e69819;
+  --site-danger: #a30a0a;
+  --site-radius: 0.5rem;
+  --site-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  /* Reuse the app's already-loaded next/font variables for the schema's own
+     defaults ("Inter"/"JetBrains Mono") — only a site that picks a different
+     curated font pays for an external Google Fonts request (see fonts.ts). */
+  --site-font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --site-font-heading: var(--site-font-body);
+  --site-font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  font-family: var(--site-font-body);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-site-root]:not([data-site-mode="light"]) {
+    --site-canvas: #0d1117;
+    --site-surface: #161b22;
+    --site-border: #30363d;
+    --site-ink: #e6edf3;
+    --site-ink-muted: #8b949e;
+    --site-primary: #818cf8;
+  }
+}
+
+[data-site-root][data-site-mode="dark"] {
+  --site-canvas: #0d1117;
+  --site-surface: #161b22;
+  --site-border: #30363d;
+  --site-ink: #e6edf3;
+  --site-ink-muted: #8b949e;
+  --site-primary: #818cf8;
+}
+
+/* Tint: an optional subtle wash of --site-tint over the canvas, only active
+   when renderPublishedSite.tsx marks data-tint (i.e. the theme actually set
+   one) — keeps the untinted default a plain, unconditional --site-canvas
+   paint rather than a color-mix() that would need a safe no-op fallback. */
+[data-site-root][data-tint="true"] {
+  background-color: color-mix(in srgb, var(--site-tint) 6%, var(--site-canvas));
+}
+
+/* Shiki code blocks (lib/renderer/highlightCode.ts renders with themes:{light,dark}
+   + defaultColor:false, which emits BOTH palettes as --shiki-light/--shiki-dark
+   per token with no default) — pick between them via our own [data-site-mode]
+   convention, same pattern as every --site-* token above, not Shiki's own CSS. */
+[data-site-root] .shiki,
+[data-site-root] .shiki span {
+  font-family: var(--site-font-mono) !important;
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg) !important;
+}
+@media (prefers-color-scheme: dark) {
+  [data-site-root]:not([data-site-mode="light"]) .shiki,
+  [data-site-root]:not([data-site-mode="light"]) .shiki span {
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg) !important;
+  }
+}
+[data-site-root][data-site-mode="dark"] .shiki,
+[data-site-root][data-site-mode="dark"] .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg) !important;
+}
+
+/* cornerStyle="straight" / depthStyle="flat" / linkStyle="accent": additive
+   overrides only, gated by a class renderPublishedSite.tsx puts on the root
+   — the unmarked (default) case is untouched, so nothing already verified
+   this session changes unless a theme explicitly opts in. */
+[data-site-root].vd-corners-straight [class*="rounded"] {
+  border-radius: 0 !important;
+}
+[data-site-root].vd-depth-flat [class*="shadow"] {
+  box-shadow: none !important;
+}
+[data-site-root].vd-links-accent .prose-content a {
+  text-decoration: underline;
+}
+
+/* Hint/callout colors, theme-overridable via --site-info/success/warning/danger.
+   Each variant sets one indirection var; the shared rules below derive
+   background/border/text from it with color-mix so light and dark mode (and
+   any semanticColors override) all fall out of the one accent value. */
+[data-site-root] .hint-info {
+  --hint-accent: var(--site-info);
+}
+[data-site-root] .hint-success {
+  --hint-accent: var(--site-success);
+}
+[data-site-root] .hint-warning {
+  --hint-accent: var(--site-warning);
+}
+[data-site-root] .hint-danger {
+  --hint-accent: var(--site-danger);
+}
+[data-site-root] .hint-block {
+  background: color-mix(in srgb, var(--hint-accent) 12%, var(--site-canvas));
+  border-color: color-mix(in srgb, var(--hint-accent) 35%, transparent);
+}
+[data-site-root] .hint-block .hint-dot {
+  background: var(--hint-accent);
+}
+[data-site-root] .hint-block .hint-text {
+  color: color-mix(in srgb, var(--hint-accent) 65%, var(--site-ink));
+}
+
+@theme inline {
+  --color-site-canvas: var(--site-canvas);
+  --color-site-surface: var(--site-surface);
+  --color-site-border: var(--site-border);
+  --color-site-ink: var(--site-ink);
+  --color-site-ink-muted: var(--site-ink-muted);
+  --color-site-primary: var(--site-primary);
+}

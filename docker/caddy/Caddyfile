@@ -1,0 +1,42 @@
+{
+	email admin@{$ROOT_DOMAIN}
+	on_demand_tls {
+		ask      http://web:3000/api/internal/certs/ask
+		interval 2m
+		burst    5
+	}
+}
+
+# The platform's own root domain is known upfront — strong HSTS is safe here
+# because this platform permanently controls it.
+{$ROOT_DOMAIN}, www.{$ROOT_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+}
+
+# Every other SNI hostname only gets a certificate if /api/internal/certs/ask
+# says yes for it (i.e. it's a verified CustomDomain row) — see that route's
+# doc comment for why this is the actual anti-abuse control, not this file.
+:443 {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	reverse_proxy web:3000
+	header {
+		# Deliberately weaker than the root domain's HSTS: a tenant's control of
+		# a custom domain can change hands, and an over-committed HSTS on a
+		# domain this platform doesn't permanently own is a self-inflicted
+		# footgun for whoever controls it next.
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+}
+
+:80 {
+	redir https://{host}{uri} permanent
+}

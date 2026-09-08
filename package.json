@@ -1,0 +1,24 @@
+{
+  "name": "voiddocs",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @voiddocs/web dev",
+    "build": "pnpm --filter @voiddocs/web build",
+    "worker": "pnpm --filter @voiddocs/worker dev",
+    "db:generate": "pnpm --filter @voiddocs/db exec prisma generate",
+    "db:migrate": "pnpm --filter @voiddocs/db exec prisma migrate dev",
+    "db:deploy": "pnpm --filter @voiddocs/db exec prisma migrate deploy",
+    "db:seed": "pnpm --filter @voiddocs/db exec prisma db seed",
+    "db:studio": "pnpm --filter @voiddocs/db exec prisma studio",
+    "test": "vitest run",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

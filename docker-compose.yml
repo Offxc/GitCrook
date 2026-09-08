@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: voiddocs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: voiddocs
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voiddocs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No `ports:` — only reachable from other containers on the `internal`
+    # network, never from the host/internet directly (OWASP A05).
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      target: build
+    command: ["pnpm", "--filter", "@voiddocs/db", "exec", "prisma", "migrate", "deploy"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://voiddocs:${POSTGRES_PASSWORD}@postgres:5432/voiddocs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://voiddocs:${POSTGRES_PASSWORD}@postgres:5432/voiddocs
+      NODE_ENV: production
+      # Absolute, not the schema's relative default — web and worker have
+      # different WORKDIRs (/app vs /repo), so a relative path would resolve
+      # to two different directories even with the volume shared below.
+      STORAGE_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    # No `ports:` — only Caddy is internet-reachable; this is also what makes
+    # the /api/internal/certs/ask endpoint safe to reason about (see its own
+    # doc comment).
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://voiddocs:${POSTGRES_PASSWORD}@postgres:5432/voiddocs
+      NODE_ENV: production
+      STORAGE_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    # No `ports:` either — PDF export is a poll loop against Postgres, never
+    # a server; nothing needs to reach this container directly, including Caddy.
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      ROOT_DOMAIN: ${ROOT_DOMAIN:?set ROOT_DOMAIN in .env, e.g. docs.voidsmp.com}
+    depends_on:
+      - web
+    networks: [internal]
+    restart: unless-stopped
+
+networks:
+  internal: {}
+
+volumes:
+  pgdata: {}
+  caddy_data: {} # must persist across redeploys — this is where issued TLS certs live
+  caddy_config: {}
+  uploads: {} # shared between web (serves it) and worker (writes PDFs into it) — must persist across redeploys, same as pgdata

@@ -1,0 +1,43 @@
+{
+  "name": "@voiddocs/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- next dev",
+    "build": "dotenv -e ../../.env -- next build",
+    "start": "dotenv -e ../../.env -- next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@blocknote/core": "0.54.0",
+    "@blocknote/mantine": "0.54.0",
+    "@blocknote/react": "0.54.0",
+    "@blocknote/xl-multi-column": "0.54.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@voiddocs/auth": "workspace:*",
+    "@voiddocs/db": "workspace:*",
+    "@voiddocs/shared": "workspace:*",
+    "clsx": "2.1.1",
+    "file-type": "22.0.2",
+    "katex": "0.18.7",
+    "mermaid": "11.17.2",
+    "next": "16.3.4",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "0.35.4",
+    "shiki": "4.4.3",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/katex": "0.16.8",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "dotenv-cli": "^8.0.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,610 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================= Auth.js required models =============================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts           Account[]
+  sessions           Session[]
+  memberships        Membership[]
+  sitePermissions    SitePermission[]
+  sectionPermissions SectionPermission[]
+  spacePermissions   SpacePermission[]
+  pagePermissions    PagePermission[]
+  comments           Comment[]
+  auditLogs          AuditLog[]
+  uploadedAssets     Asset[]
+  shareLinks         ShareLink[]
+  pageVersions       PageVersion[]
+  exportJobs         ExportJob[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  // access_token / refresh_token intentionally NOT persisted — we only need Discord for
+  // identity (OWASP A02: nothing sensitive to protect because it's never stored).
+  id_token          String?
+  scope             String?
+  expires_at        Int?
+  token_type        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===================================== Roles =====================================
+
+enum Role {
+  GUEST
+  READER
+  COMMENTER
+  EDITOR
+  REVIEWER
+  CREATOR
+  ADMIN
+}
+
+// ============================ Organization / membership ============================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships    Membership[]
+  sites          Site[]
+  assets         Asset[]
+  auditLogs      AuditLog[]
+  reusableBlocks ReusableBlock[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           Role     @default(READER)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// ========================= Sites, domains, and access control =========================
+
+enum DomainStatus {
+  PENDING
+  ACTIVE
+  NEEDS_REVERIFICATION
+  REVOKED
+}
+
+enum AudienceMode {
+  PUBLIC
+  PRIVATE
+  PASSWORD
+}
+
+model Site {
+  id               String       @id @default(cuid())
+  organizationId   String
+  name             String
+  slug             String       @unique // {rootDomain}/{slug}
+  iconAssetId      String?
+  logoLightAssetId String?
+  logoDarkAssetId  String?
+  theme            Json // ThemeConfig, validated by @voiddocs/shared's ThemeConfigSchema
+  audienceMode     AudienceMode @default(PUBLIC)
+  defaultLocale    String       @default("en")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sectionGroups   SectionGroup[]
+  sections        Section[]
+  customDomain    CustomDomain?
+  assets          Asset[]
+  password        SitePassword?
+  shareLinks      ShareLink[]
+  permissions     SitePermission[]
+  redirects       SiteRedirect[]
+  variables       Variable[]
+  pages           Page[]
+  analyticsEvents AnalyticsEvent[]
+  dailyRollups    AnalyticsDailyRollup[]
+
+  @@index([organizationId])
+}
+
+model CustomDomain {
+  id                  String       @id @default(cuid())
+  siteId              String       @unique
+  hostname            String       @unique // punycode-normalized, lowercase
+  status              DomainStatus @default(PENDING)
+  verificationToken   String
+  verifiedAt          DateTime?
+  lastCheckedAt       DateTime?
+  consecutiveFailures Int          @default(0)
+  createdAt           DateTime     @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model SitePassword {
+  siteId       String   @id
+  passwordHash String // argon2id
+  updatedAt    DateTime @updatedAt
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+}
+
+model ShareLink {
+  id           String    @id @default(cuid())
+  siteId       String
+  token        String    @unique // 128-bit random, url-safe
+  label        String?
+  scopeSpaceId String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+}
+
+model SiteRedirect {
+  id         String   @id @default(cuid())
+  siteId     String
+  fromPath   String
+  toPath     String
+  statusCode Int      @default(308)
+  createdAt  DateTime @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, fromPath])
+}
+
+// ==================== Sections / groups / spaces / variants / pages ====================
+
+model SectionGroup {
+  id     String @id @default(cuid())
+  siteId String
+  title  String
+  order  Int
+
+  site     Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  sections Section[]
+
+  @@index([siteId])
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  siteId    String
+  groupId   String?
+  title     String
+  slug      String
+  order     Int
+  icon      String?
+  createdAt DateTime @default(now())
+
+  site        Site                @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  group       SectionGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  spaces      Space[]
+  permissions SectionPermission[]
+
+  @@unique([siteId, slug])
+  @@index([siteId])
+}
+
+enum EditMode {
+  OPEN // Editor+ edit directly and publish immediately (v1 default)
+  LOCKED // change-request review/merge workflow — reserved for a later phase
+}
+
+model Space {
+  id        String   @id @default(cuid())
+  sectionId String
+  title     String
+  slug      String
+  order     Int
+  icon      String?
+  editMode  EditMode @default(OPEN)
+  createdAt DateTime @default(now())
+
+  section     Section           @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  variants    Variant[]
+  permissions SpacePermission[]
+
+  @@unique([sectionId, slug])
+  @@index([sectionId])
+}
+
+model Variant {
+  id        String   @id @default(cuid())
+  spaceId   String
+  name      String
+  slug      String
+  isDefault Boolean  @default(false)
+  order     Int
+  createdAt DateTime @default(now())
+
+  space Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  pages Page[]
+
+  @@unique([spaceId, slug])
+  @@index([spaceId])
+}
+
+model Page {
+  id             String    @id @default(cuid())
+  variantId      String
+  siteId         String // denormalized from variant->space->section->site: one indexed filter
+  // for search/analytics instead of a 4-way join, and no cross-tenant join bugs possible.
+  parentId       String?
+  title          String
+  slug           String
+  description    String?
+  icon           String?
+  coverAssetId   String?
+  content        Json // BlockNote document (array of Block)
+  contentText    String                        @default("") @db.Text // plain-text extract of
+  // `content`, kept in sync on every save; feeds searchVector below.
+  searchVector   Unsupported("tsvector")? // generated column + GIN index, set up in a raw-SQL
+  // migration (Prisma can't express GENERATED ALWAYS AS ... STORED) — see migration.sql for
+  // Phase 3's search feature. Typed here only so the Prisma client knows the column exists.
+  //
+  // WARNING: because of this field, `prisma migrate dev` on ANY future schema
+  // change will generate a false diff — a spurious `DROP INDEX
+  // "Page_searchVector_idx"` + `ALTER COLUMN "searchVector" DROP DEFAULT` —
+  // since Prisma can't see that the column is GENERATED. Always run with
+  // `--create-only` first, delete those two statements from the generated
+  // migration.sql, THEN apply. Applying it unedited silently drops the search
+  // index (found the hard way: it stayed dropped, with search still
+  // "working" via a slow seq scan, until an unrelated later migration's own
+  // drift check surfaced it).
+  contentVersion Int                           @default(1) // optimistic concurrency for autosave
+  order          Int
+  isDraft        Boolean   @default(false)
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  variant     Variant          @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  site        Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  parent      Page?            @relation("PageTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Page[]           @relation("PageTree")
+  permissions PagePermission[]
+  comments    Comment[]
+  ratings     PageRating[]
+  versions    PageVersion[]
+  exportJobs  ExportJob[]
+  analytics   AnalyticsEvent[]
+
+  // NOT a @@unique constraint: Postgres treats NULL as distinct from NULL, so a
+  // unique index on (variantId, parentId, slug) would silently fail to catch
+  // duplicate slugs among ROOT pages (parentId IS NULL) — discovered via
+  // testing (Prisma's findUnique also rejects this shape as a compound key
+  // when one of its fields is nullable). Slug collisions are instead checked
+  // at the application layer with findFirst (see createPage/createSite),
+  // which handles the null case correctly.
+  @@index([variantId, parentId, slug])
+  @@index([variantId])
+  @@index([siteId])
+  @@index([parentId])
+}
+
+model PageVersion {
+  id          String   @id @default(cuid())
+  pageId      String
+  content     Json
+  version     Int
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  page      Page  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([pageId])
+}
+
+// Internal editorial discussion (Commenter role and up) — distinct from anonymous
+// visitor PageRating feedback below.
+model Comment {
+  id         String    @id @default(cuid())
+  pageId     String
+  blockId    String? // BlockNote block id being annotated, null = page-level comment
+  authorId   String
+  body       String
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  page   Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+// Site-wide reusable text snippets, referenced via an inline expression block
+// (e.g. product name, current version number) — updates everywhere at once.
+model Variable {
+  id        String   @id @default(cuid())
+  siteId    String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, key])
+}
+
+// "Synced blocks": authored once, embedded on multiple pages; editing the source
+// updates every embed. Scoped to an org so it can be reused across that org's sites.
+model ReusableBlock {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  content        Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ========================= Cascading RBAC overrides =========================
+// Resolution order (most specific wins): PagePermission -> SpacePermission ->
+// SectionPermission -> SitePermission -> Membership.role -> (none = no access).
+
+model SitePermission {
+  id     String @id @default(cuid())
+  siteId String
+  userId String
+  role   Role
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, userId])
+}
+
+model SectionPermission {
+  id        String @id @default(cuid())
+  sectionId String
+  userId    String
+  role      Role
+
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, userId])
+}
+
+model SpacePermission {
+  id      String @id @default(cuid())
+  spaceId String
+  userId  String
+  role    Role
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+}
+
+model PagePermission {
+  id     String @id @default(cuid())
+  pageId String
+  userId String
+  role   Role
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, userId])
+}
+
+// ===================================== Assets =====================================
+
+enum AssetKind {
+  IMAGE
+  FILE
+  FONT
+  DRAWING_SVG
+}
+
+model Asset {
+  id             String    @id @default(cuid())
+  organizationId String
+  uploaderId     String?
+  // Nullable: an asset predates this field, or is genuinely org-wide (not
+  // tied to one site's content) — /api/files/[assetId] treats a null siteId
+  // as unrestricted, matching pre-existing behavior. A non-null siteId gets
+  // that site's actual visitor-access check (public/private/password/share
+  // link), closing the gap where a Private site's images were fetchable by
+  // direct URL regardless of the page-level access control around them.
+  siteId         String?
+  kind           AssetKind
+  storageKey     String
+  mimeType       String
+  sizeBytes      Int
+  width          Int?
+  height         Int?
+  checksumSha256 String
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploader     User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  site         Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  exportJobs   ExportJob[]
+
+  @@index([siteId])
+
+  @@index([organizationId])
+}
+
+// =========================== Visitor feedback & analytics ===========================
+
+model PageRating {
+  id          String   @id @default(cuid())
+  pageId      String
+  rating      Int
+  feedback    String?
+  visitorHash String // sha256(dailySalt + siteId + ip + userAgent) — never raw IP
+  createdAt   DateTime @default(now())
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+enum AnalyticsEventType {
+  PAGEVIEW
+  SEARCH
+  LINK_CLICK
+  NOT_FOUND
+}
+
+model AnalyticsEvent {
+  id            String             @id @default(cuid())
+  siteId        String
+  type          AnalyticsEventType
+  pageId        String?
+  path          String
+  country       String?
+  language      String?
+  browser       String?
+  device        String?
+  referrer      String?
+  query         String? // SEARCH events
+  linkTarget    String? // LINK_CLICK events
+  linkPlacement String? // header | footer | sidebar | body
+  visitorHash   String
+  occurredAt    DateTime           @default(now())
+
+  site Site  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: SetNull)
+
+  @@index([siteId, occurredAt])
+  @@index([siteId, type, occurredAt])
+}
+
+model AnalyticsDailyRollup {
+  id             String   @id @default(cuid())
+  siteId         String
+  date           DateTime @db.Date
+  pageviews      Int      @default(0)
+  uniqueVisitors Int      @default(0)
+  dimension      String // "country" | "device" | "browser" | "referrer"
+  dimensionValue String
+  count          Int
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, date, dimension, dimensionValue])
+  @@index([siteId, date])
+}
+
+// =================================== PDF export ===================================
+// Processed by apps/worker (a separate process/container — Playwright's headless
+// Chromium is kept out of the internet-facing web process on purpose, see the
+// architecture plan's OWASP A05 reasoning) via simple polling, not a Redis queue —
+// REDIS_URL stays optional; this table IS the queue, claimed with an atomic
+// conditional UPDATE (PENDING -> PROCESSING) so a second worker can never double-run it.
+
+enum ExportJobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model ExportJob {
+  id             String          @id @default(cuid())
+  pageId         String
+  requestedById  String
+  status         ExportJobStatus @default(PENDING)
+  resultAssetId  String?
+  error          String?
+  createdAt      DateTime        @default(now())
+  completedAt    DateTime?
+
+  page        Page  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  resultAsset Asset? @relation(fields: [resultAssetId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([pageId])
+}
+
+// =================================== Audit log ===================================
+// OWASP A09 — sensitive-action trail: role changes, domain add/verify/revoke,
+// password changes, member removal, site deletion, etc.
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  targetType     String
+  targetId       String
+  metadata       Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}

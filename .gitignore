@@ -1,0 +1,15 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+out/
+*.log
+.env
+.env.local
+.DS_Store
+.turbo/
+packages/db/prisma/dev.db*
+packages/db/generated/
+packages/db/.pgdata/
+coverage/
