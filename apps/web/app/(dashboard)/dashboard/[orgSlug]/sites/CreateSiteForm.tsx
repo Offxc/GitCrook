@@ -1,10 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { createSite, type CreateSiteState } from "./actions";
 
 export function CreateSiteForm({ orgSlug }: { orgSlug: string }) {
   const [state, formAction, pending] = useActionState<CreateSiteState, FormData>(createSite.bind(null, orgSlug), {});
+
+  // A real navigation, not next/navigation's redirect() — see actions.ts's
+  // comment on why the latter is unreliable straight after a Server Action.
+  useEffect(() => {
+    if (state.redirectTo) window.location.href = state.redirectTo;
+  }, [state.redirectTo]);
 
   return (
     <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:items-end">

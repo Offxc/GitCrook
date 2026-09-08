@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { submitSitePassword, type PasswordGateState } from "@/lib/tenancy/passwordGateActions";
 
 export function PasswordGate({ siteId, siteName, redirectTo }: { siteId: string; siteName: string; redirectTo: string }) {
   const [state, formAction, pending] = useActionState<PasswordGateState, FormData>(submitSitePassword.bind(null, siteId), {});
+
+  useEffect(() => {
+    if (state.redirectTo) window.location.href = state.redirectTo;
+  }, [state.redirectTo]);
 
   return (
     <div data-site-root className="flex min-h-screen flex-col items-center justify-center bg-site-canvas px-6">

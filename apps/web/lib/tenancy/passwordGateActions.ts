@@ -1,11 +1,11 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { verifySitePassword, signPasswordProof } from "@voiddocs/auth";
 
 export interface PasswordGateState {
   error?: string;
+  redirectTo?: string;
 }
 
 const PROOF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -38,5 +38,8 @@ export async function submitSitePassword(siteId: string, _prev: PasswordGateStat
     maxAge: PROOF_COOKIE_MAX_AGE_SECONDS,
   });
 
-  redirect(target);
+  // See sites/actions.ts's createSite for why this returns a URL instead of
+  // calling redirect() — this exact symptom (404 on first hit, fine on a
+  // manual reload) is what led to finding that pattern in the first place.
+  return { redirectTo: target };
 }

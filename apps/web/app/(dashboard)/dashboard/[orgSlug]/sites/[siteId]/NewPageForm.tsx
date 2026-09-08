@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { createPage, type CreatePageState } from "./pagesActions";
 
 export function NewPageForm({ orgSlug, siteId }: { orgSlug: string; siteId: string }) {
   const [state, formAction, pending] = useActionState<CreatePageState, FormData>(createPage.bind(null, orgSlug, siteId), {});
+
+  useEffect(() => {
+    if (state.redirectTo) window.location.href = state.redirectTo;
+  }, [state.redirectTo]);
 
   return (
     <form action={formAction} className="flex items-center gap-2">
