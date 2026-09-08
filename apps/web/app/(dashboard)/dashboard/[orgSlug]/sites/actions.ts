@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@voiddocs/db";
 import { canUserDoX } from "@voiddocs/auth";
@@ -85,5 +86,12 @@ export async function createSite(orgSlug: string, _prev: CreateSiteState, formDa
     },
   });
 
+  // Without this, the redirect below can land on a stale cached response for
+  // a route that's never been rendered before — reproduced directly: the
+  // brand-new site's page 404'd immediately after this redirect, then loaded
+  // fine on a plain reload of the exact same URL. Every other mutation in
+  // this app already revalidates its destination path; this one just missed it.
+  revalidatePath(`/dashboard/${orgSlug}/sites`);
+  revalidatePath(`/dashboard/${orgSlug}/sites/${site.id}`);
   redirect(`/dashboard/${orgSlug}/sites/${site.id}`);
 }
