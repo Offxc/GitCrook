@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSite } from "@/lib/dashboard/site";
+import { SettingsTabs } from "../SettingsTabs";
 import { AddDomainForm } from "./AddDomainForm";
 import { VerifyButton, RemoveDomainButton } from "./DomainActions";
 import { VERIFICATION_PREFIX } from "./shared";
@@ -16,7 +17,8 @@ export default async function DomainPage({ params }: { params: Promise<{ orgSlug
           ← {site.name}
         </Link>
       </p>
-      <h1 className="mt-2 text-2xl font-semibold text-ink">Custom domain</h1>
+      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
+      <h1 className="text-2xl font-semibold text-ink">Custom domain</h1>
       <p className="mt-1 text-sm text-ink-muted">
         Point a domain you own at this site. HTTPS is issued automatically once it's verified.
       </p>

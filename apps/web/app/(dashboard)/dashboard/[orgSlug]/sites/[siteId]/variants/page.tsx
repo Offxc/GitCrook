@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@voiddocs/db";
 import { getEnv } from "@voiddocs/shared/server";
 import { requireSite } from "@/lib/dashboard/site";
+import { SettingsTabs } from "../SettingsTabs";
 import { CreateVariantForm } from "./CreateVariantForm";
 
 export default async function VariantsPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
@@ -22,7 +23,8 @@ export default async function VariantsPage({ params }: { params: Promise<{ orgSl
           ← {site.name}
         </Link>
       </p>
-      <h1 className="mt-2 text-2xl font-semibold text-ink">Variants</h1>
+      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
+      <h1 className="text-2xl font-semibold text-ink">Variants</h1>
       <p className="mt-1 text-sm text-ink-muted">Parallel versions of this site's content — e.g. v1/v2 of an API, or per-region docs. Visitors switch between them from the published site's header.</p>
 
       <div className="mt-6 space-y-2">

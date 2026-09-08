@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@voiddocs/db";
 import { getEnv } from "@voiddocs/shared/server";
 import { requireSite } from "@/lib/dashboard/site";
+import { SettingsTabs } from "../SettingsTabs";
 import { AudienceForm } from "./AudienceForm";
 import { PasswordForm } from "./PasswordForm";
 import { ShareLinksSection } from "./ShareLinksSection";
@@ -25,21 +26,24 @@ export default async function AccessPage({ params }: { params: Promise<{ orgSlug
           ← {site.name}
         </Link>
       </p>
-      <h1 className="mt-2 text-2xl font-semibold text-ink">Visitor access</h1>
+      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
+      <h1 className="text-2xl font-semibold text-ink">Visitor access</h1>
       <p className="mt-1 text-sm text-ink-muted">Control who can view {site.name}.</p>
 
       <div className="mt-6 space-y-6">
         <section className="rounded-xl border border-border bg-canvas p-5">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Audience</h2>
-          <AudienceForm orgSlug={orgSlug} siteId={siteId} currentMode={site.audienceMode} hasPassword={Boolean(hasPassword)} />
+          <h2 className="mb-1 text-sm font-semibold text-ink">Password</h2>
+          <p className="mb-3 text-xs text-ink-muted">
+            {hasPassword
+              ? "A password is set — switch Audience to “Password-protected” below to actually require it."
+              : "Set one here first, then switch Audience below to “Password-protected” to require it."}
+          </p>
+          <PasswordForm orgSlug={orgSlug} siteId={siteId} />
         </section>
 
         <section className="rounded-xl border border-border bg-canvas p-5">
-          <h2 className="mb-1 text-sm font-semibold text-ink">Password</h2>
-          <p className="mb-3 text-xs text-ink-muted">
-            {hasPassword ? "A password is set." : "No password set yet."} Required when Audience is set to Password-protected.
-          </p>
-          <PasswordForm orgSlug={orgSlug} siteId={siteId} />
+          <h2 className="mb-3 text-sm font-semibold text-ink">Audience</h2>
+          <AudienceForm orgSlug={orgSlug} siteId={siteId} currentMode={site.audienceMode} hasPassword={Boolean(hasPassword)} />
         </section>
 
         <section className="rounded-xl border border-border bg-canvas p-5">

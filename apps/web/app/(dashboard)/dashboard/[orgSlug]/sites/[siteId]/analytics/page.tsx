@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@voiddocs/db";
 import { canUserDoX } from "@voiddocs/auth";
 import { requireSite } from "@/lib/dashboard/site";
+import { SettingsTabs } from "../SettingsTabs";
 import {
   RANGE_OPTIONS,
   isRangeOption,
@@ -50,7 +51,8 @@ export default async function AnalyticsPage({
           ← {ctx.site.name}
         </Link>
       </p>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-ink">Analytics</h1>
         <nav className="flex gap-1 rounded-lg border border-border p-1 text-sm">
           {RANGE_OPTIONS.map((opt) => (

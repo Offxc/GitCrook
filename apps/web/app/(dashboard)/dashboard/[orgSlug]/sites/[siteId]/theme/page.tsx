@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ThemeConfigSchema, defaultTheme } from "@voiddocs/shared";
 import { requireSite } from "@/lib/dashboard/site";
+import { SettingsTabs } from "../SettingsTabs";
 import { ThemeForm } from "./ThemeForm";
 
 export default async function ThemePage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
@@ -17,7 +18,8 @@ export default async function ThemePage({ params }: { params: Promise<{ orgSlug:
           ← {site.name}
         </Link>
       </p>
-      <h1 className="mt-2 text-2xl font-semibold text-ink">Theme</h1>
+      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
+      <h1 className="text-2xl font-semibold text-ink">Theme</h1>
       <p className="mt-1 text-sm text-ink-muted">Customize how {site.name} looks to visitors. Changes apply the moment you save.</p>
 
       <div className="mt-6">
