@@ -5,6 +5,20 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@voiddocs/db";
 import { getEnv } from "@voiddocs/shared/server";
 
+// trustHost (below) covers most of Auth.js's own host inference, but that
+// inference isn't reliably applied to every internal code path in this
+// beta release — observed directly: the initial sign-in redirect correctly
+// used the real domain, but the callback's token-exchange redirect_uri and
+// its error-page redirect both fell back to the container's own hostname
+// instead, which breaks the Discord token exchange (redirect_uri mismatch)
+// and produces an unreachable error-page URL. Setting AUTH_URL/AUTH_TRUST_HOST
+// as actual env vars (not just config fields) removes the dependency on that
+// inference working everywhere. Derived from ROOT_DOMAIN/ROOT_PROTOCOL rather
+// than a separate .env value so it can't drift out of sync with them.
+const rootEnv = getEnv();
+process.env.AUTH_URL = `${rootEnv.ROOT_PROTOCOL}://${rootEnv.ROOT_DOMAIN}`;
+process.env.AUTH_TRUST_HOST = "true";
+
 declare module "next-auth" {
   interface Session {
     user: {
