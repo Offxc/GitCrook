@@ -15,8 +15,11 @@ import { getEnv } from "@voiddocs/shared/server";
 // as actual env vars (not just config fields) removes the dependency on that
 // inference working everywhere. Derived from ROOT_DOMAIN/ROOT_PROTOCOL rather
 // than a separate .env value so it can't drift out of sync with them.
-const rootEnv = getEnv();
-process.env.AUTH_URL = `${rootEnv.ROOT_PROTOCOL}://${rootEnv.ROOT_DOMAIN}`;
+// Read raw (not via getEnv()) — this runs at module load, and getEnv()'s
+// full-schema validation as an import-time side effect broke Next.js's
+// build-time page data collection, which doesn't have every var (e.g.
+// AUTH_SECRET) available the same way the running server does.
+process.env.AUTH_URL = `${process.env.ROOT_PROTOCOL ?? "http"}://${process.env.ROOT_DOMAIN ?? "localhost:3000"}`;
 process.env.AUTH_TRUST_HOST = "true";
 
 declare module "next-auth" {
