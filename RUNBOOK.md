@@ -276,6 +276,14 @@ systemctl restart voiddocs
 
 The unit's `ExecStart` already includes `--build`, so the restart itself picks up the new code; no separate manual `docker compose` invocation needed. The `migrate` service re-runs on every start, applying any new migrations before `web`/`worker` come up — safe even when there's nothing new to migrate. To watch it come up: `journalctl -u voiddocs -f`.
 
+**One-time fix if your `uploads` volume predates the Dockerfiles' baked-in ownership**: if uploads were ever failing with `EACCES: permission denied, mkdir '/data/uploads/...'` before this was fixed, the volume itself needs a one-time ownership correction after you rebuild — the new image only fixes what a *fresh* volume inherits, not one that already existed with the old (wrong) ownership:
+
+```bash
+docker compose run --rm --user root web chown -R 1001:1001 /data/uploads
+```
+
+Run this once, after pulling the fix and rebuilding, not before — it targets UID 1001 directly, which only matches what the *new* image runs as.
+
 **One-time-per-project caveat**, not something you'll hit on ordinary schema changes: this project has one raw-SQL-managed column (`Page.searchVector`, a Postgres `GENERATED ALWAYS AS ... STORED` column backing full-text search) that Prisma's schema language can't fully express. If you ever edit `packages/db/prisma/schema.prisma` yourself and regenerate a migration with `prisma migrate dev`, read the warning comment directly above the `searchVector` field first — an unedited auto-generated migration will silently drop the search index. Migrations already committed to this repo have this already handled; it only matters if you're authoring a *new* one.
 
 ## 8. Custom domains for tenant sites

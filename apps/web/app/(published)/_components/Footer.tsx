@@ -68,11 +68,7 @@ export function Footer({
                 {SOCIAL_LABELS[key] ?? key}
               </a>
             ))}
-            {showPoweredByBadge ? (
-              <a href="https://voidsmp.com" target="_blank" rel="noreferrer" className="hover:text-site-ink">
-                Powered by VoidDocs
-              </a>
-            ) : null}
+            {showPoweredByBadge ? <span>Powered by VoidDocs</span> : null}
           </div>
         </div>
       </div>

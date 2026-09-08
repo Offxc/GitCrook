@@ -32,12 +32,20 @@ RUN pnpm --filter @voiddocs/web build
 
 # ---- runtime: minimal image, non-root, only the traced output files ----------
 FROM node:22-alpine AS runtime
-RUN addgroup -S voiddocs && adduser -S voiddocs -G voiddocs
+# Fixed UID/GID, not adduser's auto-assigned default — worker.Dockerfile creates
+# the same-named user independently, and the two images aren't guaranteed to
+# land on the same UID otherwise. That matters here specifically because both
+# containers write into the same shared `uploads` volume (docker-compose.yml).
+RUN addgroup -S -g 1001 voiddocs && adduser -S -u 1001 -G voiddocs voiddocs
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build --chown=voiddocs:voiddocs /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=voiddocs:voiddocs /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=voiddocs:voiddocs /repo/packages/db/generated ./packages/db/generated
+# Baked into the image so a fresh named volume (empty on first mount) inherits
+# this ownership — see RUNBOOK.md's note on the one-time fix needed for a
+# volume that already exists from before this line was added.
+RUN mkdir -p /data/uploads && chown -R voiddocs:voiddocs /data/uploads
 USER voiddocs
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
