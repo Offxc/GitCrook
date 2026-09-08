@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@voiddocs/db";
 import { canUserDoX } from "@voiddocs/auth";
@@ -69,5 +70,10 @@ export async function createPage(orgSlug: string, siteId: string, _prev: CreateP
     },
   });
 
+  // Same fix as sites/actions.ts's createSite — without this, the redirect
+  // below can 404 on first hit (stale cache for a never-before-rendered
+  // route), then load fine on a plain reload of the same URL.
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}/pages/${page.id}`);
   redirect(`/dashboard/${orgSlug}/sites/${siteId}/pages/${page.id}`);
 }
