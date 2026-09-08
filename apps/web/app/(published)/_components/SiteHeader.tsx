@@ -15,6 +15,7 @@ export function SiteHeader({
   header,
   primaryLinkHref,
   externalLinksNewTab,
+  logoAssetId,
 }: {
   siteName: string;
   baseHref: string;
@@ -25,13 +26,18 @@ export function SiteHeader({
   header: ThemeConfig["header"];
   primaryLinkHref: string | null;
   externalLinksNewTab: boolean;
+  logoAssetId: string | null;
 }) {
   if (header.hidden) return null;
 
   return (
     <header data-placement="header" className="flex h-14 items-center justify-between gap-4 border-b border-site-border px-5">
       <div className="flex min-w-0 items-center gap-6">
-        <Link href={primaryLinkHref ?? baseHref} className="shrink-0 text-sm font-semibold text-site-ink">
+        <Link href={primaryLinkHref ?? baseHref} className="flex shrink-0 items-center gap-2 text-sm font-semibold text-site-ink">
+          {logoAssetId ? (
+            // eslint-disable-next-line @next/next/no-img-element -- site-owner-configured logo, arbitrary dimensions
+            <img src={`/api/files/${logoAssetId}`} alt="" className="h-6 w-6 rounded object-contain" />
+          ) : null}
           {siteName}
         </Link>
         {header.links.length > 0 ? (

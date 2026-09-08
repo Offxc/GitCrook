@@ -25,6 +25,15 @@ const LinkSchema = z.object({
 });
 
 export const ThemeConfigSchema = z.object({
+  branding: z
+    .object({
+      // Shown top-left next to the site name in the header. Distinct from
+      // footer.logoAssetId, which is a separate, optional footer mark.
+      logoAssetId: z.string().nullable().default(null),
+      // Used as the published site's browser-tab icon (favicon).
+      faviconAssetId: z.string().nullable().default(null),
+    })
+    .prefault({}),
   themeStyle: z.enum(["clean", "muted", "bold", "gradient"]).default("clean"),
   primaryColor: z
     .object({ light: z.string().default("#4f46e5"), dark: z.string().default("#818cf8") })
@@ -88,6 +97,7 @@ export const ThemeConfigSchema = z.object({
     })
     .prefault({}),
   pagination: z.object({ enabled: z.boolean().default(true) }).prefault({}),
+  pageFeedback: z.object({ enabled: z.boolean().default(true) }).prefault({}),
   footer: z
     .object({
       logoAssetId: z.string().nullable().default(null),

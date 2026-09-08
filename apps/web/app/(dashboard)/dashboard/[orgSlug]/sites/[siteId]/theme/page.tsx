@@ -5,7 +5,7 @@ import { ThemeForm } from "./ThemeForm";
 
 export default async function ThemePage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
   const { orgSlug, siteId } = await params;
-  const { site } = await requireSite(orgSlug, siteId);
+  const { site, organization } = await requireSite(orgSlug, siteId);
 
   const parsed = ThemeConfigSchema.safeParse(site.theme);
   const theme = parsed.success ? parsed.data : defaultTheme();
@@ -21,7 +21,7 @@ export default async function ThemePage({ params }: { params: Promise<{ orgSlug:
       <p className="mt-1 text-sm text-ink-muted">Customize how {site.name} looks to visitors. Changes apply the moment you save.</p>
 
       <div className="mt-6">
-        <ThemeForm orgSlug={orgSlug} siteId={siteId} initialTheme={theme} />
+        <ThemeForm orgSlug={orgSlug} siteId={siteId} organizationId={organization.id} initialTheme={theme} />
       </div>
     </div>
   );

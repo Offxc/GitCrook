@@ -6,7 +6,17 @@ import { updateTheme, type ThemeActionState } from "./actions";
 
 type Updater = (patch: (theme: ThemeConfig) => ThemeConfig) => void;
 
-export function ThemeForm({ orgSlug, siteId, initialTheme }: { orgSlug: string; siteId: string; initialTheme: ThemeConfig }) {
+export function ThemeForm({
+  orgSlug,
+  siteId,
+  organizationId,
+  initialTheme,
+}: {
+  orgSlug: string;
+  siteId: string;
+  organizationId: string;
+  initialTheme: ThemeConfig;
+}) {
   const [theme, setTheme] = useState<ThemeConfig>(initialTheme);
   const [state, formAction, pending] = useActionState<ThemeActionState, FormData>(updateTheme.bind(null, orgSlug, siteId), {});
   const update: Updater = (patch) => setTheme((prev) => patch(prev));
@@ -14,6 +24,25 @@ export function ThemeForm({ orgSlug, siteId, initialTheme }: { orgSlug: string; 
   return (
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="themeJson" value={JSON.stringify(theme)} />
+
+      <Section title="Branding">
+        <div className="grid grid-cols-2 gap-4">
+          <ImageField
+            label="Logo (shown next to the site name)"
+            value={theme.branding.logoAssetId}
+            organizationId={organizationId}
+            siteId={siteId}
+            onChange={(assetId) => update((t) => ({ ...t, branding: { ...t.branding, logoAssetId: assetId } }))}
+          />
+          <ImageField
+            label="Favicon (browser tab icon)"
+            value={theme.branding.faviconAssetId}
+            organizationId={organizationId}
+            siteId={siteId}
+            onChange={(assetId) => update((t) => ({ ...t, branding: { ...t.branding, faviconAssetId: assetId } }))}
+          />
+        </div>
+      </Section>
 
       <Section title="Colors">
         <div className="grid grid-cols-2 gap-4">
@@ -168,7 +197,10 @@ export function ThemeForm({ orgSlug, siteId, initialTheme }: { orgSlug: string; 
       </Section>
 
       <Section title="Footer">
-        <ToggleField label="Show pagination (Previous/Next links)" checked={theme.pagination.enabled} onChange={(v) => update((t) => ({ ...t, pagination: { enabled: v } }))} />
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          <ToggleField label="Show pagination (Previous/Next links)" checked={theme.pagination.enabled} onChange={(v) => update((t) => ({ ...t, pagination: { enabled: v } }))} />
+          <ToggleField label="Show page feedback (rating & comments)" checked={theme.pageFeedback.enabled} onChange={(v) => update((t) => ({ ...t, pageFeedback: { enabled: v } }))} />
+        </div>
         <div className="mt-3 grid grid-cols-2 gap-4">
           <TextField
             label="Copyright text (optional)"
@@ -316,6 +348,79 @@ function TextField({ label, value, onChange, urlLike = false }: { label: string;
         className="w-full rounded-lg border border-border bg-canvas px-2 py-1.5 text-sm text-ink outline-none focus:border-brand"
       />
     </label>
+  );
+}
+
+function ImageField({
+  label,
+  value,
+  organizationId,
+  siteId,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  organizationId: string;
+  siteId: string;
+  onChange: (assetId: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("organizationId", organizationId);
+      form.append("siteId", siteId);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const { assetId } = await res.json();
+      onChange(assetId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="text-sm">
+      <span className="mb-1 block text-ink-muted">{label}</span>
+      <div className="flex items-center gap-3">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary uploaded image, previewed at a fixed thumbnail size
+          <img src={`/api/files/${value}`} alt="" className="h-10 w-10 rounded border border-border object-contain" />
+        ) : (
+          <div className="h-10 w-10 rounded border border-dashed border-border" />
+        )}
+        <label className="cursor-pointer rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-ink transition hover:border-brand">
+          {uploading ? "Uploading..." : value ? "Replace" : "Upload"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) handleFile(file);
+            }}
+          />
+        </label>
+        {value ? (
+          <button type="button" onClick={() => onChange(null)} className="text-xs text-ink-muted hover:text-danger">
+            Remove
+          </button>
+        ) : null}
+      </div>
+      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+    </div>
   );
 }
 

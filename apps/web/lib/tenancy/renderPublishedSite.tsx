@@ -110,6 +110,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         header={theme.header}
         primaryLinkHref={theme.primaryLinkHref}
         externalLinksNewTab={theme.externalLinksNewTab}
+        logoAssetId={theme.branding.logoAssetId}
       />
       <div className="mx-auto flex w-full max-w-6xl flex-1">
         <Sidebar tree={tree} paths={pathMap} baseHref={baseHref} activePageId={page.id} siteName={site.name} sidebarStyle={theme.sidebarStyle} />
@@ -126,7 +127,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             <div className="mt-6">
               <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
             </div>
-            <PageFeedback pageId={page.id} />
+            {theme.pageFeedback.enabled ? <PageFeedback pageId={page.id} /> : null}
             {theme.pagination.enabled ? (
               <PageNav
                 baseHref={baseHref}
@@ -146,11 +147,13 @@ export async function publishedSiteMetadata(site: ResolvedSite | null, path: str
   if (!site) return {};
   const resolved = await resolvePublishedPath(site, path);
   if (!resolved) return {};
+  const theme = resolveTheme(site.theme);
   return {
     title: `${resolved.page.title} — ${site.name}`,
     description: resolved.page.description ?? undefined,
     alternates: {
       types: { "application/rss+xml": `/api/sites/${site.id}/updates.rss` },
     },
+    icons: theme.branding.faviconAssetId ? { icon: `/api/files/${theme.branding.faviconAssetId}` } : undefined,
   };
 }
