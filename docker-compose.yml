@@ -6,7 +6,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: voiddocs
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # 18+ images expect the volume at the parent dir, not .../data directly —
+      # the image manages its own version-specific subdirectory underneath
+      # (/var/lib/postgresql/18/docker) so pg_upgrade --link works across
+      # major versions later.
+      - pgdata:/var/lib/postgresql
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U voiddocs"]

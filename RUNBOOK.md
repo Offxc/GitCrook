@@ -1,6 +1,6 @@
 # VoidDocs deployment runbook
 
-Self-hosting VoidDocs on a VPS via a generic AMP (CubeCoders Application Management Portal) instance running Docker Compose. Every step below assumes nothing is set up yet.
+Self-hosting VoidDocs on a VPS via Docker Compose, supervised directly by **systemd** — not routed through AMP (CubeCoders Application Management Portal). AMP's Generic module can technically do this, but only via a locally-authored deployment template whose file format CubeCoders' own docs don't fully specify (see the note in step 5); systemd achieves the identical result — start on boot, restart on crash, clean stop — with standard, fully-documented Linux tooling instead. If AMP is already running on this VPS for other things, it's untouched; it just isn't in this stack's path. Every step below assumes nothing is set up yet.
 
 ## 0. Get the code onto the VPS
 
@@ -20,12 +20,11 @@ git branch -M main
 git push -u origin main
 ```
 
-On the VPS (over SSH):
+On the VPS, do this over SSH **as root** — if `root` and `amp` are the only two accounts you've got (no separate personal sudo user), root is the right one for this part; `amp` is a service account and almost certainly can't even log in interactively (typically locked to `/usr/sbin/nologin`). You'll hand the directory over to `amp` in step 6, before anything actually runs `docker compose` as it:
 
 ```bash
-ssh <you>@<vps-ip>
-sudo mkdir -p /opt/voiddocs
-sudo chown $(whoami):$(whoami) /opt/voiddocs
+ssh root@<vps-ip>
+mkdir -p /opt/voiddocs
 git clone git@github.com:<you>/voiddocs.git /opt/voiddocs
 cd /opt/voiddocs
 ```
@@ -33,6 +32,8 @@ cd /opt/voiddocs
 Cloning a private repo on the VPS needs its own auth — either generate a fresh SSH key on the VPS (`ssh-keygen -t ed25519`, add the printed public key under GitHub → Settings → SSH and GPG keys) or use a GitHub Personal Access Token with the HTTPS clone URL instead. Either is fine; pick whichever you already have set up.
 
 `/opt/voiddocs` is this runbook's assumed path from here on — swap it everywhere below if you put it somewhere else.
+
+`root` owns this directory for now, through step 4 below (cloning, `.env`). Step 6 hands ownership over to `amp` before anything actually runs `docker compose` — see that step for why, and don't skip it.
 
 ## 1. DNS — exact record
 
@@ -71,18 +72,58 @@ This should print the VPS's IP address and nothing else. If it prints nothing, D
    (swap in your real subdomain if different from the example throughout this doc). It must match exactly, including `https://` and no trailing slash.
 7. Click **Save Changes** at the bottom of the page — easy to miss, and the redirect silently isn't saved without it.
 
-## 3. Docker permission for AMP's service user
+## 3. Install Docker, then grant the service account permission
 
-Docker's daemon socket is root-only by default; AMP's service account needs to be in the `docker` group or every Generic instance wrapping `docker` will fail immediately with a permissions error.
+AMP's installer asks about Docker for a *different* feature (AMP managing its own per-instance containers) — it doesn't install Docker Engine system-wide for your own use. If `which docker` prints nothing, it's not installed yet. As root, via Docker's official apt repository (these exact commands are for **Ubuntu 24.04 "noble"** — confirmed against Docker's current install docs):
 
 ```bash
-# Find AMP's actual running user (commonly "amp"):
-ps aux | grep -i amp
-
-sudo usermod -aG docker <that-username>
+apt-get update
+apt-get install ca-certificates curl
 ```
 
-Then restart the AMP service itself so the new group membership takes effect — how you do this depends on how AMP was installed (`sudo systemctl restart <ampservicename>` if it's a systemd service; check `systemctl list-units | grep -i amp` if you're not sure of the exact unit name). A full VPS reboot also works and is the reliable fallback if you can't find the right service name.
+```bash
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+```bash
+tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+```
+
+```bash
+apt-get update
+apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Verify both the engine and the Compose plugin landed:
+
+```bash
+docker --version && docker compose version
+```
+
+Then prove the daemon can actually *run* a container, not just that the CLI exists — this is the real test, and the only thing that rules out a VPS whose virtualization doesn't support nested containers (rare, but this is where it'd show up):
+
+```bash
+docker run --rm hello-world
+```
+
+That should print a "Hello from Docker!" message. If it hangs or errors, stop here and paste the output before continuing.
+
+Installing `docker-ce` creates the `docker` group automatically. Docker's daemon socket is root-only by default; the account running this stack (`amp` — reused here purely as a low-privilege system account, not because AMP itself is involved — see step 5) needs to be in that group or every `docker compose` invocation will fail immediately with a permissions error:
+
+```bash
+usermod -aG docker amp
+```
+
+Worth knowing: being in the `docker` group is effectively root-equivalent on this host (anyone who can talk to the Docker daemon can trivially get a root shell through it, e.g. by mounting `/` into a container) — this isn't a meaningful security boundary, just a least-surprise convention of keeping this stack's files owned by a dedicated account rather than root. No service restart needed for this to take effect — systemd (step 5) resolves group membership fresh every time it starts a service, unlike an interactive login shell.
 
 ## 4. `.env`
 
@@ -111,54 +152,76 @@ ROOT_PROTOCOL="https"
 
 Leave `DATABASE_URL`, `STORAGE_DIR`, `CHROMIUM_EXECUTABLE_PATH`, and `REDIS_URL` alone (commented out / unset) — Compose sets the first three itself per-service, and nothing in this stack uses Redis.
 
-## 5. AMP instance — exact steps
+## 5. systemd service
 
-Two different AMP features both involve "Docker," and neither is this:
-- **"Docker/Podman for instances"** makes AMP run instances *inside containers AMP itself creates*.
-- **"Custom Docker images with the generic module"** is for a single image built `FROM` AMP's own `ampbase` with `ENTRYPOINT ["/ampstart.sh"]`, so AMP manages that one container directly — [confirmed on the AMP wiki](https://github.com/CubeCoders/AMP/wiki/Using-custom-Docker-images-with-AMP-and-the-generic-module) to run one container per instance, not a Compose stack.
+AMP's Generic module *can* do this, but only via a manually-authored local deployment template — CubeCoders' own wiki documents the concept (a `GenericModule.kvp` split into "Application / Console / Meta" sections) without publishing the actual file syntax, and there's no plain built-in "Generic" entry sitting in the instance-creation list until such a template exists. Rather than reverse-engineer an undocumented format, systemd does exactly the same job — keep `docker compose up` running, restart it if it dies, stop it cleanly on shutdown — with standard, fully-documented Linux tooling.
 
-What we actually want: AMP running natively on the VPS (already true — you didn't containerize AMP itself), with a Generic instance whose "application" is just the `docker` binary, supervised the same way AMP would supervise a game server process.
-
-1. Log into the AMP panel.
-2. Top navigation → **Instance Management**.
-3. **Create Instance** (button label/placement varies slightly by AMP version — look for "+" or "New Instance" if you don't see that exact text).
-4. **Module**: select **Generic**.
-5. Friendly name: `VoidDocs` (or anything). Description optional.
-6. Ports: skip/leave default — this instance doesn't need AMP to allocate or forward any ports; Caddy binds 80/443 directly, outside AMP's own port management, since it's a container port publish in `docker-compose.yml`, not something this AMP instance itself listens on.
-7. Finish creating the instance, then open it.
-8. Find its Generic module configuration (on first open this may be a setup prompt; otherwise look under the instance's **Configuration** section for the application/executable settings) and set:
-
-   | Setting | Value |
-   |---|---|
-   | Working directory | `/opt/voiddocs` |
-   | Executable | `/usr/bin/docker` — confirm the real path first by running `which docker` on the VPS; it's occasionally `/usr/local/bin/docker` instead |
-   | Command line arguments | `compose up --build` |
-   | Exit method | `SIGTERM` |
-
-9. Save.
-
-Why these specific choices:
-- **The `docker` binary directly, never a wrapper shell script.** AMP's own template-contribution guidelines say explicitly: *"Do not invoke any shell scripts/batch files. You must only launch actual executables."*
-- **`--build` stays in the command permanently.** An AMP restart then also picks up code changes — Docker's build cache makes this fast when nothing changed, and only slow right after a `git pull`.
-- **`SIGTERM`** is what AMP sends on stop, and `docker compose up` (run attached, which is how AMP runs it) catches that and stops its containers gracefully — equivalent to `docker compose stop`, not `docker compose down`. That's deliberate: `down` also removes the network, which would just get recreated next start; `stop`/`start` is faster and just as clean. Run a real `docker compose down` by hand over SSH only when you actually want to tear everything down.
-- If AMP's UI asks for an "Application Ready" regex to detect a successful start, match on Caddy's own log line for obtaining a certificate, or leave it permissive and just watch the console the first time through.
-
-## 6. First run — verify by hand before handing it to AMP
-
-Do this over SSH first, before starting the AMP instance from step 5 — far easier to debug here than through AMP's console, and it confirms the stack actually works before AMP starts supervising it.
+Create the unit file as root:
 
 ```bash
-cd /opt/voiddocs
-docker compose up -d --build
+tee /etc/systemd/system/voiddocs.service <<'EOF'
+[Unit]
+Description=VoidDocs (Docker Compose stack)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=amp
+Group=amp
+WorkingDirectory=/opt/voiddocs
+ExecStart=/usr/bin/docker compose up --build
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+EOF
 ```
 
-(`-d` here is specific to this manual check — it detaches so your SSH session gets control back. This is *not* what AMP itself runs — AMP's instance runs the same command attached, per step 5, because it needs to hold the foreground process to supervise and signal it. Both start the identical stack.)
+Confirm `/usr/bin/docker` is really where it landed first — `which docker` — it's occasionally `/usr/local/bin/docker` instead; edit `ExecStart` to match if so.
+
+```bash
+systemctl daemon-reload
+systemctl enable voiddocs
+```
+
+`enable` (no `--now`) registers it to start on every future boot but doesn't start it right now — step 6 does one manual verification run first, then starts the real service at the very end.
+
+Why these specific choices:
+- **`docker compose up` directly, no wrapper shell script** — fewer moving parts; systemd supervises the process it launches directly, same principle AMP's own template guidelines insist on for Generic modules.
+- **`--build` stays in the command permanently.** A restart then also picks up code changes — Docker's build cache makes this fast when nothing changed, and only slow right after a `git pull`.
+- **No explicit `ExecStop`.** systemd's default stop action for `Type=simple` is to send SIGTERM to the main process, and `docker compose up` (run attached, exactly how this unit runs it) already catches that and stops its containers gracefully — equivalent to `docker compose stop`, not `docker compose down`. That's deliberate: `down` also removes the network, which would just get recreated next start; `stop`/`start` is faster and just as clean. Run a real `docker compose down` by hand over SSH only when you actually want to tear everything down.
+- **`Restart=on-failure`** recovers if the `docker compose up` process itself dies (e.g. the Docker daemon restarts underneath it). Each container's own `restart: unless-stopped` in `docker-compose.yml` already handles a single container crashing — this is a second, independent layer for the supervisor process itself.
+
+## 6. Ownership handoff, then first run — verify by hand before handing it to systemd
+
+**Hand the directory over to `amp` first.** The systemd unit (step 5) runs `docker compose` *as the `amp` user*, not as root. Skipping this is a real trap: everything works when you run `docker compose` by hand as root, then the service silently fails to start because `amp` can't read `.env` or `docker-compose.yml` (root can read/write anything regardless of ownership, so this failure mode won't show up until systemd itself, running the unit as the much-less-privileged `amp`, tries it).
+
+```bash
+id amp                          # confirm the exact user/group name — usually also "amp"
+chown -R amp:amp /opt/voiddocs
+```
+
+Everything from this point on (the verification below, and every future `git pull`+restart) runs *as* `amp` via `sudo -u amp`, not as root directly — that's what actually exercises the same permissions the systemd unit will have.
+
+Now verify the stack actually works, over SSH, before starting the service from step 5 — far easier to debug here than through `journalctl`:
+
+```bash
+sudo -u amp bash -c "cd /opt/voiddocs && docker compose up -d --build"
+```
+
+(`-d` here is specific to this manual check — it detaches so your SSH session gets control back. This is *not* what the systemd unit itself runs — it runs the same command attached, per step 5, because `Type=simple` needs to hold the foreground process to supervise and signal it. Both start the identical stack, as the identical user, so this is a faithful test of exactly what systemd is about to do.)
 
 This builds four images (`web`, `worker`, and `migrate` — a one-shot job reusing `web`'s build stage) and starts `postgres`, runs migrations to completion, then starts `web`, `worker`, and `caddy`. First build takes a few minutes — Playwright's Chromium install for the worker image is the slow part. Rebuilds after that are much faster.
 
 ```bash
 docker compose logs -f
 ```
+
+(no `sudo -u amp` needed just to *read* logs — only actions that touch the containers/files need to run as `amp`)
 
 Once `caddy`'s logs show it obtained a certificate for `docs.voidsmp.com`, visit `https://docs.voidsmp.com` — you should see the VoidDocs marketing page and a working "Continue with Discord" sign-in button. Try signing in.
 
@@ -167,19 +230,33 @@ The first person to sign in doesn't automatically get an organization — visit 
 Once confirmed working:
 
 ```bash
-docker compose down
+sudo -u amp bash -c "cd /opt/voiddocs && docker compose down"
 ```
 
-Then start the instance from the AMP panel instead — both running at once fights over ports 80/443. From here on, AMP owns the process lifecycle.
+Then start the real service instead — both running at once fights over ports 80/443:
+
+```bash
+systemctl start voiddocs
+systemctl status voiddocs
+```
+
+From here on, systemd owns the process lifecycle — it also starts this automatically on every VPS reboot, since step 5 already `enable`d it.
 
 ## 7. Redeploying after a code change
+
+Pull as **root**, not `amp` — `amp` has no GitHub credentials of its own (nobody set any up, deliberately; see step 0), so a pull run as `amp` would hit the exact same "Permission denied (publickey)" you saw earlier, just for a different account. Then hand ownership back to `amp`, since the pull just wrote new files as root again:
 
 ```bash
 cd /opt/voiddocs
 git pull
+chown -R amp:amp /opt/voiddocs
 ```
 
-Then restart the instance from the AMP panel (stop, then start) — its command already includes `--build`, so the restart itself picks up the new code; no separate manual `docker compose` invocation needed. The `migrate` service re-runs on every start, applying any new migrations before `web`/`worker` come up — safe even when there's nothing new to migrate.
+```bash
+systemctl restart voiddocs
+```
+
+The unit's `ExecStart` already includes `--build`, so the restart itself picks up the new code; no separate manual `docker compose` invocation needed. The `migrate` service re-runs on every start, applying any new migrations before `web`/`worker` come up — safe even when there's nothing new to migrate. To watch it come up: `journalctl -u voiddocs -f`.
 
 **One-time-per-project caveat**, not something you'll hit on ordinary schema changes: this project has one raw-SQL-managed column (`Page.searchVector`, a Postgres `GENERATED ALWAYS AS ... STORED` column backing full-text search) that Prisma's schema language can't fully express. If you ever edit `packages/db/prisma/schema.prisma` yourself and regenerate a migration with `prisma migrate dev`, read the warning comment directly above the `searchVector` field first — an unedited auto-generated migration will silently drop the search index. Migrations already committed to this repo have this already handled; it only matters if you're authoring a *new* one.
 
@@ -201,4 +278,4 @@ Two volumes need backing up (see `docker-compose.yml`'s `volumes:` section) — 
 
 ## 10. What's intentionally not here
 
-No Redis, no separate job-queue infrastructure, no CDN/object-storage config — this stack is sized for a single-VPS, single-`docker compose`-stack deployment, matching what a generic AMP instance actually runs. If usage ever outgrows one VPS, the places that would need to change are documented inline: `packages/shared/src/rateLimit.ts` (swap the in-memory limiter for Redis-backed) and `apps/worker` (swap the poll loop for a real queue) — both were built with that seam in mind, not because it's needed today.
+No Redis, no separate job-queue infrastructure, no CDN/object-storage config — this stack is sized for a single-VPS, single-`docker compose`-stack deployment. If usage ever outgrows one VPS, the places that would need to change are documented inline: `packages/shared/src/rateLimit.ts` (swap the in-memory limiter for Redis-backed) and `apps/worker` (swap the poll loop for a real queue) — both were built with that seam in mind, not because it's needed today.
