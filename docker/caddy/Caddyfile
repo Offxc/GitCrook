@@ -18,6 +18,15 @@
 	}
 }
 
+# AMP's own panel — previously fronted by nginx+Certbot on this same VPS;
+# consolidated here so Caddy is the only thing on 80/443. AMP's panel isn't
+# containerized, it's just listening on the host's 127.0.0.1:8080, so this
+# reaches it via host.docker.internal (see docker-compose.yml's `extra_hosts`
+# on this service) rather than a container name.
+dev.voidsmp.com {
+	reverse_proxy host.docker.internal:8080
+}
+
 # Every other SNI hostname only gets a certificate if /api/internal/certs/ask
 # says yes for it (i.e. it's a verified CustomDomain row) — see that route's
 # doc comment for why this is the actual anti-abuse control, not this file.

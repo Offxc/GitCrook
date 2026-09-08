@@ -207,6 +207,8 @@ chown -R amp:amp /opt/voiddocs
 
 Everything from this point on (the verification below, and every future `git pull`+restart) runs *as* `amp` via `sudo -u amp`, not as root directly — that's what actually exercises the same permissions the systemd unit will have.
 
+**If AMP's panel is already reachable at a domain (e.g. via nginx+Certbot, a common AMP setup pattern)**, `docker compose up` will fail with `address already in use` on port 80/443 — only one thing can hold those. Stop and disable that nginx (`systemctl stop nginx && systemctl disable nginx`); the Caddyfile in this repo already includes a block proxying `dev.voidsmp.com` to the panel at `host.docker.internal:8080` (adjust that hostname if your panel's domain differs), so Caddy picks up serving it, cert and all, once nginx is out of the way. Expect a brief interruption to panel access during the cutover itself.
+
 Now verify the stack actually works, over SSH, before starting the service from step 5 — far easier to debug here than through `journalctl`:
 
 ```bash
@@ -251,6 +253,14 @@ cd /opt/voiddocs
 git pull
 chown -R amp:amp /opt/voiddocs
 ```
+
+**First time only**: since step 6 already handed this directory to `amp`, root pulling here trips git's "dubious ownership" check (`fatal: detected dubious ownership in repository`) — root doesn't own the directory it's running git in. Fix once, permanently:
+
+```bash
+git config --global --add safe.directory /opt/voiddocs
+```
+
+Then re-run the `git pull` above.
 
 ```bash
 systemctl restart voiddocs

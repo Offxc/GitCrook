@@ -92,6 +92,10 @@ services:
       - caddy_config:/config
     environment:
       ROOT_DOMAIN: ${ROOT_DOMAIN:?set ROOT_DOMAIN in .env, e.g. docs.voidsmp.com}
+    extra_hosts:
+      # Lets the Caddyfile's dev.voidsmp.com block reach AMP's panel, which
+      # runs directly on the VPS host (not in a container) on 127.0.0.1:8080.
+      - "host.docker.internal:host-gateway"
     depends_on:
       - web
     networks: [internal]
