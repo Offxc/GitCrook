@@ -19,13 +19,15 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: #101012;
+    /* True neutral (zinc) scale, not a blue-tinted "cool gray" — this is what
+       reads as "actual dark mode" rather than a tinted-navy approximation. */
+    --color-canvas: #09090b;
     --color-surface: #18181b;
-    --color-border: #2a2a2f;
-    --color-ink: #f4f4f5;
-    --color-ink-muted: #9a9aa2;
+    --color-border: #27272a;
+    --color-ink: #fafafa;
+    --color-ink-muted: #a1a1aa;
     --color-brand: #818cf8;
-    --color-brand-ink: #101012;
+    --color-brand-ink: #09090b;
     --color-danger: #f87171;
   }
 }
@@ -68,11 +70,11 @@ body {
      schema default gets NO inline override for it (see themeToCssVars in
      packages/shared/src/themeVars.ts), so these ARE what "default" looks
      like, not just a pre-hydration flash. */
-  --site-info: #507aff;
-  --site-success: #22b022;
-  --site-warning: #e69819;
-  --site-danger: #a30a0a;
-  --site-radius: 0.5rem;
+  --site-info: #3b82f6;
+  --site-success: #22c55e;
+  --site-warning: #f59e0b;
+  --site-danger: #ef4444;
+  --site-radius: 0.625rem;
   --site-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   /* Reuse the app's already-loaded next/font variables for the schema's own
      defaults ("Inter"/"JetBrains Mono") — only a site that picks a different
@@ -86,21 +88,21 @@ body {
 
 @media (prefers-color-scheme: dark) {
   [data-site-root]:not([data-site-mode="light"]) {
-    --site-canvas: #0d1117;
-    --site-surface: #161b22;
-    --site-border: #30363d;
-    --site-ink: #e6edf3;
-    --site-ink-muted: #8b949e;
+    --site-canvas: #09090b;
+    --site-surface: #18181b;
+    --site-border: #27272a;
+    --site-ink: #fafafa;
+    --site-ink-muted: #a1a1aa;
     --site-primary: #818cf8;
   }
 }
 
 [data-site-root][data-site-mode="dark"] {
-  --site-canvas: #0d1117;
-  --site-surface: #161b22;
-  --site-border: #30363d;
-  --site-ink: #e6edf3;
-  --site-ink-muted: #8b949e;
+  --site-canvas: #09090b;
+  --site-surface: #18181b;
+  --site-border: #27272a;
+  --site-ink: #fafafa;
+  --site-ink-muted: #a1a1aa;
   --site-primary: #818cf8;
 }
 
@@ -166,8 +168,8 @@ body {
   --hint-accent: var(--site-danger);
 }
 [data-site-root] .hint-block {
-  background: color-mix(in srgb, var(--hint-accent) 12%, var(--site-canvas));
-  border-color: color-mix(in srgb, var(--hint-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--hint-accent) 8%, var(--site-canvas));
+  border-color: color-mix(in srgb, var(--hint-accent) 25%, transparent);
 }
 [data-site-root] .hint-block .hint-dot {
   background: var(--hint-accent);

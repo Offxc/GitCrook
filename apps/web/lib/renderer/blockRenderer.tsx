@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import katex from "katex";
 import { isHintStyle, resolveEmbed } from "@voiddocs/shared";
 import { highlightCode, type CodeThemePair } from "./highlightCode";
+import { CodeBlockChrome } from "@/app/(published)/_components/CodeBlockChrome";
 
 /**
  * Read-only renderer for BlockNote's default blocks plus VoidDocs' custom
@@ -137,22 +138,8 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
     }
     case "codeBlock": {
       const html = (block.id && codeHtml.get(block.id)) || null;
-      if (html) {
-        return (
-          <div
-            className="mb-4 overflow-hidden rounded-lg border border-site-border [&_pre]:overflow-x-auto [&_pre]:p-4 [&_pre]:text-sm"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        );
-      }
-      return (
-        <pre
-          className="mb-4 overflow-x-auto rounded-lg border border-site-border bg-site-surface p-4 text-sm text-site-ink"
-          style={{ fontFamily: "var(--site-font-mono)" }}
-        >
-          <code>{plainTextOf(block.content)}</code>
-        </pre>
-      );
+      const language = typeof props.language === "string" ? props.language : "text";
+      return <CodeBlockChrome html={html} code={plainTextOf(block.content)} language={language} />;
     }
     case "image": {
       const url = typeof props.url === "string" ? props.url : "";
