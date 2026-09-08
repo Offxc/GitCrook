@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@voiddocs/auth";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const session = await auth();
   if (session?.user) redirect("/dashboard");
+  const { error } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
@@ -15,6 +20,11 @@ export default async function LoginPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-canvas p-6 shadow-sm">
+          {error === "AccessDenied" ? (
+            <p className="mb-4 text-sm text-danger">
+              Access is currently allowlisted while VoidDocs is being set up.
+            </p>
+          ) : null}
           <form
             action={async () => {
               "use server";

@@ -21,6 +21,14 @@ const EnvSchema = z.object({
   AUTH_DISCORD_ID: z.string().optional().transform((v) => (v ? v : undefined)),
   AUTH_DISCORD_SECRET: z.string().optional().transform((v) => (v ? v : undefined)),
 
+  // Comma-separated Discord user IDs (snowflakes). When set, sign-in is
+  // rejected for any Discord account not in this list — a temporary gate
+  // for pre-launch, since sign-up is otherwise open to anyone with a
+  // Discord account (see packages/auth/src/auth.ts's createUser event,
+  // which gives every new sign-up its own organization immediately). Unset
+  // or empty means no restriction.
+  ALLOWED_DISCORD_IDS: z.string().optional().transform((v) => (v ? v : undefined)),
+
   // The platform's own root domain, e.g. "docs.voidsmp.com". Requests for any other
   // Host are treated as candidate tenant custom domains (see apps/web/middleware.ts).
   ROOT_DOMAIN: z.string().min(1).default("localhost:3000"),

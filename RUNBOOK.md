@@ -152,6 +152,14 @@ ROOT_PROTOCOL="https"
 
 Leave `DATABASE_URL`, `STORAGE_DIR`, `CHROMIUM_EXECUTABLE_PATH`, and `REDIS_URL` alone (commented out / unset) — Compose sets the first three itself per-service, and nothing in this stack uses Redis.
 
+**Optional but recommended before your first real sign-in**: sign-up is open to anyone with a Discord account by default, and each new sign-in immediately gets its own organization (see `packages/auth/src/auth.ts`'s `createUser` event) — there's no invite-only gate otherwise. To restrict sign-in to specific Discord accounts while you're setting things up, add to `.env`:
+
+```bash
+ALLOWED_DISCORD_IDS="<your Discord user ID>"
+```
+
+(Comma-separate multiple IDs. Get your own ID in Discord: Settings → Advanced → enable Developer Mode, then right-click your username → Copy User ID.) Remove this line later to open sign-up back up.
+
 ## 5. systemd service
 
 AMP's Generic module *can* do this, but only via a manually-authored local deployment template — CubeCoders' own wiki documents the concept (a `GenericModule.kvp` split into "Application / Console / Meta" sections) without publishing the actual file syntax, and there's no plain built-in "Generic" entry sitting in the instance-creation list until such a template exists. Rather than reverse-engineer an undocumented format, systemd does exactly the same job — keep `docker compose up` running, restart it if it dies, stop it cleanly on shutdown — with standard, fully-documented Linux tooling.

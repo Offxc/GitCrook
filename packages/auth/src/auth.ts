@@ -3,6 +3,7 @@ import type { DefaultSession } from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@voiddocs/db";
+import { getEnv } from "@voiddocs/shared/server";
 
 declare module "next-auth" {
   interface Session {
@@ -13,6 +14,12 @@ declare module "next-auth" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Safe here specifically because `web` has no published port (see
+  // docker-compose.yml) — it's only reachable through Caddy's reverse_proxy,
+  // never directly from the internet, so the Host header Auth.js sees can't
+  // be spoofed by an outside request. Without this, every request 404s/500s
+  // with UntrustedHost since Auth.js has no way to know Caddy is trustworthy.
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   // Database sessions (not JWT) so a compromised session can be revoked
   // server-side by deleting its row — OWASP A07.
@@ -40,6 +47,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, user }) {
       session.user.id = user.id;
       return session;
+    },
+    // Temporary pre-launch gate — see ALLOWED_DISCORD_IDS's doc comment in
+    // packages/shared/src/env.ts. Denying here (rather than in an
+    // afterwards check) means a non-allowlisted account never gets a User
+    // row created for it at all.
+    signIn({ account }) {
+      const allowed = getEnv().ALLOWED_DISCORD_IDS;
+      if (!allowed) return true;
+      const ids = allowed.split(",").map((id) => id.trim());
+      return account?.provider === "discord" && ids.includes(account.providerAccountId ?? "");
     },
   },
   events: {
