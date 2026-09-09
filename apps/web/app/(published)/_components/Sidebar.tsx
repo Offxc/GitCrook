@@ -76,6 +76,24 @@ function SidebarList({
   return (
     <ul className={depth > 0 ? "ml-3 border-l border-site-border pl-3" : undefined}>
       {tree.map((node) => {
+        // A page group: title/icon only, not a link, not itself part of the
+        // tree's indentation — GitBook's own page groups are a sidebar
+        // header, not a real nesting level, so children render at the same
+        // depth they'd be at without the group.
+        if (node.isGroup) {
+          return (
+            <li key={node.id} className={depth === 0 ? "mt-5 first:mt-0" : undefined}>
+              <p className="mb-1.5 flex items-center gap-1.5 px-2 text-xs font-semibold uppercase tracking-wide text-site-ink-muted">
+                {node.icon ? <span aria-hidden>{node.icon}</span> : null}
+                {node.title}
+              </p>
+              {node.children.length > 0 ? (
+                <SidebarList tree={node.children} paths={paths} baseHref={baseHref} activePageId={activePageId} depth={depth} listStyle={listStyle} />
+              ) : null}
+            </li>
+          );
+        }
+
         const isActive = node.id === activePageId;
         const path = paths.get(node.id) ?? [node.slug];
         const href = `${baseHref}/${path.join("/")}`;

@@ -294,8 +294,14 @@ model Page {
   slug           String
   description    String?
   icon           String?
+  isGroup        Boolean   @default(false) // a page group (GitBook's term): title/icon/slug, no
+  // content, not itself navigable — just a header in the sidebar for the pages nested under it.
+  // Always top-level (enforced in the create action, not the schema): GitBook's own page groups
+  // can't nest inside each other either.
   coverAssetId   String?
-  content        Json // BlockNote document (array of Block)
+  content        Json // BlockNote document (array of Block) — unused for a group; kept required
+  // rather than nullable so every other query touching Page.content doesn't need a null check
+  // for the one row-kind that doesn't use it.
   contentText    String                        @default("") @db.Text // plain-text extract of
   // `content`, kept in sync on every save; feeds searchVector below.
   searchVector   Unsupported("tsvector")? // generated column + GIN index, set up in a raw-SQL

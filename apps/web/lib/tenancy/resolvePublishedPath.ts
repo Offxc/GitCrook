@@ -103,10 +103,12 @@ export async function resolvePublishedPath(site: ResolvedSite, segments: string[
 /** Walks a page-slug path (e.g. ["getting-started", "install"]) within one variant; empty path resolves to that variant's root page. */
 async function resolvePageBySlugPath(variantId: string, slugPath: string[]): Promise<Page | null> {
   if (slugPath.length === 0) {
-    return prisma.page.findFirst({
-      where: { variantId, parentId: null, isDraft: false },
-      orderBy: { order: "asc" },
-    });
+    return resolveThroughGroup(
+      await prisma.page.findFirst({
+        where: { variantId, parentId: null, isDraft: false },
+        orderBy: { order: "asc" },
+      }),
+    );
   }
   let parentId: string | null = null;
   let page: Page | null = null;
@@ -116,5 +118,14 @@ async function resolvePageBySlugPath(variantId: string, slugPath: string[]): Pro
     page = match;
     parentId = match.id;
   }
-  return page;
+  return resolveThroughGroup(page);
+}
+
+/** A page group has no content of its own (see schema.prisma), unlike a regular page with children (which has real content and renders normally even when it also has subpages) — landing on a group's own URL resolves to its first real child instead. Groups can't nest, so this never needs to recurse more than once. */
+async function resolveThroughGroup(page: Page | null): Promise<Page | null> {
+  if (!page?.isGroup) return page;
+  return prisma.page.findFirst({
+    where: { variantId: page.variantId, parentId: page.id, isDraft: false },
+    orderBy: { order: "asc" },
+  });
 }

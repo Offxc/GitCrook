@@ -3,6 +3,7 @@ import { prisma } from "@voiddocs/db";
 import { getEnv } from "@voiddocs/shared/server";
 import { requireSite } from "@/lib/dashboard/site";
 import { NewPageForm } from "./NewPageForm";
+import { NewPageGroupForm } from "./NewPageGroupForm";
 import { DeleteSiteSection } from "./DeleteSiteSection";
 
 export default async function SiteOverviewPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
@@ -15,7 +16,7 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
   const pages = await prisma.page.findMany({
     where: { siteId: site.id },
     orderBy: { order: "asc" },
-    select: { id: true, title: true, slug: true },
+    select: { id: true, title: true, slug: true, isGroup: true },
   });
 
   return (
@@ -58,19 +59,26 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
 
       <h2 className="mt-8 text-sm font-medium text-ink">Pages</h2>
       <div className="mt-3 space-y-2">
-        {pages.map((page) => (
-          <div key={page.id} className="flex items-center justify-between rounded-lg border border-border bg-canvas px-4 py-3 transition hover:border-brand">
-            <Link href={`/dashboard/${orgSlug}/sites/${site.id}/pages/${page.id}`} className="text-sm text-ink">
-              {page.title}
-            </Link>
-            <a href={`${publishedBase}/${page.slug}`} target="_blank" rel="noreferrer" className="text-xs text-ink-muted hover:text-brand">
-              View ↗
-            </a>
-          </div>
-        ))}
+        {pages.map((page) =>
+          page.isGroup ? (
+            <div key={page.id} className="flex items-center justify-between rounded-lg border border-dashed border-border px-4 py-3">
+              <span className="text-sm font-medium text-ink-muted">{page.title} · group</span>
+            </div>
+          ) : (
+            <div key={page.id} className="flex items-center justify-between rounded-lg border border-border bg-canvas px-4 py-3 transition hover:border-brand">
+              <Link href={`/dashboard/${orgSlug}/sites/${site.id}/pages/${page.id}`} className="text-sm text-ink">
+                {page.title}
+              </Link>
+              <a href={`${publishedBase}/${page.slug}`} target="_blank" rel="noreferrer" className="text-xs text-ink-muted hover:text-brand">
+                View ↗
+              </a>
+            </div>
+          ),
+        )}
       </div>
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <NewPageForm orgSlug={orgSlug} siteId={site.id} />
+        <NewPageGroupForm orgSlug={orgSlug} siteId={site.id} />
       </div>
 
       <div className="mt-10">

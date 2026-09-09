@@ -76,3 +76,63 @@ export async function createPage(orgSlug: string, siteId: string, _prev: CreateP
   // client to navigate to instead of calling redirect() directly.
   return { redirectTo: `/dashboard/${orgSlug}/sites/${siteId}/pages/${page.id}` };
 }
+
+const CreatePageGroupSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(120),
+});
+
+export interface CreatePageGroupState {
+  error?: string;
+}
+
+/**
+ * GitBook's "page group": title + optional icon, no content, always
+ * top-level (matching GitBook's own page groups, which can't nest inside
+ * each other — see schema.prisma's isGroup comment). Sidebar.tsx renders
+ * it as a plain header, not a link; resolvePublishedPath.ts resolves a
+ * direct visit to its own URL through to its first real child instead of
+ * trying to render group "content", since there isn't any.
+ */
+export async function createPageGroup(orgSlug: string, siteId: string, _prev: CreatePageGroupState, formData: FormData): Promise<CreatePageGroupState> {
+  const { site, userId } = await requireSite(orgSlug, siteId);
+
+  const parsed = CreatePageGroupSchema.safeParse({ title: formData.get("title") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "site", id: site.id });
+  if (!allowed) return { error: "You don't have permission to add groups to this site." };
+
+  const section = await prisma.section.findFirst({ where: { siteId: site.id }, orderBy: { order: "asc" } });
+  if (!section) return { error: "This site has no section to add a group to." };
+  const space = await prisma.space.findFirst({ where: { sectionId: section.id }, orderBy: { order: "asc" } });
+  if (!space) return { error: "This site has no space to add a group to." };
+  const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
+  if (!variant) return { error: "This site has no default variant to add a group to." };
+
+  const baseSlug = slugify(parsed.data.title);
+  let slug = baseSlug;
+  let suffix = 0;
+  while ((await prisma.page.findFirst({ where: { variantId: variant.id, parentId: null, slug } })) || !validateSlug(slug).ok) {
+    suffix += 1;
+    slug = `${baseSlug}-${suffix}`;
+  }
+
+  const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
+
+  await prisma.page.create({
+    data: {
+      variantId: variant.id,
+      siteId: site.id,
+      title: parsed.data.title,
+      slug,
+      isGroup: true,
+      order: (maxOrder._max.order ?? -1) + 1,
+      content: [],
+      contentText: "",
+      publishedAt: new Date(),
+    },
+  });
+
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  return {};
+}

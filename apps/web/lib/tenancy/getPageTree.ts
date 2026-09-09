@@ -5,6 +5,7 @@ export interface PageTreeNode {
   title: string;
   slug: string;
   icon: string | null;
+  isGroup: boolean;
   children: PageTreeNode[];
 }
 
@@ -13,7 +14,7 @@ export async function getPageTree(variantId: string): Promise<PageTreeNode[]> {
   const pages = await prisma.page.findMany({
     where: { variantId, isDraft: false },
     orderBy: { order: "asc" },
-    select: { id: true, parentId: true, title: true, slug: true, icon: true },
+    select: { id: true, parentId: true, title: true, slug: true, icon: true, isGroup: true },
   });
 
   const byParent = new Map<string | null, typeof pages>();
@@ -29,6 +30,7 @@ export async function getPageTree(variantId: string): Promise<PageTreeNode[]> {
       title: p.title,
       slug: p.slug,
       icon: p.icon,
+      isGroup: p.isGroup,
       children: build(p.id),
     }));
   }
