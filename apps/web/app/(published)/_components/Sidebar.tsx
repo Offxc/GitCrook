@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import type { ThemeConfig } from "@voiddocs/shared";
+import { GitCrookMark } from "./GitCrookMark";
 
 export function Sidebar({
   tree,
@@ -36,7 +37,10 @@ export function Sidebar({
       </div>
       {showPoweredByBadge ? (
         <div className="shrink-0 border-t border-site-border p-3">
-          <span className="block rounded-lg px-2 py-1.5 text-center text-xs text-site-ink-muted">Powered by VoidDocs</span>
+          <span className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-site-ink-muted">
+            <GitCrookMark className="h-4 w-4" />
+            Powered by VoidDocs
+          </span>
         </div>
       ) : null}
     </nav>
