@@ -22,6 +22,7 @@ import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBl
 import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@voiddocs/auth";
 import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
+import { EditModeToggle } from "@/app/(published)/_components/EditModeToggle";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
@@ -178,6 +179,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             </div>
           </aside>
         </div>
+        {canManageContent ? <EditModeToggle /> : null}
       </EditModeProvider>
       <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} privacyPolicyHref={theme.privacyPolicyHref} />
       <DarkModeToggle />

@@ -4,7 +4,6 @@ import { GitCrookMark } from "./GitCrookMark";
 import { AddNewButton } from "./AddNewButton";
 import { SidebarList } from "./SidebarList";
 import { SidebarBody } from "./SidebarBody";
-import { EditModeToggle } from "./EditModeToggle";
 
 export function Sidebar({
   tree,
@@ -43,10 +42,7 @@ export function Sidebar({
       aria-label="Table of contents"
     >
       <div className="flex-1 overflow-y-auto px-3 py-6">
-        <div className="mb-4 flex items-center justify-between gap-2 px-2">
-          <p className="truncate text-sm font-semibold text-site-ink">{siteName}</p>
-          {editable ? <EditModeToggle /> : null}
-        </div>
+        <p className="mb-4 truncate px-2 text-sm font-semibold text-site-ink">{siteName}</p>
         {editable ? (
           <SidebarBody tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} listStyle={sidebarStyle.listStyle} orgSlug={orgSlug} siteId={siteId} />
         ) : (

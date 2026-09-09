@@ -27,14 +27,12 @@ export function InPlaceEditorClient({
   siteId,
   initialContent,
   initialVersion,
-  onDone,
 }: {
   pageId: string;
   organizationId: string;
   siteId: string;
   initialContent: unknown;
   initialVersion: number;
-  onDone: () => void;
 }) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [blockNoteTheme, setBlockNoteTheme] = useState<"light" | "dark">("light");
@@ -88,11 +86,8 @@ export function InPlaceEditorClient({
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between rounded-lg border border-site-border bg-site-surface px-3.5 py-2 text-xs text-site-ink-muted">
+      <div className="mb-4 rounded-lg border border-site-border bg-site-surface px-3.5 py-2 text-xs text-site-ink-muted">
         <SaveIndicator status={status} />
-        <button type="button" onClick={onDone} className="rounded-md px-2 py-1 font-medium text-site-ink transition hover:bg-site-canvas">
-          Done editing
-        </button>
       </div>
       {/* min-height so there's always a large blank area below short content
           to click into — but BlockNote's own root (.bn-container) only ever
