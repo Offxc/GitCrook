@@ -45,8 +45,8 @@ export default async function AccessPage({ params }: { params: Promise<{ orgSlug
           </div>
           <p className="mb-3 text-xs text-ink-muted">
             {hasPassword
-              ? "Switch Audience to “Password-protected” above to actually require it. Passwords are hashed — there's no way to view the current one, only replace it below."
-              : "Set one here first, then switch Audience above to “Password-protected” to require it."}
+              ? "Switch Audience to “Password-protected” below to actually require it. Passwords are hashed — there's no way to view the current one, only replace it right here."
+              : "Set one here first, then switch Audience below to “Password-protected” to require it."}
           </p>
           <PasswordForm orgSlug={orgSlug} siteId={siteId} />
         </section>
