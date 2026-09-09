@@ -19,7 +19,8 @@ import { PrivateSiteMessage } from "@/app/(published)/_components/PrivateSiteMes
 import { PageFeedback } from "@/app/(published)/_components/PageFeedback";
 import { ClickTracker } from "@/app/(published)/_components/ClickTracker";
 import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBlock, googleFontsStylesheetUrl, type ThemeConfig } from "@voiddocs/shared";
-import { getSessionUserId, resolveVisitorAccess } from "@voiddocs/auth";
+import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@voiddocs/auth";
+import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
@@ -73,6 +74,10 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   const showBreadcrumb = section.title !== "Documentation" || space.title !== "Docs";
 
   const theme = resolveTheme(site.theme);
+  // Gated by both a real permission check (never trust theme config for
+  // access control) and the site owner's own toggle for whether they want
+  // this affordance visible to members at all.
+  const canEdit = theme.showToolbarForMembers && userId !== null && !page.isGroup && (await canUserDoX(userId, "content.edit", { type: "page", id: page.id }));
   const cssVars = themeToCssVars(theme);
   if (theme.fonts.customFontAssetId) {
     const customFontVar = `"${CUSTOM_FONT_FAMILY}", ui-sans-serif, system-ui, sans-serif`;
@@ -137,7 +142,16 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
               {page.title}
             </h1>
             <div className="mt-6">
-              <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
+              <EditableArea
+                canEdit={canEdit}
+                pageId={page.id}
+                organizationId={site.organizationId}
+                siteId={site.id}
+                initialContent={page.content}
+                initialVersion={page.contentVersion}
+              >
+                <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
+              </EditableArea>
             </div>
             {theme.pageFeedback.enabled ? <PageFeedback pageId={page.id} /> : null}
             {theme.pagination.enabled ? (
