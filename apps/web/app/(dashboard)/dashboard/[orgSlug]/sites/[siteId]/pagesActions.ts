@@ -210,3 +210,37 @@ export async function reorderPageTree(orgSlug: string, siteId: string, updates: 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   return { ok: true };
 }
+
+const RenamePageSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(120),
+});
+
+export interface RenamePageResult {
+  ok?: boolean;
+  error?: string;
+}
+
+/**
+ * Only the title, never the slug — the slug is the page's stable URL
+ * identifier, set once at creation (see createPage/createPageGroup), so a
+ * rename doesn't break existing links to it. Used from the live sidebar's
+ * edit-mode tree, primarily for groups: a group has no content of its own to
+ * navigate to, so clicking one in edit mode renames it in place instead of
+ * linking anywhere.
+ */
+export async function renamePage(orgSlug: string, siteId: string, pageId: string, title: string): Promise<RenamePageResult> {
+  const { site, userId } = await requireSite(orgSlug, siteId);
+
+  const parsed = RenamePageSchema.safeParse({ title });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  if (!page || page.siteId !== site.id) return { error: "Page not found." };
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
+  if (!allowed) return { error: "You don't have permission to rename this page." };
+
+  await prisma.page.update({ where: { id: pageId }, data: { title: parsed.data.title } });
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  return { ok: true };
+}

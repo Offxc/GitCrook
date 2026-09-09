@@ -14,7 +14,7 @@ import {
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
-import { reorderPageTree } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pagesActions";
+import { reorderPageTree, renamePage } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pagesActions";
 
 interface Row {
   id: string;
@@ -101,11 +101,27 @@ export function SidebarTree({
   const [rows, setRows] = useState<Row[]>(() => flatten(tree));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => {
     setRows(flatten(tree));
   }, [tree]);
+
+  async function submitRename(id: string, title: string) {
+    setRenamingId(null);
+    const trimmed = title.trim();
+    const previous = rows.find((r) => r.id === id);
+    if (!trimmed || trimmed === previous?.title) return;
+    const previousRows = rows;
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, title: trimmed } : r)));
+    const result = await renamePage(orgSlug, siteId, id, trimmed);
+    if (result.error) {
+      setRows(previousRows);
+      setRenameError(result.error);
+    }
+  }
 
   async function persist(updates: { id: string; parentId: string | null; order: number }[], previousRows: Row[]) {
     setStatus("saving");
@@ -168,6 +184,7 @@ export function SidebarTree({
   return (
     <div>
       {status === "error" ? <p className="mb-2 px-2 text-xs text-site-danger">Couldn&apos;t save that change — try again.</p> : null}
+      {renameError ? <p className="mb-2 px-2 text-xs text-site-danger">{renameError}</p> : null}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -183,6 +200,10 @@ export function SidebarTree({
                 row={row}
                 href={`${baseHref}/${(paths.get(row.id) ?? [row.slug]).join("/")}`}
                 isActive={row.id === activePageId}
+                isRenaming={renamingId === row.id}
+                onStartRename={() => setRenamingId(row.id)}
+                onSubmitRename={(title) => submitRename(row.id, title)}
+                onCancelRename={() => setRenamingId(null)}
               />
             ))}
           </ul>
@@ -194,7 +215,23 @@ export function SidebarTree({
   );
 }
 
-function SidebarTreeRow({ row, href, isActive }: { row: Row & { depth: number }; href: string; isActive: boolean }) {
+function SidebarTreeRow({
+  row,
+  href,
+  isActive,
+  isRenaming,
+  onStartRename,
+  onSubmitRename,
+  onCancelRename,
+}: {
+  row: Row & { depth: number };
+  href: string;
+  isActive: boolean;
+  isRenaming: boolean;
+  onStartRename: () => void;
+  onSubmitRename: (title: string) => void;
+  onCancelRename: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -202,7 +239,7 @@ function SidebarTreeRow({ row, href, isActive }: { row: Row & { depth: number };
     <li
       ref={setNodeRef}
       style={{ ...style, paddingLeft: row.depth * 16 }}
-      className={`flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""} ${row.isGroup ? "mt-2 first:mt-0" : ""}`}
+      className={`flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""} ${row.isGroup ? "mt-5 first:mt-0" : ""}`}
     >
       <button
         type="button"
@@ -213,16 +250,81 @@ function SidebarTreeRow({ row, href, isActive }: { row: Row & { depth: number };
       >
         <GripIcon />
       </button>
-      <Link
-        href={href}
-        className={`flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-md px-1.5 py-1 text-[13px] leading-5 ${
-          row.isGroup ? "font-semibold uppercase tracking-wide text-site-ink-muted" : isActive ? "font-medium text-site-primary" : "text-site-ink-muted hover:text-site-ink"
-        }`}
-      >
-        {row.icon ? <span aria-hidden>{row.icon}</span> : null}
-        <span className="truncate">{row.title}</span>
-      </Link>
+      {row.isGroup ? (
+        <GroupLabel row={row} isRenaming={isRenaming} onStartRename={onStartRename} onSubmitRename={onSubmitRename} onCancelRename={onCancelRename} />
+      ) : (
+        <Link
+          href={href}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-md px-1.5 py-1 text-[13px] leading-5 ${
+            isActive ? "font-medium text-site-primary" : "text-site-ink-muted hover:text-site-ink"
+          }`}
+        >
+          {row.icon ? <span aria-hidden>{row.icon}</span> : null}
+          <span className="truncate">{row.title}</span>
+        </Link>
+      )}
     </li>
+  );
+}
+
+/**
+ * A group has no content of its own — SidebarList's read-only view already
+ * renders it as a plain (non-link) header rather than a page-like link; this
+ * is the edit-mode equivalent, distinct the same way, except clicking it
+ * renames it in place instead of just displaying it (a group has no other
+ * settings screen to jump to for that).
+ */
+function GroupLabel({
+  row,
+  isRenaming,
+  onStartRename,
+  onSubmitRename,
+  onCancelRename,
+}: {
+  row: Row;
+  isRenaming: boolean;
+  onStartRename: () => void;
+  onSubmitRename: (title: string) => void;
+  onCancelRename: () => void;
+}) {
+  const [draft, setDraft] = useState(row.title);
+
+  // Resync on every open, not just at first mount — GroupLabel stays mounted
+  // across renames (only `isRenaming` toggles), so without this a second
+  // rename would start from whatever the title was the first time this row
+  // ever rendered, not the current one.
+  useEffect(() => {
+    if (isRenaming) setDraft(row.title);
+  }, [isRenaming, row.title]);
+
+  if (isRenaming) {
+    return (
+      // eslint-disable-next-line jsx-a11y/no-autofocus -- opening rename should focus the input immediately
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSubmitRename(draft);
+          if (e.key === "Escape") onCancelRename();
+        }}
+        onBlur={() => onSubmitRename(draft)}
+        className="min-w-0 flex-1 rounded-md border border-site-primary bg-site-canvas px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-site-ink outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onStartRename}
+      title="Rename group"
+      className="flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-md px-1.5 py-1 text-left text-xs font-semibold uppercase tracking-wide text-site-ink-muted hover:text-site-ink"
+    >
+      {row.icon ? <span aria-hidden>{row.icon}</span> : null}
+      <span className="truncate">{row.title}</span>
+    </button>
   );
 }
 
