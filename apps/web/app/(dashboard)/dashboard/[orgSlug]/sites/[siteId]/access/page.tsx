@@ -32,11 +32,21 @@ export default async function AccessPage({ params }: { params: Promise<{ orgSlug
 
       <div className="mt-6 space-y-6">
         <section className="rounded-xl border border-border bg-canvas p-5">
-          <h2 className="mb-1 text-sm font-semibold text-ink">Password</h2>
+          <div className="mb-1 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-ink">Password</h2>
+            {hasPassword ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
+                <CheckIcon />
+                Set
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">Not set</span>
+            )}
+          </div>
           <p className="mb-3 text-xs text-ink-muted">
             {hasPassword
-              ? "A password is set — switch Audience to “Password-protected” below to actually require it."
-              : "Set one here first, then switch Audience below to “Password-protected” to require it."}
+              ? "Switch Audience to “Password-protected” above to actually require it. Passwords are hashed — there's no way to view the current one, only replace it below."
+              : "Set one here first, then switch Audience above to “Password-protected” to require it."}
           </p>
           <PasswordForm orgSlug={orgSlug} siteId={siteId} />
         </section>
@@ -53,5 +63,13 @@ export default async function AccessPage({ params }: { params: Promise<{ orgSlug
         </section>
       </div>
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }

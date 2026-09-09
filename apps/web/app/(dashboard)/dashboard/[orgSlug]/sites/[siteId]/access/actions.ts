@@ -27,7 +27,7 @@ export async function updateAudienceMode(orgSlug: string, siteId: string, _prev:
 
   if (parsed.data === "PASSWORD") {
     const hasPassword = await prisma.sitePassword.findUnique({ where: { siteId: ctx.site.id } });
-    if (!hasPassword) return { error: "Set a password below before switching to password-protected." };
+    if (!hasPassword) return { error: "Set a password above before switching to password-protected." };
   }
 
   await prisma.site.update({ where: { id: ctx.site.id }, data: { audienceMode: parsed.data } });

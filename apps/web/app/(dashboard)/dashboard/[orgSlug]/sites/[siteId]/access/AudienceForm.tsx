@@ -39,7 +39,7 @@ export function AudienceForm({
         {pending ? "Saving..." : "Save"}
       </button>
       {state.error ? <p className="text-sm text-danger">{state.error}</p> : null}
-      {!hasPassword ? <p className="text-xs text-ink-muted">Set a password below first if you plan to switch to Password-protected.</p> : null}
+      {!hasPassword ? <p className="text-xs text-ink-muted">Set a password above first if you plan to switch to Password-protected.</p> : null}
     </form>
   );
 }
