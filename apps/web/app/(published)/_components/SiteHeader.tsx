@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { DarkModeToggle } from "./DarkModeToggle";
 import { SearchTrigger } from "./SearchTrigger";
 import { VariantSwitcher } from "./VariantSwitcher";
 import type { VariantOption } from "@/lib/tenancy/resolvePublishedPath";
@@ -53,7 +52,6 @@ export function SiteHeader({
           <VariantSwitcher current={variant} options={variantOptions} baseHref={baseHref} pathPrefix={variantPathPrefix ?? []} />
         ) : null}
         {header.searchPosition !== "hidden" ? <SearchTrigger siteId={siteId} baseHref={baseHref} compact={header.searchPosition === "subtle"} /> : null}
-        <DarkModeToggle />
       </div>
     </header>
   );

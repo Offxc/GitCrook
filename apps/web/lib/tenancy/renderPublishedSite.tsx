@@ -12,6 +12,9 @@ import { PageNav } from "@/app/(published)/_components/PageNav";
 import { AnnouncementBanner } from "@/app/(published)/_components/AnnouncementBanner";
 import { Footer } from "@/app/(published)/_components/Footer";
 import { PasswordGate } from "@/app/(published)/_components/PasswordGate";
+import { DarkModeToggle } from "@/app/(published)/_components/DarkModeToggle";
+import { TableOfContents } from "@/app/(published)/_components/TableOfContents";
+import { extractHeadings } from "@/lib/renderer/extractHeadings";
 import { PrivateSiteMessage } from "@/app/(published)/_components/PrivateSiteMessage";
 import { PageFeedback } from "@/app/(published)/_components/PageFeedback";
 import { ClickTracker } from "@/app/(published)/_components/ClickTracker";
@@ -137,8 +140,14 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             ) : null}
           </div>
         </main>
+        <aside className="hidden w-56 shrink-0 py-10 pr-6 xl:block">
+          <div className="sticky top-20">
+            <TableOfContents headings={extractHeadings(page.content)} />
+          </div>
+        </aside>
       </div>
       <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} showPoweredByBadge={theme.showPoweredByBadge} privacyPolicyHref={theme.privacyPolicyHref} />
+      <DarkModeToggle />
     </div>
   );
 }

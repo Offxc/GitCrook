@@ -92,7 +92,7 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
       const className = { 1: "text-2xl font-semibold", 2: "text-xl font-semibold", 3: "text-lg font-semibold" }[level] ?? "text-base font-semibold";
       const Tag = (`h${Math.min(level, 6)}` as unknown) as keyof React.JSX.IntrinsicElements;
       return (
-        <Tag className={`${className} mb-3 mt-8 text-site-ink first:mt-0`}>
+        <Tag id={block.id} className={`${className} mb-3 mt-8 scroll-mt-20 text-site-ink first:mt-0`}>
           {renderInline(block.content)}
           {block.children?.length ? renderBlockList(block.children, codeHtml) : null}
         </Tag>
@@ -173,7 +173,7 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
       const index = typeof props.index === "number" ? props.index : 1;
       return (
         <div className="flex gap-3">
-          <span className="mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-site-surface text-xs font-semibold text-site-ink">
+          <span className="mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-site-primary text-xs font-semibold text-white">
             {index}
           </span>
           <div className="flex-1">
