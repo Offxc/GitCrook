@@ -48,13 +48,17 @@ export default function proxy(req: NextRequest) {
 }
 
 function applySecurityHeaders(res: NextResponse, nonce: string) {
-  // React's dev mode reconstructs component stacks via eval() for better error
-  // overlays — never used in production builds, so 'unsafe-eval' is scoped to
-  // development only and never ships in the image actually deployed.
-  const scriptSrc =
-    process.env.NODE_ENV === "development"
-      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`
-      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`;
+  // Wrong assumption originally, found via a real CSP violation in production:
+  // "unsafe-eval" isn't just React dev-mode's error-overlay stack traces —
+  // something in the editor's own dependency chain (BlockNote/Mantine/
+  // ProseMirror) genuinely calls eval()/Function() at runtime, in production
+  // too, and without this the editor silently fails to mount at all (the
+  // page is left showing the server-rendered read-only content underneath,
+  // with no visible error unless you check the console). strict-dynamic +
+  // per-request nonces still block the far more common inline/injected-
+  // script XSS vector; this narrows that, specifically for a script an
+  // attacker would first need to get eval'd, not remove it.
+  const scriptSrc = `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`;
 
   const csp = [
     "default-src 'self'",
