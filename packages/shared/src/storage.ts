@@ -14,7 +14,18 @@ import { getEnv } from "./env";
 
 function resolveStorageDir(): string {
   const dir = getEnv().STORAGE_DIR;
-  return path.isAbsolute(dir) ? dir : path.resolve(process.cwd(), dir);
+  // turbopackIgnore: this dynamic resolve() was making the build tracer treat
+  // the whole project as reachable from here and bundle it together — harmless
+  // on its own, but once client-only code (BlockNote/Mantine, added for the
+  // in-place editor) was anywhere in that same graph, it started getting
+  // pulled into server bundles that can't run it, breaking prerendering of
+  // unrelated pages (found via a real build failure on Next's own
+  // /_global-error page, not a hypothetical). Every real value STORAGE_DIR
+  // takes in this project (Docker's /data/uploads, or local dev's absolute
+  // path) is already absolute — the relative-path branch only exists for the
+  // schema's own bare default — so opting this specific call out of tracing
+  // changes nothing about what it actually resolves to.
+  return path.isAbsolute(dir) ? dir : path.resolve(/* turbopackIgnore: true */ process.cwd(), dir);
 }
 
 export function storagePathFor(storageKey: string): string {
