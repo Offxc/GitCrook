@@ -78,6 +78,10 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   // access control) and the site owner's own toggle for whether they want
   // this affordance visible to members at all.
   const canEdit = theme.showToolbarForMembers && userId !== null && !page.isGroup && (await canUserDoX(userId, "content.edit", { type: "page", id: page.id }));
+  // Same permission the create actions themselves check — this just decides
+  // whether to show the "Add new" control at all, never trusted on its own.
+  const canManageContent = theme.showToolbarForMembers && userId !== null && (await canUserDoX(userId, "content.edit", { type: "site", id: site.id }));
+  const orgSlugForSidebar = canManageContent ? (await prisma.organization.findUnique({ where: { id: site.organizationId }, select: { slug: true } }))?.slug ?? null : null;
   const cssVars = themeToCssVars(theme);
   if (theme.fonts.customFontAssetId) {
     const customFontVar = `"${CUSTOM_FONT_FAMILY}", ui-sans-serif, system-ui, sans-serif`;
@@ -129,6 +133,9 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
           siteName={site.name}
           sidebarStyle={theme.sidebarStyle}
           showPoweredByBadge={theme.showPoweredByBadge}
+          canManageContent={canManageContent}
+          orgSlug={orgSlugForSidebar}
+          siteId={site.id}
         />
         <main className="min-w-0 flex-1 px-8 py-10">
           <div className="mx-auto max-w-2xl">

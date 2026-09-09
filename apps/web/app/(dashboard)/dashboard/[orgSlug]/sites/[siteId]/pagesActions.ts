@@ -10,6 +10,7 @@ import { requireSite } from "@/lib/dashboard/site";
 export interface CreatePageState {
   error?: string;
   redirectTo?: string;
+  slug?: string;
 }
 
 const CreatePageSchema = z.object({
@@ -73,8 +74,10 @@ export async function createPage(orgSlug: string, siteId: string, _prev: CreateP
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}/pages/${page.id}`);
   // See sites/actions.ts's createSite for why this returns a URL for the
-  // client to navigate to instead of calling redirect() directly.
-  return { redirectTo: `/dashboard/${orgSlug}/sites/${siteId}/pages/${page.id}` };
+  // client to navigate to instead of calling redirect() directly. `slug` is
+  // for callers (the live sidebar's AddNewButton) that want the published
+  // URL instead of the dashboard editor's.
+  return { redirectTo: `/dashboard/${orgSlug}/sites/${siteId}/pages/${page.id}`, slug };
 }
 
 const CreatePageGroupSchema = z.object({
@@ -83,6 +86,7 @@ const CreatePageGroupSchema = z.object({
 
 export interface CreatePageGroupState {
   error?: string;
+  slug?: string;
 }
 
 /**
@@ -134,5 +138,5 @@ export async function createPageGroup(orgSlug: string, siteId: string, _prev: Cr
   });
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
-  return {};
+  return { slug };
 }

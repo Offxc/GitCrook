@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import type { ThemeConfig } from "@voiddocs/shared";
 import { GitCrookMark } from "./GitCrookMark";
+import { AddNewButton } from "./AddNewButton";
 
 export function Sidebar({
   tree,
@@ -11,6 +12,9 @@ export function Sidebar({
   siteName,
   sidebarStyle,
   showPoweredByBadge,
+  canManageContent,
+  orgSlug,
+  siteId,
 }: {
   tree: PageTreeNode[];
   paths: Map<string, string[]>;
@@ -19,6 +23,9 @@ export function Sidebar({
   siteName: string;
   sidebarStyle: ThemeConfig["sidebarStyle"];
   showPoweredByBadge: boolean;
+  canManageContent: boolean;
+  orgSlug: string | null;
+  siteId: string;
 }) {
   return (
     <nav
@@ -34,6 +41,11 @@ export function Sidebar({
       <div className="flex-1 overflow-y-auto px-3 py-6">
         <p className="mb-4 px-2 text-sm font-semibold text-site-ink">{siteName}</p>
         <SidebarList tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} depth={0} listStyle={sidebarStyle.listStyle} />
+        {canManageContent && orgSlug ? (
+          <div className="mt-3 border-t border-site-border pt-3">
+            <AddNewButton orgSlug={orgSlug} siteId={siteId} baseHref={baseHref} />
+          </div>
+        ) : null}
       </div>
       {showPoweredByBadge ? (
         <div className="shrink-0 border-t border-site-border p-3">
