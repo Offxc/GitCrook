@@ -17,6 +17,14 @@ export function SearchTrigger({ siteId, baseHref, compact = false }: { siteId: s
   const [activeIndex, setActiveIndex] = useState(0);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Defaults to the non-Mac label (matches the pre-hydration server render);
+  // the keydown handler below already accepts either modifier regardless —
+  // this only affects which one is *shown*.
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPod|iPad/.test(navigator.platform || navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -82,7 +90,7 @@ export function SearchTrigger({ siteId, baseHref, compact = false }: { siteId: s
         {compact ? null : (
           <>
             <span>Search</span>
-            <kbd className="rounded border border-site-border px-1 font-sans text-[10px]">⌘K</kbd>
+            <kbd className="rounded border border-site-border px-1 font-sans text-[10px]">{isMac ? "⌘K" : "Ctrl K"}</kbd>
           </>
         )}
       </button>
