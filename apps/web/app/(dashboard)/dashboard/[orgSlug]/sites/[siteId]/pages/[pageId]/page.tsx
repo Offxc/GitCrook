@@ -5,6 +5,7 @@ import { canUserDoX } from "@voiddocs/auth";
 import { requireSite } from "@/lib/dashboard/site";
 import { EditorClientLoader } from "./EditorClientLoader";
 import { ExportPdfButton } from "./ExportPdfButton";
+import { DeletePageButton } from "./DeletePageButton";
 
 export default async function PageEditorPage({ params }: { params: Promise<{ orgSlug: string; siteId: string; pageId: string }> }) {
   const { orgSlug, siteId, pageId } = await params;
@@ -14,6 +15,7 @@ export default async function PageEditorPage({ params }: { params: Promise<{ org
   if (!page || page.siteId !== site.id) notFound();
 
   const canEdit = await canUserDoX(userId, "content.edit", { type: "page", id: page.id });
+  const childCount = await prisma.page.count({ where: { parentId: page.id } });
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
@@ -29,6 +31,7 @@ export default async function PageEditorPage({ params }: { params: Promise<{ org
           <Link href={`/dashboard/${orgSlug}/sites/${siteId}/pages/${pageId}/history`} className="text-sm text-ink-muted hover:text-ink">
             History
           </Link>
+          {canEdit ? <DeletePageButton orgSlug={orgSlug} siteId={siteId} pageId={pageId} childCount={childCount} /> : null}
         </div>
       </div>
       {canEdit ? (

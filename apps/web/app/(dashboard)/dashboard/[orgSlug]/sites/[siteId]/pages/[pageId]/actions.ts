@@ -1,6 +1,7 @@
 "use server";
 
 import { notFound } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@voiddocs/db";
 import { canUserDoX, getSessionUserId } from "@voiddocs/auth";
 import { extractPlainText } from "@/lib/editor/extractText";
@@ -81,4 +82,27 @@ export async function restorePageVersion(pageId: string, versionId: string): Pro
   });
 
   return { ok: true };
+}
+
+export interface DeletePageResult {
+  ok: boolean;
+  error?: string;
+  redirectTo?: string;
+}
+
+/** Page.parentId is onDelete: Cascade (packages/db/prisma/schema.prisma), so this also removes every descendant in the page tree — the caller is expected to have already warned about that (see the child count this returns nothing about; DeletePageButton fetches it separately before showing the confirm step). */
+export async function deletePage(orgSlug: string, siteId: string, pageId: string): Promise<DeletePageResult> {
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  if (!page || page.siteId !== siteId) return { ok: false, error: "Page not found." };
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
+  if (!allowed) return { ok: false, error: "You don't have permission to delete this page." };
+
+  await prisma.page.delete({ where: { id: pageId } });
+
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  return { ok: true, redirectTo: `/dashboard/${orgSlug}/sites/${siteId}` };
 }

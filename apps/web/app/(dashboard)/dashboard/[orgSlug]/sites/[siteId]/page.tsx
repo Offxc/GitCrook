@@ -3,6 +3,7 @@ import { prisma } from "@voiddocs/db";
 import { getEnv } from "@voiddocs/shared/server";
 import { requireSite } from "@/lib/dashboard/site";
 import { NewPageForm } from "./NewPageForm";
+import { DeleteSiteSection } from "./DeleteSiteSection";
 
 export default async function SiteOverviewPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
   const { orgSlug, siteId } = await params;
@@ -70,6 +71,10 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
       </div>
       <div className="mt-3">
         <NewPageForm orgSlug={orgSlug} siteId={site.id} />
+      </div>
+
+      <div className="mt-10">
+        <DeleteSiteSection orgSlug={orgSlug} siteId={site.id} siteSlug={site.slug} />
       </div>
     </div>
   );

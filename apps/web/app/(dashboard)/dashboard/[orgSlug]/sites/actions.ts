@@ -96,3 +96,40 @@ export async function createSite(orgSlug: string, _prev: CreateSiteState, formDa
   // CreateSiteForm's useEffect) sidesteps that transition entirely.
   return { redirectTo: `/dashboard/${orgSlug}/sites/${site.id}` };
 }
+
+export interface DeleteSiteResult {
+  ok: boolean;
+  error?: string;
+  redirectTo?: string;
+}
+
+/**
+ * Every child row (Section/Space/Variant/Page/CustomDomain/SitePassword/
+ * ShareLink/SiteRedirect/*Permission/AnalyticsEvent/PageRating/Comment/...)
+ * is onDelete: Cascade back to Site in schema.prisma, so a single delete
+ * here is a complete, atomic cleanup — no manual multi-table teardown needed.
+ * Asset.siteId is the one exception (onDelete: SetNull, deliberately —
+ * uploaded files outlive the site as unrestricted-access assets rather than
+ * being force-deleted).
+ */
+export async function deleteSite(orgSlug: string, siteId: string, confirmSlug: string): Promise<DeleteSiteResult> {
+  const { organization, userId } = await requireOrgMembership(orgSlug);
+
+  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { slug: true, name: true, organizationId: true } });
+  if (!site || site.organizationId !== organization.id) return { ok: false, error: "Site not found." };
+  if (confirmSlug !== site.slug) return { ok: false, error: "That doesn't match the site's slug." };
+
+  const allowed = await canUserDoX(userId, "content.manageSpaces", { type: "org", id: organization.id });
+  if (!allowed) return { ok: false, error: "You don't have permission to delete this site." };
+
+  // Logged before the delete, not after — nothing to attach targetId to
+  // once the row is gone, and an audit trail for "someone deleted this"
+  // matters more than it surviving a crash between the two statements.
+  await prisma.auditLog.create({
+    data: { organizationId: organization.id, actorId: userId, action: "site.delete", targetType: "Site", targetId: siteId, metadata: { name: site.name, slug: site.slug } },
+  });
+  await prisma.site.delete({ where: { id: siteId } });
+
+  revalidatePath(`/dashboard/${orgSlug}/sites`);
+  return { ok: true, redirectTo: `/dashboard/${orgSlug}/sites` };
+}
