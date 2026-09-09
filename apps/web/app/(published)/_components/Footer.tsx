@@ -13,18 +13,16 @@ export function Footer({
   siteName,
   footer,
   socials,
-  showPoweredByBadge,
   privacyPolicyHref,
 }: {
   siteName: string;
   footer: ThemeConfig["footer"];
   socials: ThemeConfig["socials"];
-  showPoweredByBadge: boolean;
   privacyPolicyHref: string | null;
 }) {
   const socialEntries = Object.entries(socials).filter(([, href]) => Boolean(href)) as [string, string][];
   const hasContent = footer.logoAssetId || footer.copyrightText || footer.columns.length > 0 || socialEntries.length > 0;
-  if (!hasContent && !showPoweredByBadge) return null;
+  if (!hasContent) return null;
 
   return (
     <footer data-placement="footer" className="border-t border-site-border px-8 py-10">
@@ -68,7 +66,6 @@ export function Footer({
                 {SOCIAL_LABELS[key] ?? key}
               </a>
             ))}
-            {showPoweredByBadge ? <span>Powered by VoidDocs</span> : null}
           </div>
         </div>
       </div>

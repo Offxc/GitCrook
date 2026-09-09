@@ -116,7 +116,15 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         logoAssetId={theme.branding.logoAssetId}
       />
       <div className="mx-auto flex w-full max-w-6xl flex-1">
-        <Sidebar tree={tree} paths={pathMap} baseHref={baseHref} activePageId={page.id} siteName={site.name} sidebarStyle={theme.sidebarStyle} />
+        <Sidebar
+          tree={tree}
+          paths={pathMap}
+          baseHref={baseHref}
+          activePageId={page.id}
+          siteName={site.name}
+          sidebarStyle={theme.sidebarStyle}
+          showPoweredByBadge={theme.showPoweredByBadge}
+        />
         <main className="min-w-0 flex-1 px-8 py-10">
           <div className="mx-auto max-w-2xl">
             {showBreadcrumb ? (
@@ -124,7 +132,8 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
                 {section.title} / {space.title}
               </p>
             ) : null}
-            <h1 className="text-3xl font-semibold text-site-ink" style={{ fontFamily: "var(--site-font-heading)" }}>
+            <h1 className="flex items-center gap-2.5 text-3xl font-semibold text-site-ink" style={{ fontFamily: "var(--site-font-heading)" }}>
+              {page.icon ? <span aria-hidden>{page.icon}</span> : null}
               {page.title}
             </h1>
             <div className="mt-6">
@@ -146,7 +155,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
           </div>
         </aside>
       </div>
-      <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} showPoweredByBadge={theme.showPoweredByBadge} privacyPolicyHref={theme.privacyPolicyHref} />
+      <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} privacyPolicyHref={theme.privacyPolicyHref} />
       <DarkModeToggle />
     </div>
   );

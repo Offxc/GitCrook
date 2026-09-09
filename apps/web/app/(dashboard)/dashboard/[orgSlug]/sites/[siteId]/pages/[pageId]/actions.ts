@@ -84,6 +84,32 @@ export async function restorePageVersion(pageId: string, versionId: string): Pro
   return { ok: true };
 }
 
+export interface UpdatePageIconResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function updatePageIcon(orgSlug: string, siteId: string, pageId: string, icon: string | null): Promise<UpdatePageIconResult> {
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  if (!page || page.siteId !== siteId) return { ok: false, error: "Page not found." };
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
+  if (!allowed) return { ok: false, error: "You don't have permission to edit this page." };
+
+  // A single emoji is at most a few UTF-16 code units, but some are composed
+  // of several codepoints (e.g. skin-tone modifiers, ZWJ sequences) — 16 is
+  // generous headroom without accepting arbitrary-length input here.
+  if (icon !== null && icon.length > 16) return { ok: false, error: "Invalid icon." };
+
+  await prisma.page.update({ where: { id: pageId }, data: { icon } });
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}/pages/${pageId}`);
+  return { ok: true };
+}
+
 export interface DeletePageResult {
   ok: boolean;
   error?: string;

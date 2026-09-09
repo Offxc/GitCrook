@@ -6,6 +6,7 @@ import { requireSite } from "@/lib/dashboard/site";
 import { EditorClientLoader } from "./EditorClientLoader";
 import { ExportPdfButton } from "./ExportPdfButton";
 import { DeletePageButton } from "./DeletePageButton";
+import { PageIconPicker } from "./PageIconPicker";
 
 export default async function PageEditorPage({ params }: { params: Promise<{ orgSlug: string; siteId: string; pageId: string }> }) {
   const { orgSlug, siteId, pageId } = await params;
@@ -25,7 +26,14 @@ export default async function PageEditorPage({ params }: { params: Promise<{ org
             ← {site.name}
           </Link>
         </p>
-        <p className="text-sm font-medium text-ink">{page.title}</p>
+        <div className="flex items-center gap-2">
+          {canEdit ? (
+            <PageIconPicker orgSlug={orgSlug} siteId={siteId} pageId={pageId} initialIcon={page.icon} />
+          ) : page.icon ? (
+            <span aria-hidden>{page.icon}</span>
+          ) : null}
+          <p className="text-sm font-medium text-ink">{page.title}</p>
+        </div>
         <div className="flex items-center gap-4">
           <ExportPdfButton pageId={pageId} />
           <Link href={`/dashboard/${orgSlug}/sites/${siteId}/pages/${pageId}/history`} className="text-sm text-ink-muted hover:text-ink">
