@@ -1,24 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { PAGE_ICONS } from "@/lib/editor/pageIcons";
+import { PageIcon } from "@/app/(published)/_components/PageIcon";
+import { IconPickerPopover } from "@/app/(published)/_components/IconPickerPopover";
 import { updatePageIcon } from "./actions";
 
 export function PageIconPicker({ orgSlug, siteId, pageId, initialIcon }: { orgSlug: string; siteId: string; pageId: string; initialIcon: string | null }) {
   const [icon, setIcon] = useState(initialIcon);
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const [, startTransition] = useTransition();
 
-  const q = query.trim().toLowerCase();
-  const filtered = q ? PAGE_ICONS.filter((e) => e.name.includes(q) || e.keywords.some((k) => k.includes(q))) : PAGE_ICONS;
-
-  function choose(emoji: string | null) {
-    setIcon(emoji);
+  function choose(slug: string | null) {
+    setIcon(slug);
     setOpen(false);
-    setQuery("");
     startTransition(async () => {
-      await updatePageIcon(orgSlug, siteId, pageId, emoji);
+      await updatePageIcon(orgSlug, siteId, pageId, slug);
     });
   }
 
@@ -28,45 +24,12 @@ export function PageIconPicker({ orgSlug, siteId, pageId, initialIcon }: { orgSl
         type="button"
         onClick={() => setOpen(true)}
         aria-label={icon ? "Change page icon" : "Add a page icon"}
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-sm text-ink-muted transition hover:bg-surface hover:text-ink"
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-ink-muted transition hover:bg-surface hover:text-ink"
       >
-        {icon ?? <PlaceholderIcon />}
+        {icon ? <PageIcon icon={icon} className="h-4 w-4" /> : <PlaceholderIcon />}
       </button>
 
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-border bg-canvas p-2 shadow-2xl">
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus -- opening the picker should focus search immediately */}
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search icons..."
-              className="mb-2 w-full rounded-lg border border-border bg-canvas px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand"
-            />
-            <div className="grid max-h-48 grid-cols-8 gap-0.5 overflow-y-auto">
-              {filtered.map((entry) => (
-                <button
-                  key={entry.emoji}
-                  type="button"
-                  title={entry.name}
-                  onClick={() => choose(entry.emoji)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-lg transition hover:bg-surface"
-                >
-                  {entry.emoji}
-                </button>
-              ))}
-              {filtered.length === 0 ? <p className="col-span-8 py-3 text-center text-xs text-ink-muted">No matching icons</p> : null}
-            </div>
-            {icon ? (
-              <button type="button" onClick={() => choose(null)} className="mt-2 w-full rounded-lg py-1.5 text-center text-xs text-ink-muted hover:text-danger">
-                Remove icon
-              </button>
-            ) : null}
-          </div>
-        </>
-      ) : null}
+      {open ? <IconPickerPopover variant="app" onSelect={choose} onClose={() => setOpen(false)} canRemove={icon !== null} onRemove={() => choose(null)} /> : null}
     </div>
   );
 }

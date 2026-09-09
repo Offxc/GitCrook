@@ -15,6 +15,9 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import { reorderPageTree, renamePage } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pagesActions";
+import { updatePageIcon } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pages/[pageId]/actions";
+import { PageIcon } from "./PageIcon";
+import { IconPickerPopover } from "./IconPickerPopover";
 
 interface Row {
   id: string;
@@ -103,6 +106,7 @@ export function SidebarTree({
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [iconPickerRowId, setIconPickerRowId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => {
@@ -120,6 +124,17 @@ export function SidebarTree({
     if (result.error) {
       setRows(previousRows);
       setRenameError(result.error);
+    }
+  }
+
+  async function chooseIcon(id: string, icon: string | null) {
+    setIconPickerRowId(null);
+    const previousRows = rows;
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, icon } : r)));
+    const result = await updatePageIcon(orgSlug, siteId, id, icon);
+    if (!result.ok) {
+      setRows(previousRows);
+      setRenameError(result.error ?? "Couldn't update icon.");
     }
   }
 
@@ -204,6 +219,10 @@ export function SidebarTree({
                 onStartRename={() => setRenamingId(row.id)}
                 onSubmitRename={(title) => submitRename(row.id, title)}
                 onCancelRename={() => setRenamingId(null)}
+                isPickingIcon={iconPickerRowId === row.id}
+                onStartPickIcon={() => setIconPickerRowId(row.id)}
+                onCancelPickIcon={() => setIconPickerRowId(null)}
+                onPickIcon={(icon) => chooseIcon(row.id, icon)}
               />
             ))}
           </ul>
@@ -223,6 +242,10 @@ function SidebarTreeRow({
   onStartRename,
   onSubmitRename,
   onCancelRename,
+  isPickingIcon,
+  onStartPickIcon,
+  onCancelPickIcon,
+  onPickIcon,
 }: {
   row: Row & { depth: number };
   href: string;
@@ -231,16 +254,23 @@ function SidebarTreeRow({
   onStartRename: () => void;
   onSubmitRename: (title: string) => void;
   onCancelRename: () => void;
+  isPickingIcon: boolean;
+  onStartPickIcon: () => void;
+  onCancelPickIcon: () => void;
+  onPickIcon: (icon: string | null) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
+  // Bold, uppercase, and set off by a rule above — a group is a section
+  // divider, not another row in the list, and needs to read as one at a
+  // glance in edit mode too, not just in the read-only sidebar.
+  const liClassName = row.isGroup
+    ? `flex items-center gap-1 rounded-md py-1 pr-1 mt-5 border-t border-site-border pt-4 first:mt-0 first:border-t-0 first:pt-1 ${isDragging ? "opacity-40" : ""}`
+    : `flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""}`;
+
   return (
-    <li
-      ref={setNodeRef}
-      style={{ ...style, paddingLeft: row.depth * 16 }}
-      className={`flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""} ${row.isGroup ? "mt-5 first:mt-0" : ""}`}
-    >
+    <li ref={setNodeRef} style={{ ...style, paddingLeft: row.depth * 16 }} className={liClassName}>
       <button
         type="button"
         {...attributes}
@@ -250,20 +280,48 @@ function SidebarTreeRow({
       >
         <GripIcon />
       </button>
+      <RowIconButton icon={row.icon} isPicking={isPickingIcon} onStart={onStartPickIcon} onCancel={onCancelPickIcon} onPick={onPickIcon} />
       {row.isGroup ? (
         <GroupLabel row={row} isRenaming={isRenaming} onStartRename={onStartRename} onSubmitRename={onSubmitRename} onCancelRename={onCancelRename} />
       ) : (
         <Link
           href={href}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-md px-1.5 py-1 text-[13px] leading-5 ${
+          className={`min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-[13px] leading-5 ${
             isActive ? "font-medium text-site-primary" : "text-site-ink-muted hover:text-site-ink"
           }`}
         >
-          {row.icon ? <span aria-hidden>{row.icon}</span> : null}
           <span className="truncate">{row.title}</span>
         </Link>
       )}
     </li>
+  );
+}
+
+function RowIconButton({
+  icon,
+  isPicking,
+  onStart,
+  onCancel,
+  onPick,
+}: {
+  icon: string | null;
+  isPicking: boolean;
+  onStart: () => void;
+  onCancel: () => void;
+  onPick: (icon: string | null) => void;
+}) {
+  return (
+    <span className="relative shrink-0">
+      <button
+        type="button"
+        onClick={onStart}
+        title={icon ? "Change icon" : "Add icon"}
+        className="flex h-6 w-6 items-center justify-center rounded text-site-ink-muted hover:bg-site-surface hover:text-site-ink"
+      >
+        {icon ? <PageIcon icon={icon} className="h-4 w-4" /> : <PlaceholderIcon />}
+      </button>
+      {isPicking ? <IconPickerPopover onSelect={onPick} onClose={onCancel} canRemove={icon !== null} onRemove={() => onPick(null)} /> : null}
+    </span>
   );
 }
 
@@ -310,7 +368,7 @@ function GroupLabel({
           if (e.key === "Escape") onCancelRename();
         }}
         onBlur={() => onSubmitRename(draft)}
-        className="min-w-0 flex-1 rounded-md border border-site-primary bg-site-canvas px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-site-ink outline-none"
+        className="min-w-0 flex-1 rounded-md border border-site-primary bg-site-canvas px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-site-ink outline-none"
       />
     );
   }
@@ -320,11 +378,18 @@ function GroupLabel({
       type="button"
       onClick={onStartRename}
       title="Rename group"
-      className="flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-md px-1.5 py-1 text-left text-xs font-semibold uppercase tracking-wide text-site-ink-muted hover:text-site-ink"
+      className="min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-xs font-bold uppercase tracking-wider text-site-ink-muted hover:text-site-ink"
     >
-      {row.icon ? <span aria-hidden>{row.icon}</span> : null}
       <span className="truncate">{row.title}</span>
     </button>
+  );
+}
+
+function PlaceholderIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" strokeDasharray="2.5 2.5" />
+    </svg>
   );
 }
 

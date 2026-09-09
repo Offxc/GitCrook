@@ -23,6 +23,7 @@ import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@voiddocs/au
 import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
 import { EditModeToggle } from "@/app/(published)/_components/EditModeToggle";
+import { PageIcon } from "@/app/(published)/_components/PageIcon";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
@@ -148,7 +149,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
                 </p>
               ) : null}
               <h1 className="flex items-center gap-2.5 text-3xl font-semibold text-site-ink" style={{ fontFamily: "var(--site-font-heading)" }}>
-                {page.icon ? <span aria-hidden>{page.icon}</span> : null}
+                <PageIcon icon={page.icon} className="h-7 w-7 shrink-0" />
                 {page.title}
               </h1>
               <div className="mt-6">

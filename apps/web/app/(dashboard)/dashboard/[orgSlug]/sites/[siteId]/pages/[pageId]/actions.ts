@@ -99,10 +99,11 @@ export async function updatePageIcon(orgSlug: string, siteId: string, pageId: st
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { ok: false, error: "You don't have permission to edit this page." };
 
-  // A single emoji is at most a few UTF-16 code units, but some are composed
-  // of several codepoints (e.g. skin-tone modifiers, ZWJ sequences) — 16 is
-  // generous headroom without accepting arbitrary-length input here.
-  if (icon !== null && icon.length > 16) return { ok: false, error: "Invalid icon." };
+  // Stores a slug into the flat icon set now (see lib/editor/pageIcons.ts),
+  // e.g. "clock-counter-clockwise" — longer than an emoji character, but
+  // still bounded; 40 is generous headroom over the longest slug that set
+  // actually has, without accepting arbitrary-length input here.
+  if (icon !== null && icon.length > 40) return { ok: false, error: "Invalid icon." };
 
   await prisma.page.update({ where: { id: pageId }, data: { icon } });
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);

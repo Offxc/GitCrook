@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import type { ThemeConfig } from "@voiddocs/shared";
+import { PageIcon } from "./PageIcon";
 
 /** Read-only sidebar nav — zero client JS, used for every visitor who isn't actively reordering (see SidebarBody for the editable swap-in). */
 export function SidebarList({
@@ -34,9 +35,12 @@ export function SidebarList({
         // depth they'd be at without the group.
         if (node.isGroup) {
           return (
-            <li key={node.id} className={depth === 0 ? "mt-5 first:mt-0" : undefined}>
-              <p className="mb-1.5 flex items-center gap-1.5 px-2 text-xs font-semibold uppercase tracking-wide text-site-ink-muted">
-                {node.icon ? <span aria-hidden>{node.icon}</span> : null}
+            <li
+              key={node.id}
+              className={depth === 0 ? "mt-5 border-t border-site-border pt-3 first:mt-0 first:border-t-0 first:pt-0" : undefined}
+            >
+              <p className="mb-1.5 flex items-center gap-1.5 px-2 text-xs font-bold uppercase tracking-wider text-site-ink-muted">
+                <PageIcon icon={node.icon} className="h-3.5 w-3.5 shrink-0" />
                 {node.title}
               </p>
               {node.children.length > 0 ? (
@@ -54,7 +58,7 @@ export function SidebarList({
         }`;
         const label = (
           <Link href={href} className={linkClass}>
-            {node.icon ? <span aria-hidden>{node.icon}</span> : null}
+            <PageIcon icon={node.icon} className="h-4 w-4 shrink-0" />
             <span className="truncate">{node.title}</span>
           </Link>
         );

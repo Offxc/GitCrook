@@ -7,6 +7,7 @@ import { EditorClientLoader } from "./EditorClientLoader";
 import { ExportPdfButton } from "./ExportPdfButton";
 import { DeletePageButton } from "./DeletePageButton";
 import { PageIconPicker } from "./PageIconPicker";
+import { PageIcon } from "@/app/(published)/_components/PageIcon";
 
 export default async function PageEditorPage({ params }: { params: Promise<{ orgSlug: string; siteId: string; pageId: string }> }) {
   const { orgSlug, siteId, pageId } = await params;
@@ -29,9 +30,9 @@ export default async function PageEditorPage({ params }: { params: Promise<{ org
         <div className="flex items-center gap-2">
           {canEdit ? (
             <PageIconPicker orgSlug={orgSlug} siteId={siteId} pageId={pageId} initialIcon={page.icon} />
-          ) : page.icon ? (
-            <span aria-hidden>{page.icon}</span>
-          ) : null}
+          ) : (
+            <PageIcon icon={page.icon} className="h-4 w-4 shrink-0" />
+          )}
           <p className="text-sm font-medium text-ink">{page.title}</p>
         </div>
         <div className="flex items-center gap-4">
