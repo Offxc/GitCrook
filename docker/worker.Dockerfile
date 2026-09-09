@@ -35,8 +35,8 @@ RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefo
 RUN addgroup -S -g 1001 voiddocs && adduser -S -u 1001 -G voiddocs voiddocs
 ENV NODE_ENV=production
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
-COPY --from=deps /repo ./
-COPY . .
+COPY --from=deps --chown=voiddocs:voiddocs /repo ./
+COPY --chown=voiddocs:voiddocs . .
 RUN mkdir -p /data/uploads && chown -R voiddocs:voiddocs /data/uploads
 USER voiddocs
 CMD ["pnpm", "--filter", "@voiddocs/worker", "exec", "tsx", "src/index.ts"]
