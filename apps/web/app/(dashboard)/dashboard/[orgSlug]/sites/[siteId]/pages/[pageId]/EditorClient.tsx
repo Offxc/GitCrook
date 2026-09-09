@@ -75,7 +75,11 @@ export function EditorClient({
       <div className="border-b border-border px-6 py-1.5 text-right text-xs text-ink-muted">
         <SaveIndicator status={status} />
       </div>
-      <div className="flex-1 overflow-y-auto">
+      {/* onClick: see InPlaceEditorClient's identical fix — BlockNote's own
+          root only sizes to its content, so without this, clicking the
+          blank space below the last block (inside this flex-1 scroll area,
+          but outside .bn-container itself) does nothing. */}
+      <div className="flex-1 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && focusEditorEnd(e.currentTarget)}>
         <div className="mx-auto max-w-3xl px-6 py-8">
           <BlockNoteView editor={editor} onChange={scheduleSave} theme="light" slashMenu={false}>
             <SuggestionMenuController
@@ -87,6 +91,18 @@ export function EditorClient({
       </div>
     </div>
   );
+}
+
+function focusEditorEnd(container: HTMLElement) {
+  const editable = container.querySelector<HTMLElement>('[contenteditable="true"]');
+  if (!editable) return;
+  editable.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editable);
+  range.collapse(false);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 function isNonEmptyArray(value: unknown): value is Record<string, unknown>[] {

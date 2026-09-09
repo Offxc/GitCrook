@@ -140,3 +140,73 @@ export async function createPageGroup(orgSlug: string, siteId: string, _prev: Cr
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   return { slug };
 }
+
+const ReorderSchema = z
+  .array(
+    z.object({
+      id: z.string().cuid(),
+      parentId: z.string().cuid().nullable(),
+      order: z.number().int().min(0).max(100_000),
+    }),
+  )
+  .min(1)
+  .max(500);
+
+export interface ReorderResult {
+  ok?: boolean;
+  error?: string;
+}
+
+/**
+ * Applied from the live sidebar's drag-and-drop tree (SidebarTree.tsx) —
+ * every row that needs a new order and/or a new parent after a drop,
+ * already resolved client-side against the tree it was dragging. Re-checked
+ * here rather than trusted, since a client payload can be forged: every id
+ * must belong to this site, and no proposed parent may be the page itself
+ * or one of its own descendants (which would detach that whole branch from
+ * the tree instead of moving it).
+ */
+export async function reorderPageTree(orgSlug: string, siteId: string, updates: unknown): Promise<ReorderResult> {
+  const { site, userId } = await requireSite(orgSlug, siteId);
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "site", id: site.id });
+  if (!allowed) return { error: "You don't have permission to reorder pages on this site." };
+
+  const parsed = ReorderSchema.safeParse(updates);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  const ids = parsed.data.map((u) => u.id);
+  const existing = await prisma.page.findMany({ where: { id: { in: ids } }, select: { id: true, siteId: true } });
+  if (existing.length !== ids.length || existing.some((p) => p.siteId !== site.id)) {
+    return { error: "One of these pages no longer exists." };
+  }
+
+  // Overlay the proposed moves onto the site's current parent graph, then
+  // confirm the result is still a tree (no page ends up as its own
+  // ancestor) before touching the database.
+  const allPages = await prisma.page.findMany({ where: { siteId: site.id }, select: { id: true, parentId: true } });
+  const parentOf = new Map<string, string | null>(allPages.map((p) => [p.id, p.parentId] as const));
+  for (const u of parsed.data) parentOf.set(u.id, u.parentId);
+
+  function isDescendantOf(nodeId: string, maybeAncestorId: string): boolean {
+    const seen = new Set<string>();
+    let current = parentOf.get(nodeId) ?? null;
+    while (current) {
+      if (current === maybeAncestorId) return true;
+      if (seen.has(current)) return false;
+      seen.add(current);
+      current = parentOf.get(current) ?? null;
+    }
+    return false;
+  }
+
+  for (const u of parsed.data) {
+    if (u.parentId === u.id) return { error: "A page can't be its own parent." };
+    if (u.parentId && isDescendantOf(u.parentId, u.id)) return { error: "Can't move a page inside its own subtree." };
+  }
+
+  await prisma.$transaction(parsed.data.map((u) => prisma.page.update({ where: { id: u.id }, data: { parentId: u.parentId, order: u.order } })));
+
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  return { ok: true };
+}

@@ -21,6 +21,7 @@ import { ClickTracker } from "@/app/(published)/_components/ClickTracker";
 import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBlock, googleFontsStylesheetUrl, type ThemeConfig } from "@voiddocs/shared";
 import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@voiddocs/auth";
 import { EditableArea } from "@/app/(published)/_components/EditableArea";
+import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
@@ -124,58 +125,60 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         externalLinksNewTab={theme.externalLinksNewTab}
         logoAssetId={theme.branding.logoAssetId}
       />
-      <div className="mx-auto flex w-full max-w-6xl flex-1">
-        <Sidebar
-          tree={tree}
-          paths={pathMap}
-          baseHref={baseHref}
-          activePageId={page.id}
-          siteName={site.name}
-          sidebarStyle={theme.sidebarStyle}
-          showPoweredByBadge={theme.showPoweredByBadge}
-          canManageContent={canManageContent}
-          orgSlug={orgSlugForSidebar}
-          siteId={site.id}
-        />
-        <main className="min-w-0 flex-1 px-8 py-10">
-          <div className="mx-auto max-w-2xl">
-            {showBreadcrumb ? (
-              <p className="mb-2 text-xs text-site-ink-muted">
-                {section.title} / {space.title}
-              </p>
-            ) : null}
-            <h1 className="flex items-center gap-2.5 text-3xl font-semibold text-site-ink" style={{ fontFamily: "var(--site-font-heading)" }}>
-              {page.icon ? <span aria-hidden>{page.icon}</span> : null}
-              {page.title}
-            </h1>
-            <div className="mt-6">
-              <EditableArea
-                canEdit={canEdit}
-                pageId={page.id}
-                organizationId={site.organizationId}
-                siteId={site.id}
-                initialContent={page.content}
-                initialVersion={page.contentVersion}
-              >
-                <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
-              </EditableArea>
+      <EditModeProvider>
+        <div className="mx-auto flex w-full max-w-6xl flex-1">
+          <Sidebar
+            tree={tree}
+            paths={pathMap}
+            baseHref={baseHref}
+            activePageId={page.id}
+            siteName={site.name}
+            sidebarStyle={theme.sidebarStyle}
+            showPoweredByBadge={theme.showPoweredByBadge}
+            canManageContent={canManageContent}
+            orgSlug={orgSlugForSidebar}
+            siteId={site.id}
+          />
+          <main className="min-w-0 flex-1 px-8 py-10">
+            <div className="mx-auto max-w-2xl">
+              {showBreadcrumb ? (
+                <p className="mb-2 text-xs text-site-ink-muted">
+                  {section.title} / {space.title}
+                </p>
+              ) : null}
+              <h1 className="flex items-center gap-2.5 text-3xl font-semibold text-site-ink" style={{ fontFamily: "var(--site-font-heading)" }}>
+                {page.icon ? <span aria-hidden>{page.icon}</span> : null}
+                {page.title}
+              </h1>
+              <div className="mt-6">
+                <EditableArea
+                  canEdit={canEdit}
+                  pageId={page.id}
+                  organizationId={site.organizationId}
+                  siteId={site.id}
+                  initialContent={page.content}
+                  initialVersion={page.contentVersion}
+                >
+                  <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
+                </EditableArea>
+              </div>
+              {theme.pageFeedback.enabled ? <PageFeedback pageId={page.id} /> : null}
+              {theme.pagination.enabled ? (
+                <PageNav
+                  baseHref={baseHref}
+                  prev={prevNode ? { title: prevNode.title, path: pathMap.get(prevNode.id) ?? [prevNode.slug] } : null}
+                  next={nextNode ? { title: nextNode.title, path: pathMap.get(nextNode.id) ?? [nextNode.slug] } : null}
+                />
+              ) : null}
             </div>
-            {theme.pageFeedback.enabled ? <PageFeedback pageId={page.id} /> : null}
-            {theme.pagination.enabled ? (
-              <PageNav
-                baseHref={baseHref}
-                prev={prevNode ? { title: prevNode.title, path: pathMap.get(prevNode.id) ?? [prevNode.slug] } : null}
-                next={nextNode ? { title: nextNode.title, path: pathMap.get(nextNode.id) ?? [nextNode.slug] } : null}
-              />
-            ) : null}
-          </div>
-        </main>
-        <aside className="hidden w-56 shrink-0 py-10 pr-6 xl:block">
-          <div className="sticky top-20">
-            <TableOfContents headings={extractHeadings(page.content)} />
-          </div>
-        </aside>
-      </div>
+          </main>
+          <aside className="hidden w-56 shrink-0 py-10 pr-6 xl:block">
+            <div className="sticky top-20">
+              <TableOfContents headings={extractHeadings(page.content)} />
+            </div>
+          </aside>
+        </div>
+      </EditModeProvider>
       <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} privacyPolicyHref={theme.privacyPolicyHref} />
       <DarkModeToggle />
     </div>

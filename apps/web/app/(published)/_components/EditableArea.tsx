@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { InPlaceEditorLoader } from "./InPlaceEditorLoader";
+import { useEditMode } from "./EditModeContext";
 
 /**
  * Wraps a page's read-only rendered content. Members with edit rights get an
@@ -10,6 +10,10 @@ import { InPlaceEditorLoader } from "./InPlaceEditorLoader";
  * same theme, not a separate dashboard route. Anonymous/non-editing
  * visitors never render (or download the JS for) anything in this file
  * beyond this thin wrapper — see InPlaceEditorLoader for why.
+ *
+ * `editing` comes from EditModeContext, shared with the sidebar's toggle —
+ * so switching into edit mode from either place puts both the page tree
+ * (reorder/regroup) and this page's content into edit mode together.
  */
 export function EditableArea({
   canEdit,
@@ -28,7 +32,7 @@ export function EditableArea({
   initialVersion: number;
   children: React.ReactNode;
 }) {
-  const [editing, setEditing] = useState(false);
+  const { editing, setEditing } = useEditMode();
   const router = useRouter();
 
   if (!canEdit) return <>{children}</>;

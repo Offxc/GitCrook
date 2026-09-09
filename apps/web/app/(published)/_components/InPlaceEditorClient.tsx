@@ -94,14 +94,38 @@ export function InPlaceEditorClient({
           Done editing
         </button>
       </div>
-      <BlockNoteView editor={editor} onChange={scheduleSave} theme={blockNoteTheme} slashMenu={false}>
-        <SuggestionMenuController
-          triggerCharacter="/"
-          getItems={async (query) => filterSuggestionItems(getVoidDocsSlashMenuItems(editor), query)}
-        />
-      </BlockNoteView>
+      {/* min-height so there's always a large blank area below short content
+          to click into — but BlockNote's own root (.bn-container) only ever
+          sizes itself to its content, min-height on an ancestor doesn't
+          stretch it, so that blank area belongs to THIS div, not the
+          contenteditable inside it. onClick only fires when the click lands
+          on the wrapper itself (not bubbled from a real block), and moves
+          the cursor to the end of the document — the same "click below the
+          last line to keep typing" affordance every block editor has, just
+          implemented explicitly since the DOM doesn't give it to us for
+          free here. */}
+      <div className="min-h-[60vh] cursor-text" onClick={(e) => e.target === e.currentTarget && focusEditorEnd(e.currentTarget)}>
+        <BlockNoteView editor={editor} onChange={scheduleSave} theme={blockNoteTheme} slashMenu={false}>
+          <SuggestionMenuController
+            triggerCharacter="/"
+            getItems={async (query) => filterSuggestionItems(getVoidDocsSlashMenuItems(editor), query)}
+          />
+        </BlockNoteView>
+      </div>
     </div>
   );
+}
+
+function focusEditorEnd(container: HTMLElement) {
+  const editable = container.querySelector<HTMLElement>('[contenteditable="true"]');
+  if (!editable) return;
+  editable.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editable);
+  range.collapse(false);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 function isNonEmptyArray(value: unknown): value is Record<string, unknown>[] {
