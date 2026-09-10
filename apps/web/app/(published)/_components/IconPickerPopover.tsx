@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { PAGE_ICONS } from "@/lib/editor/pageIcons";
+import { useMemo, useState } from "react";
+import { searchPageIcons } from "@/lib/editor/pageIcons";
+import { PageIcon } from "./PageIcon";
 
 /**
  * Presentation only — search + grid over the flat Phosphor icon set (see
@@ -32,8 +33,12 @@ export function IconPickerPopover({
 }) {
   const [query, setQuery] = useState("");
 
-  const q = query.trim().toLowerCase();
-  const filtered = q ? PAGE_ICONS.filter((e) => e.label.toLowerCase().includes(q) || e.slug.includes(q) || e.keywords.some((k) => k.includes(q))) : PAGE_ICONS;
+  // The full set is ~1,400 icons; rendering all of them unfiltered is a lot
+  // of DOM for a popover, so an unsearched picker shows a first page and
+  // asks you to search for the rest.
+  const matches = useMemo(() => searchPageIcons(query), [query]);
+  const filtered = matches.slice(0, 120);
+  const hiddenCount = matches.length - filtered.length;
 
   const t =
     variant === "app"
@@ -77,11 +82,12 @@ export function IconPickerPopover({
               onClick={() => onSelect(entry.slug)}
               className={`flex h-8 w-8 items-center justify-center rounded-md ${t.inkMuted} transition ${t.hoverSurfaceInk}`}
             >
-              <entry.Icon className="h-4 w-4" weight="regular" />
+              <PageIcon icon={entry.slug} className="h-4 w-4" />
             </button>
           ))}
           {filtered.length === 0 ? <p className={`col-span-8 py-3 text-center text-xs ${t.inkMuted}`}>No matching icons</p> : null}
         </div>
+        {hiddenCount > 0 ? <p className={`px-1 pt-2 text-center text-[11px] ${t.inkMuted}`}>+{hiddenCount} more — keep typing to narrow</p> : null}
         {canRemove ? (
           <button type="button" onClick={onRemove} className={`mt-2 w-full rounded-lg py-1.5 text-center text-xs ${t.inkMuted} ${t.danger}`}>
             Remove icon

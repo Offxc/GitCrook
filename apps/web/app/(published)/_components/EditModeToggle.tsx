@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEditMode } from "./EditModeContext";
+import { SiteSettingsModal } from "./SiteSettingsModal";
 
 /**
  * The site owner's floating toolbar: the single edit-mode switch, plus a way
@@ -11,8 +12,9 @@ import { useEditMode } from "./EditModeContext";
  * EditModeContext), so its switch isn't embedded in either surface.
  * Stacked above DarkModeToggle rather than sharing its row.
  */
-export function EditModeToggle({ settingsHref }: { settingsHref?: string }) {
+export function EditModeToggle({ orgSlug, siteId, siteName }: { orgSlug: string | null; siteId: string; siteName: string }) {
   const { editing, setEditing } = useEditMode();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const router = useRouter();
 
   function toggle() {
@@ -25,15 +27,19 @@ export function EditModeToggle({ settingsHref }: { settingsHref?: string }) {
 
   return (
     <div className="fixed bottom-16 right-4 z-40 flex items-center gap-2">
-      {settingsHref ? (
-        <Link
-          href={settingsHref}
-          title="Site settings"
-          aria-label="Site settings"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-site-border bg-site-canvas text-site-ink-muted shadow-lg transition hover:text-site-ink"
-        >
-          <GearIcon />
-        </Link>
+      {orgSlug ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            title="Site settings"
+            aria-label="Site settings"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-site-border bg-site-canvas text-site-ink-muted shadow-lg transition hover:text-site-ink"
+          >
+            <GearIcon />
+          </button>
+          <SiteSettingsModal orgSlug={orgSlug} siteId={siteId} siteName={siteName} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        </>
       ) : null}
       <button
         type="button"

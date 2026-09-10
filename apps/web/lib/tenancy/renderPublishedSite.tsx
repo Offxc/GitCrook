@@ -222,7 +222,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             </div>
           </aside>
         </div>
-        {canManageContent ? <EditModeToggle settingsHref={orgSlugForSidebar ? `/dashboard/${orgSlugForSidebar}/sites/${site.id}/theme` : undefined} /> : null}
+        {canManageContent ? <EditModeToggle orgSlug={orgSlugForSidebar} siteId={site.id} siteName={site.name} /> : null}
       </EditModeProvider>
       <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} privacyPolicyHref={theme.privacyPolicyHref} />
       <DarkModeToggle />
