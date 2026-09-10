@@ -48,6 +48,20 @@ export function flattenPageTree(nodes: PageTreeNode[]): PageTreeNode[] {
   return out;
 }
 
+/**
+ * The chain of groups/pages above `pageId`, outermost first, excluding the
+ * page itself — GitBook's breadcrumb is this ancestor path, not the
+ * section/space the page happens to live in.
+ */
+export function ancestorsOf(nodes: PageTreeNode[], pageId: string): PageTreeNode[] {
+  for (const node of nodes) {
+    if (node.id === pageId) return [];
+    const below = ancestorsOf(node.children, pageId);
+    if (below.length > 0 || node.children.some((c) => c.id === pageId)) return [node, ...below];
+  }
+  return [];
+}
+
 /** Builds each node's full slug path (joined by "/") from the tree root. */
 export function pathsForTree(nodes: PageTreeNode[], prefix: string[] = []): Map<string, string[]> {
   const map = new Map<string, string[]>();

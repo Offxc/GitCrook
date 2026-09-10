@@ -89,23 +89,28 @@ body {
   font-family: var(--site-font-body);
 }
 
+/* Dark values measured off a real GitBook-published site rather than picked
+   from a Tailwind scale: their canvas is a warm near-black (#1d1d1d), not
+   zinc-950, with elevated surfaces a clear step lighter (#2c2c2c) and
+   noticeably soft muted text (#c0c0c0). The zinc scale read as colder and
+   flatter than the reference. */
 @media (prefers-color-scheme: dark) {
   [data-site-root]:not([data-site-mode="light"]) {
-    --site-canvas: #09090b;
-    --site-surface: #18181b;
-    --site-border: #27272a;
-    --site-ink: #fafafa;
-    --site-ink-muted: #a1a1aa;
+    --site-canvas: #1d1d1d;
+    --site-surface: #2c2c2c;
+    --site-border: #393939;
+    --site-ink: #ffffff;
+    --site-ink-muted: #c0c0c0;
     --site-primary: #818cf8;
   }
 }
 
 [data-site-root][data-site-mode="dark"] {
-  --site-canvas: #09090b;
-  --site-surface: #18181b;
-  --site-border: #27272a;
-  --site-ink: #fafafa;
-  --site-ink-muted: #a1a1aa;
+  --site-canvas: #1d1d1d;
+  --site-surface: #2c2c2c;
+  --site-border: #393939;
+  --site-ink: #ffffff;
+  --site-ink-muted: #c0c0c0;
   --site-primary: #818cf8;
 }
 
@@ -170,15 +175,26 @@ body {
 [data-site-root] .hint-danger {
   --hint-accent: var(--site-danger);
 }
+/* Two-tone, matching a real GitBook callout: a solid accent bar down the
+   left edge, a slightly stronger header band carrying the icon + title, and
+   a lighter body beneath it. A titleless hint collapses to just the body
+   half, which is the shape GitBook's own docs use. */
 [data-site-root] .hint-block {
-  background: color-mix(in srgb, var(--hint-accent) 8%, var(--site-canvas));
-  border-color: color-mix(in srgb, var(--hint-accent) 25%, transparent);
+  background: color-mix(in srgb, var(--hint-accent) 7%, var(--site-canvas));
+  border-left: 3px solid var(--hint-accent);
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
 }
-[data-site-root] .hint-block .hint-dot {
-  background: var(--hint-accent);
+[data-site-root] .hint-block .hint-header {
+  background: color-mix(in srgb, var(--hint-accent) 16%, var(--site-canvas));
+  color: var(--site-ink);
+}
+[data-site-root] .hint-block .hint-icon {
+  color: var(--hint-accent);
 }
 [data-site-root] .hint-block .hint-text {
-  color: color-mix(in srgb, var(--hint-accent) 65%, var(--site-ink));
+  color: color-mix(in srgb, var(--site-ink) 88%, var(--hint-accent));
 }
 
 @theme inline {

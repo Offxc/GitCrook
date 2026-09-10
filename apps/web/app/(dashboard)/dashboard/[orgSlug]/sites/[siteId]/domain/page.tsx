@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { requireSite } from "@/lib/dashboard/site";
-import { SettingsTabs } from "../SettingsTabs";
+import { SettingsShell } from "../SettingsShell";
 import { AddDomainForm } from "./AddDomainForm";
 import { VerifyButton, RemoveDomainButton } from "./DomainActions";
 import { VERIFICATION_PREFIX } from "./shared";
@@ -11,19 +10,15 @@ export default async function DomainPage({ params }: { params: Promise<{ orgSlug
   const domain = site.customDomain;
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-10">
-      <p className="text-sm text-ink-muted">
-        <Link href={`/dashboard/${orgSlug}/sites/${siteId}`} className="hover:text-ink">
-          ← {site.name}
-        </Link>
-      </p>
-      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
-      <h1 className="text-2xl font-semibold text-ink">Custom domain</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        Point a domain you own at this site. HTTPS is issued automatically once it's verified.
-      </p>
-
-      <div className="mt-6 rounded-xl border border-border bg-canvas p-5">
+    <SettingsShell
+      orgSlug={orgSlug}
+      siteId={siteId}
+      siteName={site.name}
+      active="domain"
+      title="Custom domain"
+      description="Point a domain you own at this site. HTTPS is issued automatically once it's verified."
+    >
+      <div className="rounded-xl border border-border bg-canvas p-5">
         {!domain ? (
           <AddDomainForm orgSlug={orgSlug} siteId={siteId} />
         ) : (
@@ -65,7 +60,7 @@ export default async function DomainPage({ params }: { params: Promise<{ orgSlug
           </div>
         )}
       </div>
-    </div>
+    </SettingsShell>
   );
 }
 

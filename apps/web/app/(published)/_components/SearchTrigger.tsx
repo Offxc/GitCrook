@@ -80,17 +80,25 @@ export function SearchTrigger({ siteId, baseHref, compact = false }: { siteId: s
 
   return (
     <>
+      {/* Not a small icon button: a real GitBook site puts a wide, input-shaped
+          search control in the middle of the header as the most prominent
+          thing in it. `compact` (the theme's "subtle" search position) keeps
+          the old icon-only affordance. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Search"
-        className={`flex h-8 items-center gap-2 rounded-md border border-site-border text-xs text-site-ink-muted transition hover:bg-site-surface ${compact ? "w-8 justify-center" : "px-2.5"}`}
+        className={
+          compact
+            ? "flex h-9 w-9 items-center justify-center rounded-lg border border-site-border text-site-ink-muted transition hover:bg-site-surface"
+            : "flex h-9 w-full items-center gap-2.5 rounded-xl border border-site-border bg-site-surface px-3 text-sm text-site-ink-muted transition hover:border-site-primary/40 hover:text-site-ink"
+        }
       >
         <SearchIcon />
         {compact ? null : (
           <>
-            <span>Search</span>
-            <kbd className="rounded border border-site-border px-1 font-sans text-[10px]">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+            <span className="flex-1 text-left">Search...</span>
+            <kbd className="rounded border border-site-border px-1.5 py-0.5 font-sans text-[10px] tracking-wide">{isMac ? "⌘ K" : "Ctrl K"}</kbd>
           </>
         )}
       </button>

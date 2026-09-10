@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@voiddocs/db";
 import { canUserDoX } from "@voiddocs/auth";
 import { requireSite } from "@/lib/dashboard/site";
-import { SettingsTabs } from "../SettingsTabs";
+import { SettingsShell } from "../SettingsShell";
 import {
   RANGE_OPTIONS,
   isRangeOption,
@@ -45,15 +45,8 @@ export default async function AnalyticsPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-10">
-      <p className="text-sm text-ink-muted">
-        <Link href={`/dashboard/${orgSlug}/sites/${siteId}`} className="hover:text-ink">
-          ← {ctx.site.name}
-        </Link>
-      </p>
-      <SettingsTabs orgSlug={orgSlug} siteId={siteId} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-ink">Analytics</h1>
+    <SettingsShell orgSlug={orgSlug} siteId={siteId} siteName={ctx.site.name} active="analytics" title="Analytics" wide>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <nav className="flex gap-1 rounded-lg border border-border p-1 text-sm">
           {RANGE_OPTIONS.map((opt) => (
             <Link
@@ -175,7 +168,7 @@ export default async function AnalyticsPage({
           <RedirectsSection orgSlug={orgSlug} siteId={siteId} redirects={redirects} prefillFrom={brokenUrls[0]?.path} />
         </Section>
       </div>
-    </div>
+    </SettingsShell>
   );
 }
 

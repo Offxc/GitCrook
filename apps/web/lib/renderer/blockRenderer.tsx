@@ -89,10 +89,13 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
   switch (block.type) {
     case "heading": {
       const level = Number(props.level) || 2;
-      const className = { 1: "text-2xl font-semibold", 2: "text-xl font-semibold", 3: "text-lg font-semibold" }[level] ?? "text-base font-semibold";
+      // One step up across the board — with the page title now at 36px
+      // (GitBook's measured size), the old scale left in-content headings
+      // barely distinguishable from body copy.
+      const className = { 1: "text-[28px] font-bold tracking-tight", 2: "text-2xl font-bold tracking-tight", 3: "text-xl font-semibold" }[level] ?? "text-lg font-semibold";
       const Tag = (`h${Math.min(level, 6)}` as unknown) as keyof React.JSX.IntrinsicElements;
       return (
-        <Tag id={block.id} className={`${className} mb-3 mt-8 scroll-mt-20 text-site-ink first:mt-0`}>
+        <Tag id={block.id} className={`${className} mb-3 mt-10 scroll-mt-24 text-site-ink first:mt-0`}>
           {renderInline(block.content)}
           {block.children?.length ? renderBlockList(block.children, codeHtml) : null}
         </Tag>
@@ -100,10 +103,25 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
     }
     case "hint": {
       const style = isHintStyle(props.hintStyle) ? props.hintStyle : "info";
+      const title = typeof props.hintTitle === "string" ? props.hintTitle.trim() : "";
       return (
-        <div className={`hint-block hint-${style} mb-4 flex gap-2 rounded-lg border px-3.5 py-3`}>
-          <span aria-hidden className="hint-dot mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" />
-          <p className="hint-text text-[15px] leading-7">{renderInline(block.content)}</p>
+        <div className={`hint-block hint-${style} mb-4 overflow-hidden rounded-xl border`}>
+          {title ? (
+            <p className="hint-header flex items-center gap-2 px-4 py-3 text-sm font-semibold">
+              <span className="hint-icon shrink-0">
+                <HintIcon style={style} />
+              </span>
+              {title}
+            </p>
+          ) : null}
+          <div className="flex items-start gap-2.5 px-4 py-3.5">
+            {title ? null : (
+              <span className="hint-icon mt-0.5 shrink-0">
+                <HintIcon style={style} />
+              </span>
+            )}
+            <p className="hint-text text-[15px] leading-7">{renderInline(block.content)}</p>
+          </div>
         </div>
       );
     }
@@ -286,7 +304,7 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
     case "paragraph":
     default:
       return (
-        <p className="mb-4 text-[15px] leading-7 text-site-ink">
+        <p className="mb-5 text-base leading-7 text-site-ink">
           {renderInline(block.content)}
           {block.children?.length ? renderBlockList(block.children, codeHtml) : null}
         </p>
@@ -350,6 +368,33 @@ function renderInline(content: unknown): React.ReactNode {
     if (styles.underline) node = <u>{node}</u>;
     return <Fragment key={i}>{node}</Fragment>;
   });
+}
+
+/** One glyph per hint style, matching what a reader expects from the semantic colour (a triangle for warning/danger, a circled "i" for info, a tick for success). */
+function HintIcon({ style }: { style: "info" | "success" | "warning" | "danger" }) {
+  const common = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (style === "warning" || style === "danger") {
+    return (
+      <svg {...common}>
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v4M12 17h.01" />
+      </svg>
+    );
+  }
+  if (style === "success") {
+    return (
+      <svg {...common}>
+        <path d="M21.8 10A10 10 0 1 1 15.9 2.6" />
+        <path d="m9 11 3 3L22 4" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </svg>
+  );
 }
 
 function plainTextOf(content: unknown): string {

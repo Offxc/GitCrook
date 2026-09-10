@@ -4,10 +4,10 @@ import type { Metadata } from "next";
 import { prisma } from "@voiddocs/db";
 import type { ResolvedSite } from "./resolveSite";
 import { resolvePublishedPath } from "./resolvePublishedPath";
-import { getPageTree, flattenPageTree, pathsForTree } from "./getPageTree";
+import { getPageTree, flattenPageTree, pathsForTree, ancestorsOf } from "./getPageTree";
 import { BlockNoteRenderer } from "@/lib/renderer/blockRenderer";
 import { SiteHeader } from "@/app/(published)/_components/SiteHeader";
-import { Sidebar } from "@/app/(published)/_components/Sidebar";
+import { Sidebar, MobileNav } from "@/app/(published)/_components/Sidebar";
 import { PageNav } from "@/app/(published)/_components/PageNav";
 import { AnnouncementBanner } from "@/app/(published)/_components/AnnouncementBanner";
 import { Footer } from "@/app/(published)/_components/Footer";
@@ -24,6 +24,9 @@ import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
 import { EditModeToggle } from "@/app/(published)/_components/EditModeToggle";
 import { PageIcon } from "@/app/(published)/_components/PageIcon";
+import { PageActions } from "@/app/(published)/_components/PageActions";
+import { blocksToMarkdown } from "@/lib/renderer/toMarkdown";
+import { formatRelativeTime } from "@/lib/renderer/relativeTime";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
@@ -74,9 +77,17 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   const prevNode = activeIndex > 0 ? flat[activeIndex - 1] : null;
   const nextNode = activeIndex >= 0 && activeIndex < flat.length - 1 ? flat[activeIndex + 1] : null;
 
-  const showBreadcrumb = section.title !== "Documentation" || space.title !== "Docs";
+  // GitBook's breadcrumb is the page's own ancestor chain, prefixed by the
+  // section/space only when those are actually meaningful (a single-section
+  // site leaves them at their seeded defaults, where showing them is noise).
+  const breadcrumbs = [
+    ...(section.title !== "Documentation" || space.title !== "Docs" ? [section.title, space.title] : []),
+    ...ancestorsOf(tree, page.id).map((node) => node.title),
+  ];
 
   const theme = resolveTheme(site.theme);
+  const showPageActions = theme.pageActions.copyAsMarkdown || theme.pageActions.viewAsMarkdown;
+  const pageMarkdown = showPageActions ? blocksToMarkdown(page.content) : "";
   // Gated by both a real permission check (never trust theme config for
   // access control) and the site owner's own toggle for whether they want
   // this affordance visible to members at all.
@@ -128,43 +139,67 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         logoAssetId={theme.branding.logoAssetId}
       />
       <EditModeProvider>
-        <div className="mx-auto flex w-full max-w-6xl flex-1">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-1">
           <Sidebar
             tree={tree}
             paths={pathMap}
             baseHref={baseHref}
             activePageId={page.id}
-            siteName={site.name}
             sidebarStyle={theme.sidebarStyle}
             showPoweredByBadge={theme.showPoweredByBadge}
             canManageContent={canManageContent}
             orgSlug={orgSlugForSidebar}
             siteId={site.id}
           />
-          <main className="min-w-0 flex-1 px-8 py-10">
-            <div className="mx-auto max-w-2xl">
-              {showBreadcrumb ? (
-                <p className="mb-2 text-xs text-site-ink-muted">
-                  {section.title} / {space.title}
-                </p>
-              ) : null}
-              <h1 className="flex items-center gap-2.5 text-3xl font-semibold text-site-ink" style={{ fontFamily: "var(--site-font-heading)" }}>
-                <PageIcon icon={page.icon} className="h-7 w-7 shrink-0" />
-                {page.title}
-              </h1>
-              <div className="mt-6">
-                <EditableArea
-                  canEdit={canEdit}
-                  pageId={page.id}
-                  organizationId={site.organizationId}
-                  siteId={site.id}
-                  initialContent={page.content}
-                  initialVersion={page.contentVersion}
+          <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">
+            {/* max-w-3xl (768px) is the measured content width on a real
+                GitBook site; the old max-w-2xl ran ~100px narrower than the
+                reference and made the type feel cramped. */}
+            <div className="mx-auto w-full max-w-3xl">
+              <MobileNav tree={tree} paths={pathMap} baseHref={baseHref} activePageId={page.id} listStyle={theme.sidebarStyle.listStyle} />
+              <header className="mb-6 space-y-3 after:clear-both after:block">
+                {showPageActions ? (
+                  <div className="float-right -mt-1 ml-4">
+                    <PageActions markdown={pageMarkdown} allowCopy={theme.pageActions.copyAsMarkdown} allowView={theme.pageActions.viewAsMarkdown} />
+                  </div>
+                ) : null}
+                {breadcrumbs.length > 0 ? (
+                  <nav aria-label="Breadcrumb" className="flow-root text-xs leading-relaxed text-site-ink-muted">
+                    {breadcrumbs.map((crumb, i) => (
+                      <span key={i}>
+                        {i > 0 ? <span className="px-1.5 opacity-60">/</span> : null}
+                        {crumb}
+                      </span>
+                    ))}
+                  </nav>
+                ) : null}
+                <h1
+                  className="flex items-center gap-3 text-3xl font-bold leading-tight tracking-tight text-site-ink sm:text-4xl"
+                  style={{ fontFamily: "var(--site-font-heading)" }}
                 >
-                  <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
-                </EditableArea>
+                  <PageIcon icon={page.icon} className="h-8 w-8 shrink-0" />
+                  {page.title}
+                </h1>
+                {page.description ? <p className="text-lg leading-7 text-site-ink-muted">{page.description}</p> : null}
+              </header>
+
+              <EditableArea
+                canEdit={canEdit}
+                pageId={page.id}
+                organizationId={site.organizationId}
+                siteId={site.id}
+                initialContent={page.content}
+                initialVersion={page.contentVersion}
+              >
+                <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />
+              </EditableArea>
+
+              <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-site-border pt-4 text-sm text-site-ink-muted">
+                <p className="mr-auto">
+                  Last updated <time dateTime={page.updatedAt.toISOString()}>{formatRelativeTime(page.updatedAt)}</time>
+                </p>
               </div>
-              {theme.pageFeedback.enabled ? <PageFeedback pageId={page.id} /> : null}
+
               {theme.pagination.enabled ? (
                 <PageNav
                   baseHref={baseHref}
@@ -174,9 +209,13 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
               ) : null}
             </div>
           </main>
-          <aside className="hidden w-56 shrink-0 py-10 pr-6 xl:block">
-            <div className="sticky top-20">
+          {/* Outline and page rating both live in the right rail, which is
+              where GitBook puts them — the rating used to sit under the
+              content, competing with the pagination for the same spot. */}
+          <aside className="hidden w-64 shrink-0 py-8 pl-6 pr-6 xl:block">
+            <div className="sticky top-24 space-y-6">
               <TableOfContents headings={extractHeadings(page.content)} />
+              {theme.pageFeedback.enabled ? <PageFeedback pageId={page.id} /> : null}
             </div>
           </aside>
         </div>

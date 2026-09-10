@@ -8,14 +8,16 @@ export function PageFeedback({ pageId }: { pageId: string }) {
   const [state, formAction, pending] = useActionState<FeedbackState, FormData>(submitPageFeedback, {});
 
   if (state.submitted) {
-    return <p className="mt-10 border-t border-site-border pt-6 text-sm text-site-ink-muted">Thanks for your feedback!</p>;
+    return <p className="border-t border-site-border px-3 pt-4 text-sm text-site-ink-muted">Thanks for your feedback!</p>;
   }
 
+  // Lives in the right rail now (GitBook's placement), so it stacks rather
+  // than laying the prompt and buttons out on one wide row.
   return (
-    <div className="mt-10 border-t border-site-border pt-6">
+    <div className="border-t border-site-border px-3 pt-4">
       {rating === null ? (
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-site-ink-muted">Was this page helpful?</span>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="w-full text-site-ink-muted">Was this page helpful?</span>
           <button
             type="button"
             onClick={() => setRating(1)}
