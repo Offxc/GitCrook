@@ -2,8 +2,6 @@ import Link from "next/link";
 import { prisma } from "@voiddocs/db";
 import { getEnv } from "@voiddocs/shared/server";
 import { requireSite } from "@/lib/dashboard/site";
-import { NewPageForm } from "./NewPageForm";
-import { NewPageGroupForm } from "./NewPageGroupForm";
 import { DeleteSiteSection } from "./DeleteSiteSection";
 
 export default async function SiteOverviewPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
@@ -13,11 +11,10 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
 
   const publishedBase = site.customDomain?.status === "ACTIVE" ? `https://${site.customDomain.hostname}` : `${env.ROOT_PROTOCOL}://${env.ROOT_DOMAIN}/${site.slug}`;
 
-  const pages = await prisma.page.findMany({
-    where: { siteId: site.id },
-    orderBy: { order: "asc" },
-    select: { id: true, title: true, slug: true, isGroup: true },
-  });
+  const [pageCount, sectionCount] = await Promise.all([
+    prisma.page.count({ where: { siteId: site.id, isGroup: false } }),
+    prisma.section.count({ where: { siteId: site.id } }),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -55,30 +52,28 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
           <h2 className="text-sm font-medium text-ink">Variants</h2>
           <p className="mt-1 text-sm text-ink-muted">Parallel versions, e.g. v1/v2</p>
         </Link>
+        <Link href={`/dashboard/${orgSlug}/sites/${site.id}/sections`} className="rounded-xl border border-border bg-canvas p-5 transition hover:border-brand">
+          <h2 className="text-sm font-medium text-ink">Sections</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            {sectionCount} top-level tab{sectionCount === 1 ? "" : "s"}
+          </p>
+        </Link>
       </div>
 
-      <h2 className="mt-8 text-sm font-medium text-ink">Pages</h2>
-      <div className="mt-3 space-y-2">
-        {pages.map((page) =>
-          page.isGroup ? (
-            <div key={page.id} className="flex items-center justify-between rounded-lg border border-dashed border-border px-4 py-3">
-              <span className="text-sm font-medium text-ink-muted">{page.title} · group</span>
-            </div>
-          ) : (
-            <div key={page.id} className="flex items-center justify-between rounded-lg border border-border bg-canvas px-4 py-3 transition hover:border-brand">
-              <Link href={`/dashboard/${orgSlug}/sites/${site.id}/pages/${page.id}`} className="text-sm text-ink">
-                {page.title}
-              </Link>
-              <a href={`${publishedBase}/${page.slug}`} target="_blank" rel="noreferrer" className="text-xs text-ink-muted hover:text-brand">
-                View ↗
-              </a>
-            </div>
-          ),
-        )}
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <NewPageForm orgSlug={orgSlug} siteId={site.id} />
-        <NewPageGroupForm orgSlug={orgSlug} siteId={site.id} />
+      {/* Pages are written, created, reordered and grouped on the site
+          itself now (see the live sidebar's Add new / drag-to-reorder), so
+          this used to be a second, worse copy of that. What's left is the
+          count and a way in. */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-canvas p-5">
+        <div>
+          <h2 className="text-sm font-medium text-ink">Content</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            {pageCount} page{pageCount === 1 ? "" : "s"} across {sectionCount} section{sectionCount === 1 ? "" : "s"} — edit them on the site itself.
+          </p>
+        </div>
+        <a href={publishedBase} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-brand-ink transition hover:opacity-90">
+          Open site ↗
+        </a>
       </div>
 
       <div className="mt-10">

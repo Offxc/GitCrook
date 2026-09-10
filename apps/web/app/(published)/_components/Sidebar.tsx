@@ -56,6 +56,7 @@ export function Sidebar({
   canManageContent,
   orgSlug,
   siteId,
+  belowSectionTabs = false,
 }: {
   tree: PageTreeNode[];
   paths: Map<string, string[]>;
@@ -66,6 +67,8 @@ export function Sidebar({
   canManageContent: boolean;
   orgSlug: string | null;
   siteId: string;
+  /** A multi-section site renders SectionTabs between the header and this, which sticks at top-16 too — so this has to start below both. */
+  belowSectionTabs?: boolean;
 }) {
   const editable = canManageContent && orgSlug !== null;
   // "filled" is GitBook's own sidebar-background option, and it's what makes
@@ -82,9 +85,9 @@ export function Sidebar({
       // engages), which cut the "Powered by" badge off. Capping instead means
       // a long tree still fills the screen with the badge pinned at the
       // bottom, and a short one just ends where it ends.
-      className={`sticky top-16 hidden max-h-[calc(100vh-4rem)] w-72 shrink-0 flex-col lg:flex ${
-        filled ? "py-3 pl-3" : "border-r border-site-border"
-      }`}
+      className={`sticky hidden w-72 shrink-0 flex-col lg:flex ${
+        belowSectionTabs ? "top-[6.75rem] max-h-[calc(100vh-6.75rem)]" : "top-16 max-h-[calc(100vh-4rem)]"
+      } ${filled ? "py-3 pl-3" : "border-r border-site-border"}`}
       aria-label="Table of contents"
     >
       <div className={`flex min-h-0 flex-1 flex-col ${filled ? "rounded-2xl border border-site-border bg-site-surface" : ""}`}>

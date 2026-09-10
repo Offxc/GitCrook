@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const SECTIONS = [
   { key: "theme", label: "Theme", hint: "Colours, fonts, layout" },
+  { key: "sections", label: "Sections", hint: "Top-level tabs" },
   { key: "access", label: "Visitor access", hint: "Who can read it" },
   { key: "domain", label: "Custom domain", hint: "Your own hostname" },
   { key: "variants", label: "Variants", hint: "Parallel versions" },

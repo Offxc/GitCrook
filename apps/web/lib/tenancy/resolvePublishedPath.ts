@@ -16,6 +16,8 @@ export interface ResolvedPath {
   variantOptions: VariantOption[];
   /** Section/space segments consumed before the `~v` (or page) segment — empty for the common implicit single-section/single-space case. */
   pathPrefix: string[];
+  /** Every section on the site, in order — the published header renders these as tabs when there's more than one. Already loaded to resolve the path, so this costs no extra query. */
+  sections: Section[];
 }
 
 type SectionWithTree = Section & { spaces: (Space & { variants: Variant[] })[] };
@@ -97,7 +99,7 @@ export async function resolvePublishedPath(site: ResolvedSite, segments: string[
           }),
         );
 
-  return { section, space, variant, page, variantOptions, pathPrefix };
+  return { section, space, variant, page, variantOptions, pathPrefix, sections };
 }
 
 /** Walks a page-slug path (e.g. ["getting-started", "install"]) within one variant; empty path resolves to that variant's root page. */

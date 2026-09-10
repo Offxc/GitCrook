@@ -8,6 +8,7 @@ import { getPageTree, flattenPageTree, pathsForTree, ancestorsOf } from "./getPa
 import { BlockNoteRenderer } from "@/lib/renderer/blockRenderer";
 import { SiteHeader } from "@/app/(published)/_components/SiteHeader";
 import { Sidebar, MobileNav } from "@/app/(published)/_components/Sidebar";
+import { SectionTabs } from "@/app/(published)/_components/SectionTabs";
 import { PageNav } from "@/app/(published)/_components/PageNav";
 import { AnnouncementBanner } from "@/app/(published)/_components/AnnouncementBanner";
 import { Footer } from "@/app/(published)/_components/Footer";
@@ -67,7 +68,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
     notFound();
   }
 
-  const { section, space, variant, page, variantOptions, pathPrefix } = resolved;
+  const { section, space, variant, page, variantOptions, pathPrefix, sections } = resolved;
   trackEvent({ siteId: site.id, type: "PAGEVIEW", pageId: page.id, path: path.join("/"), ...meta });
   const tree = await getPageTree(variant.id);
   const pathMap = pathsForTree(tree);
@@ -138,7 +139,8 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         externalLinksNewTab={theme.externalLinksNewTab}
         logoAssetId={theme.branding.logoAssetId}
       />
-      <EditModeProvider>
+      <SectionTabs sections={sections} activeSectionId={section.id} baseHref={baseHref} />
+      <EditModeProvider siteId={site.id}>
         <div className="mx-auto flex w-full max-w-[1600px] flex-1">
           <Sidebar
             tree={tree}
@@ -150,6 +152,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             canManageContent={canManageContent}
             orgSlug={orgSlugForSidebar}
             siteId={site.id}
+            belowSectionTabs={sections.length > 1}
           />
           <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">
             {/* max-w-3xl (768px) is the measured content width on a real
@@ -219,7 +222,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             </div>
           </aside>
         </div>
-        {canManageContent ? <EditModeToggle /> : null}
+        {canManageContent ? <EditModeToggle settingsHref={orgSlugForSidebar ? `/dashboard/${orgSlugForSidebar}/sites/${site.id}/theme` : undefined} /> : null}
       </EditModeProvider>
       <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} privacyPolicyHref={theme.privacyPolicyHref} />
       <DarkModeToggle />
