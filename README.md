@@ -1,8 +1,12 @@
 <h1 align="center">GitCrook</h1>
 
 <p align="center">
-  <strong>A self-hosted documentation platform.</strong><br>
-  Multi-tenant docs sites with a live block editor, custom domains, visitor access control and analytics — on your own server.
+  <strong>$65 a month per site — plus $12 a seat — for a custom domain and analytics? I don't think so.</strong>
+</p>
+
+<p align="center">
+  A self-hosted documentation platform. Multi-tenant docs sites with a live block editor, custom
+  domains, visitor access control and analytics — on your own server, for the price of the server.
 </p>
 
 <p align="center">
@@ -26,13 +30,21 @@ writing and publishing.
 
 ## Why
 
-Hosted documentation tools are excellent, and also a recurring bill, a third party holding your
-content, and a feature set you don't control. GitCrook is the same shape of product with the
-trade-offs reversed: you run it, you own the database, and the premium-tier features are just
-features.
+Hosted documentation tools are genuinely good. They're also a recurring bill, a third party holding
+your content, and a feature set you don't control.
 
-It is deliberately **not** an AI product. There is no assistant, no embeddings, no third-party
-integrations, and no telemetry phoning home.
+The things a docs site actually needs past the free tier — a custom domain, analytics, reader
+feedback, proper branding, redirects — are, at time of writing, GitBook's Premium plan: $65 per
+site per month billed annually, plus $12 per user per month. Two sites and a couple of teammates
+and you're past $1,800 a year to publish Markdown.
+
+GitCrook is the same shape of product with the trade-offs reversed. You run it, you own the
+database, the "premium" features are just features, and more sites cost nothing extra. The bill is
+whatever your server costs.
+
+It is deliberately **not** an AI product. No assistant, no embeddings, no agent, no third-party
+integrations, no telemetry phoning home. That's most of what the tier above Premium sells, and none
+of what I wanted.
 
 ## Features
 
