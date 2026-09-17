@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 import type { ResolvedSite } from "./resolveSite";
 import { resolvePublishedPath } from "./resolvePublishedPath";
 import { getPageTree, flattenPageTree, pathsForTree, ancestorsOf } from "./getPageTree";
@@ -19,8 +19,8 @@ import { extractHeadings } from "@/lib/renderer/extractHeadings";
 import { PrivateSiteMessage } from "@/app/(published)/_components/PrivateSiteMessage";
 import { PageFeedback } from "@/app/(published)/_components/PageFeedback";
 import { ClickTracker } from "@/app/(published)/_components/ClickTracker";
-import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBlock, googleFontsStylesheetUrl, type ThemeConfig } from "@voiddocs/shared";
-import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@voiddocs/auth";
+import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBlock, googleFontsStylesheetUrl, type ThemeConfig } from "@gitcrook/shared";
+import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@gitcrook/auth";
 import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
 import { EditModeToggle } from "@/app/(published)/_components/EditModeToggle";
@@ -37,7 +37,7 @@ function resolveTheme(rawTheme: unknown): ThemeConfig {
   return result.success ? result.data : defaultTheme();
 }
 
-const CUSTOM_FONT_FAMILY = "VoidDocsCustomFont";
+const CUSTOM_FONT_FAMILY = "GitCrookCustomFont";
 
 /**
  * Shared by both published-site entry points ([siteSlug] on the root domain,

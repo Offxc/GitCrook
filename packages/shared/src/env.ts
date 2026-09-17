@@ -9,7 +9,7 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
   // "pglite:./packages/db/.pglite/data" for local dev (no server needed),
-  // "postgresql://user:pass@postgres:5432/voiddocs" in Docker/production.
+  // "postgresql://user:pass@postgres:5432/gitcrook" in Docker/production.
   DATABASE_URL: z.string().min(1),
 
   // Optional in development (rate limiting / BullMQ jobs no-op without it until Phase 5+).

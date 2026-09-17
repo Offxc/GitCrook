@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
-import { defaultTheme, validateSlug } from "@voiddocs/shared";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
+import { defaultTheme, validateSlug } from "@gitcrook/shared";
 import { requireOrgMembership } from "@/lib/dashboard/org";
 
 const CreateSiteSchema = z.object({

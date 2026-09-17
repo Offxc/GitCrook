@@ -14,7 +14,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 # apps/worker's own manifest has to be present too — pnpm's lockfile encodes
 # the whole workspace, so `install --frozen-lockfile` needs every member's
-# package.json even though this image only ever builds/runs @voiddocs/web.
+# package.json even though this image only ever builds/runs @gitcrook/web.
 # `prisma generate` (packages/db's postinstall) only needs the schema to exist
 # and DATABASE_URL to be syntactically present — it does not connect to a
 # database. The real value is injected by Docker Compose at container start.
@@ -28,7 +28,7 @@ FROM base AS build
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
 COPY --from=deps /repo ./
 COPY . .
-RUN pnpm --filter @voiddocs/web build
+RUN pnpm --filter @gitcrook/web build
 
 # ---- runtime: minimal image, non-root, only the traced output files ----------
 FROM node:22-alpine AS runtime
@@ -36,16 +36,16 @@ FROM node:22-alpine AS runtime
 # the same-named user independently, and the two images aren't guaranteed to
 # land on the same UID otherwise. That matters here specifically because both
 # containers write into the same shared `uploads` volume (docker-compose.yml).
-RUN addgroup -S -g 1001 voiddocs && adduser -S -u 1001 -G voiddocs voiddocs
+RUN addgroup -S -g 1001 gitcrook && adduser -S -u 1001 -G gitcrook gitcrook
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build --chown=voiddocs:voiddocs /repo/apps/web/.next/standalone ./
-COPY --from=build --chown=voiddocs:voiddocs /repo/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build --chown=voiddocs:voiddocs /repo/packages/db/generated ./packages/db/generated
+COPY --from=build --chown=gitcrook:gitcrook /repo/apps/web/.next/standalone ./
+COPY --from=build --chown=gitcrook:gitcrook /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=gitcrook:gitcrook /repo/packages/db/generated ./packages/db/generated
 # Baked into the image so a fresh named volume (empty on first mount) inherits
 # this ownership — see RUNBOOK.md's note on the one-time fix needed for a
 # volume that already exists from before this line was added.
-RUN mkdir -p /data/uploads && chown -R voiddocs:voiddocs /data/uploads
-USER voiddocs
+RUN mkdir -p /data/uploads && chown -R gitcrook:gitcrook /data/uploads
+USER gitcrook
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

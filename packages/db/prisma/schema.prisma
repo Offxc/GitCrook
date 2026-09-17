@@ -135,7 +135,7 @@ model Site {
   iconAssetId      String?
   logoLightAssetId String?
   logoDarkAssetId  String?
-  theme            Json // ThemeConfig, validated by @voiddocs/shared's ThemeConfigSchema
+  theme            Json // ThemeConfig, validated by @gitcrook/shared's ThemeConfigSchema
   audienceMode     AudienceMode @default(PUBLIC)
   defaultLocale    String       @default("en")
   createdAt        DateTime     @default(now())

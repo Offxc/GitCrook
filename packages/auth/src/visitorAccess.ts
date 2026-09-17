@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import argon2 from "argon2";
-import { prisma, type AudienceMode } from "@voiddocs/db";
-import { getEnv, checkRateLimit } from "@voiddocs/shared/server";
+import { prisma, type AudienceMode } from "@gitcrook/db";
+import { getEnv, checkRateLimit } from "@gitcrook/shared/server";
 import { canUserDoX } from "./rbac";
 
 /**
@@ -71,7 +71,7 @@ export async function verifySitePassword(siteId: string, plaintext: string, visi
 }
 
 function proofSecret(): Buffer {
-  return createHash("sha256").update(`voiddocs-password-proof:${getEnv().AUTH_SECRET}`).digest();
+  return createHash("sha256").update(`gitcrook-password-proof:${getEnv().AUTH_SECRET}`).digest();
 }
 
 /** `{expiryMs}.{hmac(siteId + expiryMs)}` — an opaque bearer token, not a JWT (no need for the extra format/library for one signed field). */

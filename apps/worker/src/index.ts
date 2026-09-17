@@ -1,4 +1,4 @@
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 import { runExportPdfJob } from "./jobs/exportPdf";
 
 const POLL_INTERVAL_MS = 3000;

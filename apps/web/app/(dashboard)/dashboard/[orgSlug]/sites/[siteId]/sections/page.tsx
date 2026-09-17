@@ -1,4 +1,4 @@
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 import { requireSite } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import { SectionsManager, type SectionRow } from "./SectionsManager";

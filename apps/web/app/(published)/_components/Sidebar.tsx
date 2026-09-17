@@ -1,5 +1,5 @@
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
-import type { ThemeConfig } from "@voiddocs/shared";
+import type { ThemeConfig } from "@gitcrook/shared";
 import { GitCrookMark } from "./GitCrookMark";
 import { AddNewButton } from "./AddNewButton";
 import { SidebarList } from "./SidebarList";
@@ -107,7 +107,7 @@ export function Sidebar({
           <div className="shrink-0 p-3">
             <span className="flex items-center gap-2 rounded-xl border border-site-border bg-site-canvas px-3 py-2 text-xs font-medium text-site-ink-muted">
               <GitCrookMark className="h-4 w-4 shrink-0" />
-              Powered by VoidDocs
+              Powered by GitCrook
             </span>
           </div>
         ) : null}

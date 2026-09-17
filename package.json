@@ -1,19 +1,19 @@
 {
-  "name": "voiddocs",
+  "name": "gitcrook",
   "private": true,
   "version": "0.1.0",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --filter @voiddocs/web dev",
-    "build": "pnpm --filter @voiddocs/web build",
-    "worker": "pnpm --filter @voiddocs/worker dev",
-    "db:generate": "pnpm --filter @voiddocs/db exec prisma generate",
-    "db:migrate": "pnpm --filter @voiddocs/db exec prisma migrate dev",
-    "db:deploy": "pnpm --filter @voiddocs/db exec prisma migrate deploy",
-    "db:seed": "pnpm --filter @voiddocs/db exec prisma db seed",
-    "db:studio": "pnpm --filter @voiddocs/db exec prisma studio",
+    "dev": "pnpm --filter @gitcrook/web dev",
+    "build": "pnpm --filter @gitcrook/web build",
+    "worker": "pnpm --filter @gitcrook/worker dev",
+    "db:generate": "pnpm --filter @gitcrook/db exec prisma generate",
+    "db:migrate": "pnpm --filter @gitcrook/db exec prisma migrate dev",
+    "db:deploy": "pnpm --filter @gitcrook/db exec prisma migrate deploy",
+    "db:seed": "pnpm --filter @gitcrook/db exec prisma db seed",
+    "db:studio": "pnpm --filter @gitcrook/db exec prisma studio",
     "test": "vitest run",
     "lint": "pnpm -r lint"
   },

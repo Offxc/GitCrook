@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SearchTrigger } from "./SearchTrigger";
 import { VariantSwitcher } from "./VariantSwitcher";
 import type { VariantOption } from "@/lib/tenancy/resolvePublishedPath";
-import type { ThemeConfig } from "@voiddocs/shared";
+import type { ThemeConfig } from "@gitcrook/shared";
 
 export function SiteHeader({
   siteName,

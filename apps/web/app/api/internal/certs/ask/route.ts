@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getEnv } from "@voiddocs/shared/server";
+import { getEnv } from "@gitcrook/shared/server";
 import { resolveSiteByHostname } from "@/lib/tenancy/resolveSite";
 
 /**

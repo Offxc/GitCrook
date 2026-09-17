@@ -1,5 +1,5 @@
 {
-  "name": "@voiddocs/db",
+  "name": "@gitcrook/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   "dependencies": {
     "@prisma/client": "7.10.0",
     "@prisma/adapter-pg": "7.10.0",
-    "@voiddocs/shared": "workspace:*",
+    "@gitcrook/shared": "workspace:*",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {

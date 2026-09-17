@@ -1,5 +1,5 @@
 {
-  "name": "@voiddocs/worker",
+  "name": "@gitcrook/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts"
   },
   "dependencies": {
-    "@voiddocs/db": "workspace:*",
-    "@voiddocs/shared": "workspace:*",
+    "@gitcrook/db": "workspace:*",
+    "@gitcrook/shared": "workspace:*",
     "playwright-core": "1.56.1"
   },
   "devDependencies": {

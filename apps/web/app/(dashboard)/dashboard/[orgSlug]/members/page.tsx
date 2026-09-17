@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
 import { requireOrgMembership } from "@/lib/dashboard/org";
 import { MembersTable } from "./MembersTable";
 import { AddMemberForm } from "./AddMemberForm";

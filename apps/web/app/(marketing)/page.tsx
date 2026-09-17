@@ -7,7 +7,7 @@ export default function HomePage() {
         <rect width="32" height="32" rx="8" fill="var(--color-brand)" />
         <path d="M9 10.5 16 22l7-11.5" stroke="var(--color-brand-ink)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <h1 className="text-3xl font-semibold text-ink">VoidDocs</h1>
+      <h1 className="text-3xl font-semibold text-ink">GitCrook</h1>
       <p className="max-w-md text-ink-muted">Publish beautiful documentation on your own domain.</p>
       <Link
         href="/login"

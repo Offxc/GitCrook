@@ -1,4 +1,4 @@
-<h1 align="center">VoidDocs</h1>
+<h1 align="center">GitCrook</h1>
 
 <p align="center">
   <strong>A self-hosted documentation platform.</strong><br>
@@ -6,6 +6,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Offxc/GitCrook/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Offxc/GitCrook/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-black.svg">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6.svg">
@@ -15,7 +16,7 @@
 
 ---
 
-VoidDocs is a documentation platform you host yourself. One deployment serves any number of
+GitCrook is a documentation platform you host yourself. One deployment serves any number of
 organizations, each with their own docs sites, published either at `yourdomain.com/{site-slug}`
 or at a customer's own verified domain with automatic HTTPS.
 
@@ -26,7 +27,7 @@ writing and publishing.
 ## Why
 
 Hosted documentation tools are excellent, and also a recurring bill, a third party holding your
-content, and a feature set you don't control. VoidDocs is the same shape of product with the
+content, and a feature set you don't control. GitCrook is the same shape of product with the
 trade-offs reversed: you run it, you own the database, and the premium-tier features are just
 features.
 
@@ -104,8 +105,8 @@ Docker or nothing at all — local development can run PostgreSQL as a managed c
 Docker is only needed for deployment.
 
 ```bash
-git clone https://github.com/Offxc/GitCrook.git voiddocs
-cd voiddocs
+git clone https://github.com/Offxc/GitCrook.git gitcrook
+cd gitcrook
 pnpm install
 cp .env.example .env
 ```
@@ -124,7 +125,7 @@ Put that in `AUTH_SECRET`, then create a Discord application
 Start a local PostgreSQL (runs as a child process — no Docker, no root), then migrate, seed and run:
 
 ```bash
-pnpm --filter @voiddocs/db dev:pg    # leave running in its own terminal
+pnpm --filter @gitcrook/db dev:pg    # leave running in its own terminal
 pnpm db:deploy
 pnpm db:seed
 pnpm dev
@@ -241,15 +242,17 @@ workflow — editing is direct, and `Space.editMode` is reserved for that if it 
 
 ```bash
 pnpm install
-pnpm --filter @voiddocs/db dev:pg
+pnpm --filter @gitcrook/db dev:pg
 pnpm db:deploy && pnpm db:seed
 pnpm dev
 ```
 
-Type checking is the gate that matters today:
+CI runs on every push and pull request: typecheck, a production build, and applying the whole
+migration chain plus the seed against a real PostgreSQL 18 service. Run the first two locally with:
 
 ```bash
-pnpm --filter @voiddocs/web exec tsc --noEmit -p .
+pnpm --filter @gitcrook/web exec tsc --noEmit -p .
+pnpm build
 ```
 
 A `test` script exists but there is no test suite yet — `packages/auth`'s RBAC matrix is the
@@ -264,4 +267,4 @@ migration.
 
 [MIT](LICENSE)
 
-VoidDocs is not affiliated with GitBook.
+GitCrook is not affiliated with GitBook.

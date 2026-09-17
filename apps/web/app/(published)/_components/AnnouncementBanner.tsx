@@ -1,4 +1,4 @@
-import type { ThemeConfig } from "@voiddocs/shared";
+import type { ThemeConfig } from "@gitcrook/shared";
 
 /** Site-wide banner, ThemeConfig.announcement — reuses the hint block's accent-color CSS (globals.css's .hint-* rules) so this and the Hint block always agree on what "info/success/warning/danger" look like. */
 export function AnnouncementBanner({ announcement }: { announcement: ThemeConfig["announcement"] }) {

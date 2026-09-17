@@ -1,6 +1,6 @@
-# VoidDocs deployment runbook
+# GitCrook deployment runbook
 
-Self-hosting VoidDocs on a VPS via Docker Compose, supervised directly by **systemd** — not routed through AMP (CubeCoders Application Management Portal). AMP's Generic module can technically do this, but only via a locally-authored deployment template whose file format CubeCoders' own docs don't fully specify (see the note in step 5); systemd achieves the identical result — start on boot, restart on crash, clean stop — with standard, fully-documented Linux tooling instead. If AMP is already running on this VPS for other things, it's untouched; it just isn't in this stack's path. Every step below assumes nothing is set up yet.
+Self-hosting GitCrook on a VPS via Docker Compose, supervised directly by **systemd** — not routed through AMP (CubeCoders Application Management Portal). AMP's Generic module can technically do this, but only via a locally-authored deployment template whose file format CubeCoders' own docs don't fully specify (see the note in step 5); systemd achieves the identical result — start on boot, restart on crash, clean stop — with standard, fully-documented Linux tooling instead. If AMP is already running on this VPS for other things, it's untouched; it just isn't in this stack's path. Every step below assumes nothing is set up yet.
 
 ## 0. Get the code onto the VPS
 
@@ -15,7 +15,7 @@ git commit -m "Initial commit"
 Create a new **private** repo on GitHub (github.com/new — private, since even though `.env` itself is gitignored, there's no reason to make the source public unless you want to). Then:
 
 ```bash
-git remote add origin git@github.com:<you>/voiddocs.git
+git remote add origin git@github.com:<you>/gitcrook.git
 git branch -M main
 git push -u origin main
 ```
@@ -24,14 +24,14 @@ On the VPS, do this over SSH **as root** — if `root` and `amp` are the only tw
 
 ```bash
 ssh root@<vps-ip>
-mkdir -p /opt/voiddocs
-git clone git@github.com:<you>/voiddocs.git /opt/voiddocs
-cd /opt/voiddocs
+mkdir -p /opt/gitcrook
+git clone git@github.com:<you>/gitcrook.git /opt/gitcrook
+cd /opt/gitcrook
 ```
 
 Cloning a private repo on the VPS needs its own auth — either generate a fresh SSH key on the VPS (`ssh-keygen -t ed25519`, add the printed public key under GitHub → Settings → SSH and GPG keys) or use a GitHub Personal Access Token with the HTTPS clone URL instead. Either is fine; pick whichever you already have set up.
 
-`/opt/voiddocs` is this runbook's assumed path from here on — swap it everywhere below if you put it somewhere else.
+`/opt/gitcrook` is this runbook's assumed path from here on — swap it everywhere below if you put it somewhere else.
 
 `root` owns this directory for now, through step 4 below (cloning, `.env`). Step 6 hands ownership over to `amp` before anything actually runs `docker compose` — see that step for why, and don't skip it.
 
@@ -61,7 +61,7 @@ This should print the VPS's IP address and nothing else. If it prints nothing, D
 ## 2. Discord Application (for sign-in)
 
 1. Go to [discord.com/developers/applications](https://discord.com/developers/applications) and log in.
-2. **New Application** (top right) → give it a name (e.g. "VoidDocs") → accept the terms → **Create**.
+2. **New Application** (top right) → give it a name (e.g. "GitCrook") → accept the terms → **Create**.
 3. Left sidebar → **OAuth2** → **General**.
 4. Copy the **Client ID** shown there — this is `AUTH_DISCORD_ID`.
 5. Under **Client Secret**, click **Reset Secret**, confirm, and copy the value immediately — it's shown once only. This is `AUTH_DISCORD_SECRET`.
@@ -128,7 +128,7 @@ Worth knowing: being in the `docker` group is effectively root-equivalent on thi
 ## 4. `.env`
 
 ```bash
-cd /opt/voiddocs
+cd /opt/gitcrook
 cp .env.example .env
 ```
 
@@ -167,9 +167,9 @@ AMP's Generic module *can* do this, but only via a manually-authored local deplo
 Create the unit file as root:
 
 ```bash
-tee /etc/systemd/system/voiddocs.service <<'EOF'
+tee /etc/systemd/system/gitcrook.service <<'EOF'
 [Unit]
-Description=VoidDocs (Docker Compose stack)
+Description=GitCrook (Docker Compose stack)
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
@@ -178,7 +178,7 @@ Wants=network-online.target
 Type=simple
 User=amp
 Group=amp
-WorkingDirectory=/opt/voiddocs
+WorkingDirectory=/opt/gitcrook
 ExecStart=/usr/bin/docker compose up --build
 Restart=on-failure
 RestartSec=5
@@ -193,7 +193,7 @@ Confirm `/usr/bin/docker` is really where it landed first — `which docker` —
 
 ```bash
 systemctl daemon-reload
-systemctl enable voiddocs
+systemctl enable gitcrook
 ```
 
 `enable` (no `--now`) registers it to start on every future boot but doesn't start it right now — step 6 does one manual verification run first, then starts the real service at the very end.
@@ -210,7 +210,7 @@ Why these specific choices:
 
 ```bash
 id amp                          # confirm the exact user/group name — usually also "amp"
-chown -R amp:amp /opt/voiddocs
+chown -R amp:amp /opt/gitcrook
 ```
 
 Everything from this point on (the verification below, and every future `git pull`+restart) runs *as* `amp` via `sudo -u amp`, not as root directly — that's what actually exercises the same permissions the systemd unit will have.
@@ -220,7 +220,7 @@ Everything from this point on (the verification below, and every future `git pul
 Now verify the stack actually works, over SSH, before starting the service from step 5 — far easier to debug here than through `journalctl`:
 
 ```bash
-sudo -u amp bash -c "cd /opt/voiddocs && docker compose up -d --build"
+sudo -u amp bash -c "cd /opt/gitcrook && docker compose up -d --build"
 ```
 
 (`-d` here is specific to this manual check — it detaches so your SSH session gets control back. This is *not* what the systemd unit itself runs — it runs the same command attached, per step 5, because `Type=simple` needs to hold the foreground process to supervise and signal it. Both start the identical stack, as the identical user, so this is a faithful test of exactly what systemd is about to do.)
@@ -233,21 +233,21 @@ docker compose logs -f
 
 (no `sudo -u amp` needed just to *read* logs — only actions that touch the containers/files need to run as `amp`)
 
-Once `caddy`'s logs show it obtained a certificate for `docs.voidsmp.com`, visit `https://docs.voidsmp.com` — you should see the VoidDocs marketing page and a working "Continue with Discord" sign-in button. Try signing in.
+Once `caddy`'s logs show it obtained a certificate for `docs.voidsmp.com`, visit `https://docs.voidsmp.com` — you should see the GitCrook marketing page and a working "Continue with Discord" sign-in button. Try signing in.
 
 The first person to sign in doesn't automatically get an organization — visit `/dashboard` after signing in and follow the prompt to create one; that account becomes its `ADMIN`.
 
 Once confirmed working:
 
 ```bash
-sudo -u amp bash -c "cd /opt/voiddocs && docker compose down"
+sudo -u amp bash -c "cd /opt/gitcrook && docker compose down"
 ```
 
 Then start the real service instead — both running at once fights over ports 80/443:
 
 ```bash
-systemctl start voiddocs
-systemctl status voiddocs
+systemctl start gitcrook
+systemctl status gitcrook
 ```
 
 From here on, systemd owns the process lifecycle — it also starts this automatically on every VPS reboot, since step 5 already `enable`d it.
@@ -257,24 +257,24 @@ From here on, systemd owns the process lifecycle — it also starts this automat
 Pull as **root**, not `amp` — `amp` has no GitHub credentials of its own (nobody set any up, deliberately; see step 0), so a pull run as `amp` would hit the exact same "Permission denied (publickey)" you saw earlier, just for a different account. Then hand ownership back to `amp`, since the pull just wrote new files as root again:
 
 ```bash
-cd /opt/voiddocs
+cd /opt/gitcrook
 git pull
-chown -R amp:amp /opt/voiddocs
+chown -R amp:amp /opt/gitcrook
 ```
 
 **First time only**: since step 6 already handed this directory to `amp`, root pulling here trips git's "dubious ownership" check (`fatal: detected dubious ownership in repository`) — root doesn't own the directory it's running git in. Fix once, permanently:
 
 ```bash
-git config --global --add safe.directory /opt/voiddocs
+git config --global --add safe.directory /opt/gitcrook
 ```
 
 Then re-run the `git pull` above.
 
 ```bash
-systemctl restart voiddocs
+systemctl restart gitcrook
 ```
 
-The unit's `ExecStart` already includes `--build`, so the restart itself picks up the new code; no separate manual `docker compose` invocation needed. The `migrate` service re-runs on every start, applying any new migrations before `web`/`worker` come up — safe even when there's nothing new to migrate. To watch it come up: `journalctl -u voiddocs -f`.
+The unit's `ExecStart` already includes `--build`, so the restart itself picks up the new code; no separate manual `docker compose` invocation needed. The `migrate` service re-runs on every start, applying any new migrations before `web`/`worker` come up — safe even when there's nothing new to migrate. To watch it come up: `journalctl -u gitcrook -f`.
 
 **One-time fix if your `uploads` volume predates the Dockerfiles' baked-in ownership**: if uploads were ever failing with `EACCES: permission denied, mkdir '/data/uploads/...'` before this was fixed, the volume itself needs a one-time ownership correction after you rebuild — the new image only fixes what a *fresh* volume inherits, not one that already existed with the old (wrong) ownership:
 
@@ -286,6 +286,63 @@ Run this once, after pulling the fix and rebuilding, not before — it targets U
 
 **One-time-per-project caveat**, not something you'll hit on ordinary schema changes: this project has one raw-SQL-managed column (`Page.searchVector`, a Postgres `GENERATED ALWAYS AS ... STORED` column backing full-text search) that Prisma's schema language can't fully express. If you ever edit `packages/db/prisma/schema.prisma` yourself and regenerate a migration with `prisma migrate dev`, read the warning comment directly above the `searchVector` field first — an unedited auto-generated migration will silently drop the search index. Migrations already committed to this repo have this already handled; it only matters if you're authoring a *new* one.
 
+## 7b. Renaming an existing deployment (VoidDocs → GitCrook)
+
+Only relevant to a server that was deployed **before** the rename. The code is now `gitcrook`
+throughout, but three things on a running server are tied to data rather than code, and changing
+them without care costs you the database or the uploads.
+
+**The database role and name.** Postgres applies `POSTGRES_USER`/`POSTGRES_DB` only when it
+initialises an *empty* data directory, and never again. Your `pgdata` volume was created with the
+role and database both called `voiddocs`, so they still are. `docker-compose.yml` now defaults to
+`gitcrook`, which would point the app at a role that doesn't exist. Pin the old names in `.env`
+before pulling:
+
+```bash
+cd /opt/voiddocs
+printf 'POSTGRES_USER="voiddocs"\nPOSTGRES_DB="voiddocs"\n' >> .env
+git pull
+chown -R amp:amp /opt/voiddocs
+systemctl restart voiddocs
+```
+
+That's the whole migration — nothing else needs to change, and it stays correct indefinitely. If
+you'd rather the database actually be called `gitcrook`, rename it in place first, then drop those
+two lines from `.env`:
+
+```bash
+docker compose exec postgres psql -U voiddocs -d postgres -c 'ALTER DATABASE voiddocs RENAME TO gitcrook;'
+docker compose exec postgres psql -U voiddocs -d gitcrook -c 'ALTER ROLE voiddocs RENAME TO gitcrook;'
+```
+
+Do that with the stack stopped apart from `postgres` (`docker compose stop web worker`), since you
+can't rename a database that has open connections.
+
+**The deployment directory.** Compose derives its project name from the directory, and the project
+name prefixes the volumes — your volumes are `voiddocs_pgdata` and `voiddocs_uploads`. Moving
+`/opt/voiddocs` to `/opt/gitcrook` would have Compose look for `gitcrook_*` volumes, find none, and
+create empty ones: an empty database and no uploads. Either leave the directory where it is, or
+move it and pin the old project name:
+
+```bash
+echo 'COMPOSE_PROJECT_NAME=voiddocs' >> /opt/gitcrook/.env
+```
+
+**The systemd unit.** `voiddocs.service` keeps working as-is. To rename it, write the new unit
+(step 5, with the new name), then swap:
+
+```bash
+systemctl disable --now voiddocs
+systemctl daemon-reload
+systemctl enable --now gitcrook
+rm /etc/systemd/system/voiddocs.service
+```
+
+One last thing that isn't data: the DNS verification record changed from `_voiddocs-challenge` /
+`voiddocs-verify=` to `_gitcrook-challenge` / `gitcrook-verify=`. Domains already verified stay
+verified — nothing re-checks them — but a domain still *pending* verification needs its TXT record
+updated to the new name and value shown on its settings page.
+
 ## 8. Custom domains for tenant sites
 
 Nothing to do here beyond what's above — a site owner adds their own domain from the dashboard's "Custom domain" settings page, gets a TXT record to prove ownership, and once verified, Caddy's `on_demand_tls` (gated by `/api/internal/certs/ask`, which only says yes to verified domains) issues that domain its own certificate automatically on first request. No AMP/Compose changes needed per tenant domain.
@@ -296,7 +353,7 @@ Two volumes need backing up (see `docker-compose.yml`'s `volumes:` section) — 
 
 - `pgdata` — the actual database. Prefer a real `pg_dump` on a schedule over a raw volume snapshot:
   ```bash
-  docker compose exec postgres pg_dump -U voiddocs voiddocs > backup-$(date +%F).sql
+  docker compose exec postgres pg_dump -U gitcrook gitcrook > backup-$(date +%F).sql
   ```
 - `uploads` — uploaded images/files and generated PDFs. A plain recursive copy/snapshot of this volume is fine — just files, no in-flight-transaction concerns.
 

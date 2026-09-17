@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "../src/client";
-import { defaultTheme } from "@voiddocs/shared";
+import { defaultTheme } from "@gitcrook/shared";
 
 async function main() {
   const user = await prisma.user.upsert({
@@ -48,7 +48,7 @@ async function main() {
           slug: "introduction",
           order: 0,
           content: [
-            { type: "heading", props: { level: 1 }, content: [{ type: "text", text: "Welcome to VoidDocs", styles: {} }] },
+            { type: "heading", props: { level: 1 }, content: [{ type: "text", text: "Welcome to GitCrook", styles: {} }] },
             {
               type: "paragraph",
               content: [
@@ -60,7 +60,7 @@ async function main() {
               ],
             },
           ],
-          contentText: "Welcome to VoidDocs. This seeded page proves the progressive slug router works end to end.",
+          contentText: "Welcome to GitCrook. This seeded page proves the progressive slug router works end to end.",
           publishedAt: new Date(),
         },
       });
@@ -104,7 +104,7 @@ async function main() {
           slug: "introduction",
           order: 0,
           content: [
-            { type: "heading", props: { level: 1 }, content: [{ type: "text", text: "Welcome to VoidDocs v2.0", styles: {} }] },
+            { type: "heading", props: { level: 1 }, content: [{ type: "text", text: "Welcome to GitCrook v2.0", styles: {} }] },
             {
               type: "paragraph",
               content: [
@@ -112,7 +112,7 @@ async function main() {
               ],
             },
           ],
-          contentText: "Welcome to VoidDocs v2.0. This is the v2.0 variant.",
+          contentText: "Welcome to GitCrook v2.0. This is the v2.0 variant.",
           publishedAt: new Date(),
         },
       });

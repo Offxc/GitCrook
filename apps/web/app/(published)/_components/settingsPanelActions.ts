@@ -1,10 +1,10 @@
 "use server";
 
-import type { ShareLink, CustomDomain, Variant } from "@voiddocs/db";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
-import { getEnv } from "@voiddocs/shared/server";
-import { ThemeConfigSchema, defaultTheme, type ThemeConfig } from "@voiddocs/shared";
+import type { ShareLink, CustomDomain, Variant } from "@gitcrook/db";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
+import { getEnv } from "@gitcrook/shared/server";
+import { ThemeConfigSchema, defaultTheme, type ThemeConfig } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
 import type { SectionRow } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/sections/SectionsManager";
 

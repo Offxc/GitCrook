@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { prisma } from "@voiddocs/db";
-import { getEnv, writeStoredFile } from "@voiddocs/shared/server";
+import { prisma } from "@gitcrook/db";
+import { getEnv, writeStoredFile } from "@gitcrook/shared/server";
 import { launchBrowser } from "../browser";
 import { computePagePath } from "../computePagePath";
 

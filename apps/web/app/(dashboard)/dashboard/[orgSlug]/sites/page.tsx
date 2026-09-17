@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { prisma } from "@voiddocs/db";
-import { getEnv } from "@voiddocs/shared/server";
+import { prisma } from "@gitcrook/db";
+import { getEnv } from "@gitcrook/shared/server";
 import { requireOrgMembership } from "@/lib/dashboard/org";
 import { CreateSiteForm } from "./CreateSiteForm";
 

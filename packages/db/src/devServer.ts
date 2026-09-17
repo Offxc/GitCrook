@@ -6,7 +6,7 @@
  *
  * Production NEVER imports this file — the Docker Compose stack runs a real
  * `postgres` container instead (see /docker-compose.yml). This script is invoked
- * standalone: `pnpm --filter @voiddocs/db dev:pg`.
+ * standalone: `pnpm --filter @gitcrook/db dev:pg`.
  */
 import EmbeddedPostgres from "embedded-postgres";
 import path from "node:path";
@@ -16,9 +16,9 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const databaseDir = path.resolve(here, "../.pgdata");
 const PORT = 55432;
-const USER = "voiddocs";
-const PASSWORD = "voiddocs_dev";
-const DB_NAME = "voiddocs";
+const USER = "gitcrook";
+const PASSWORD = "gitcrook_dev";
+const DB_NAME = "gitcrook";
 
 async function main() {
   const alreadyInitialised = fs.existsSync(path.join(databaseDir, "PG_VERSION"));

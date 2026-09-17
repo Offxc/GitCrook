@@ -1,8 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@voiddocs/db";
-import { checkRateLimit } from "@voiddocs/shared/server";
+import { prisma } from "@gitcrook/db";
+import { checkRateLimit } from "@gitcrook/shared/server";
 import { computeVisitorHash } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 

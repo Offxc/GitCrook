@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
-import { ThemeConfigSchema } from "@voiddocs/shared";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
+import { ThemeConfigSchema } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
 
 export interface ThemeActionState {

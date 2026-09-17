@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@voiddocs/auth";
+import { auth, signIn } from "@gitcrook/auth";
 
 export default async function LoginPage({
   searchParams,
@@ -14,15 +14,15 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <VoidDocsMark className="h-9 w-9" />
-          <h1 className="text-xl font-semibold text-ink">Sign in to VoidDocs</h1>
+          <GitCrookMark className="h-9 w-9" />
+          <h1 className="text-xl font-semibold text-ink">Sign in to GitCrook</h1>
           <p className="text-center text-sm text-ink-muted">Publish and manage your documentation.</p>
         </div>
 
         <div className="rounded-xl border border-border bg-canvas p-6 shadow-sm">
           {error === "AccessDenied" ? (
             <p className="mb-4 text-sm text-danger">
-              Access is currently allowlisted while VoidDocs is being set up.
+              Access is currently allowlisted while GitCrook is being set up.
             </p>
           ) : null}
           <form
@@ -49,7 +49,7 @@ export default async function LoginPage({
   );
 }
 
-function VoidDocsMark({ className }: { className?: string }) {
+function GitCrookMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden>
       <rect width="32" height="32" rx="8" fill="var(--color-brand)" />

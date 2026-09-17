@@ -1,4 +1,4 @@
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 
 export const RANGE_OPTIONS = ["24h", "7d", "30d", "3mo"] as const;
 export type RangeOption = (typeof RANGE_OPTIONS)[number];

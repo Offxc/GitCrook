@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { verifySitePassword, signPasswordProof } from "@voiddocs/auth";
+import { verifySitePassword, signPasswordProof } from "@gitcrook/auth";
 
 export interface PasswordGateState {
   error?: string;

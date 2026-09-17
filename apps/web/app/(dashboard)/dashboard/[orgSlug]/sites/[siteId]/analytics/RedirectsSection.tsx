@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
-import type { SiteRedirect } from "@voiddocs/db";
+import type { SiteRedirect } from "@gitcrook/db";
 import { createRedirect, deleteRedirect, type RedirectActionState } from "./redirectActions";
 
 export function RedirectsSection({ orgSlug, siteId, redirects, prefillFrom }: { orgSlug: string; siteId: string; redirects: SiteRedirect[]; prefillFrom?: string }) {

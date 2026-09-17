@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
-import { prisma, type AssetKind } from "@voiddocs/db";
-import { getSessionUserId, canUserDoX } from "@voiddocs/auth";
+import { prisma, type AssetKind } from "@gitcrook/db";
+import { getSessionUserId, canUserDoX } from "@gitcrook/auth";
 import { writeStoredFile } from "@/lib/storage/localFs";
 
 /**

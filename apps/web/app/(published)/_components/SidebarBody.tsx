@@ -1,7 +1,7 @@
 "use client";
 
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
-import type { ThemeConfig } from "@voiddocs/shared";
+import type { ThemeConfig } from "@gitcrook/shared";
 import { useEditMode } from "./EditModeContext";
 import { SidebarList } from "./SidebarList";
 import { SidebarTree } from "./SidebarTree";

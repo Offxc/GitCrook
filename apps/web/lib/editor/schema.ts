@@ -51,7 +51,7 @@ const CODE_LANGUAGES: Record<string, { name: string; aliases?: string[] }> = {
   docker: { name: "Dockerfile" },
 };
 
-export const voidDocsSchema = withMultiColumn(
+export const gitCrookSchema = withMultiColumn(
   BlockNoteSchema.create().extend({
     blockSpecs: {
       codeBlock: createCodeBlockSpec({ supportedLanguages: CODE_LANGUAGES }),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { canUserDoX } from "@voiddocs/auth";
+import { canUserDoX } from "@gitcrook/auth";
 import { requireSite } from "@/lib/dashboard/site";
 import { getTopPages, getRecentFeedback, isRangeOption } from "@/lib/analytics/queries";
 

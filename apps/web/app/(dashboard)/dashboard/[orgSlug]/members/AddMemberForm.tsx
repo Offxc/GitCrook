@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import type { Role } from "@voiddocs/db";
+import type { Role } from "@gitcrook/db";
 import { addMember, type MemberActionState } from "./actions";
 
 const ROLE_OPTIONS: Role[] = ["GUEST", "READER", "COMMENTER", "EDITOR", "REVIEWER", "CREATOR", "ADMIN"];

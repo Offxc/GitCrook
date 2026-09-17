@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma, Role } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
+import { prisma, Role } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
 import { requireOrgMembership } from "@/lib/dashboard/org";
 
 export interface MemberActionState {

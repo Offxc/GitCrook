@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@voiddocs/auth";
+import { auth, signOut } from "@gitcrook/auth";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -13,7 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <rect width="32" height="32" rx="8" fill="var(--color-brand)" />
             <path d="M9 10.5 16 22l7-11.5" stroke="var(--color-brand-ink)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className="text-sm font-semibold text-ink">VoidDocs</span>
+          <span className="text-sm font-semibold text-ink">GitCrook</span>
         </div>
         <div className="flex items-center gap-3">
           {session.user.image ? (

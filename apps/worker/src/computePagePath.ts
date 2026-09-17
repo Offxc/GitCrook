@@ -1,8 +1,8 @@
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 
 /**
  * Duplicated from apps/web/lib/tenancy/computePagePath.ts rather than shared
- * — it only touches @voiddocs/db (no other web-internal imports), so the
+ * — it only touches @gitcrook/db (no other web-internal imports), so the
  * copy is small and self-contained; moving it into packages/shared wasn't
  * worth a new cross-package dependency for one function. Keep the two in
  * sync if the URL-resolution rules ever change.

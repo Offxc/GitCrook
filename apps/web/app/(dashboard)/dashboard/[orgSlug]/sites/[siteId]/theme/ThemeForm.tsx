@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CURATED_BODY_FONTS, CURATED_MONO_FONTS, type ThemeConfig } from "@voiddocs/shared";
+import { CURATED_BODY_FONTS, CURATED_MONO_FONTS, type ThemeConfig } from "@gitcrook/shared";
 import { updateTheme, type ThemeActionState } from "./actions";
 
 type Updater = (patch: (theme: ThemeConfig) => ThemeConfig) => void;
@@ -227,7 +227,7 @@ export function ThemeForm({
         </div>
         <div className="mt-3">
           <ToggleField
-            label='Show "Powered by VoidDocs" badge'
+            label='Show "Powered by GitCrook" badge'
             checked={theme.showPoweredByBadge}
             onChange={(v) => update((t) => ({ ...t, showPoweredByBadge: v }))}
           />

@@ -1,5 +1,5 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { HINT_STYLES, HINT_STYLE_META, type HintStyle } from "@voiddocs/shared";
+import { HINT_STYLES, HINT_STYLE_META, type HintStyle } from "@gitcrook/shared";
 
 export const createHint = createReactBlockSpec(
   {

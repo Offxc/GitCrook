@@ -2,13 +2,13 @@ import { combineByGroup } from "@blocknote/core";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, type DefaultReactSuggestionItem } from "@blocknote/react";
 import { getMultiColumnSlashMenuItems } from "@blocknote/xl-multi-column";
-import type { voidDocsSchema } from "./schema";
+import type { gitCrookSchema } from "./schema";
 
-// `typeof voidDocsSchema.BlockNoteEditor` is BlockNote's own convention for
+// `typeof gitCrookSchema.BlockNoteEditor` is BlockNote's own convention for
 // naming "the concrete editor type produced by this specific schema" — the
 // bare `BlockNoteEditor` type defaults to the built-in schema and rejects
 // our custom block types (e.g. "hint") at the call sites below.
-type VoidDocsEditor = typeof voidDocsSchema.BlockNoteEditor;
+type GitCrookEditor = typeof gitCrookSchema.BlockNoteEditor;
 
 /**
  * Registering a block in the schema (lib/editor/schema.ts) only makes the
@@ -19,7 +19,7 @@ type VoidDocsEditor = typeof voidDocsSchema.BlockNoteEditor;
  * cleanly — needed now that both the multi-column package and our own custom
  * items exist alongside BlockNote's defaults.
  */
-export function getVoidDocsSlashMenuItems(editor: VoidDocsEditor): DefaultReactSuggestionItem[] {
+export function getGitCrookSlashMenuItems(editor: GitCrookEditor): DefaultReactSuggestionItem[] {
   // `onItemClick` is a no-arg closure (BlockNote's own type: `() => void`),
   // so this array has to close over `editor` and therefore live inside this
   // function — but it's still assigned to a typed variable rather than

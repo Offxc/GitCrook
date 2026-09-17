@@ -9,7 +9,7 @@ interface EditModeState {
 
 const EditModeContext = createContext<EditModeState | null>(null);
 
-const STORAGE_PREFIX = "voiddocs-edit-mode:";
+const STORAGE_PREFIX = "gitcrook-edit-mode:";
 
 /**
  * One toggle, shared by the sidebar and the page content area, so "Edit"

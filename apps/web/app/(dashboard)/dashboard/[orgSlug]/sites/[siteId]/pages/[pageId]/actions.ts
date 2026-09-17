@@ -2,8 +2,8 @@
 
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX, getSessionUserId } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX, getSessionUserId } from "@gitcrook/auth";
 import { extractPlainText } from "@/lib/editor/extractText";
 
 export interface SaveResult {

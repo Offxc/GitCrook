@@ -1,4 +1,4 @@
-import { ThemeConfigSchema, defaultTheme } from "@voiddocs/shared";
+import { ThemeConfigSchema, defaultTheme } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import { ThemeForm } from "./ThemeForm";

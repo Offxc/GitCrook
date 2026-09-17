@@ -2,9 +2,14 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_USER: voiddocs
+      # Overridable because POSTGRES_USER/POSTGRES_DB are only applied when the
+      # data directory is first initialised. An existing deployment's volume
+      # keeps whatever role and database it was created with, so changing the
+      # defaults here would point the app at a role that doesn't exist — set
+      # POSTGRES_USER/POSTGRES_DB in .env to match an older volume instead.
+      POSTGRES_USER: ${POSTGRES_USER:-gitcrook}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: voiddocs
+      POSTGRES_DB: ${POSTGRES_DB:-gitcrook}
     volumes:
       # 18+ images expect the volume at the parent dir, not .../data directly —
       # the image manages its own version-specific subdirectory underneath
@@ -13,7 +18,7 @@ services:
       - pgdata:/var/lib/postgresql
     networks: [internal]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U voiddocs"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gitcrook}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -25,10 +30,10 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
       target: build
-    command: ["pnpm", "--filter", "@voiddocs/db", "exec", "prisma", "migrate", "deploy"]
+    command: ["pnpm", "--filter", "@gitcrook/db", "exec", "prisma", "migrate", "deploy"]
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://voiddocs:${POSTGRES_PASSWORD}@postgres:5432/voiddocs
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gitcrook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gitcrook}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,7 +46,7 @@ services:
       dockerfile: docker/web.Dockerfile
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://voiddocs:${POSTGRES_PASSWORD}@postgres:5432/voiddocs
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gitcrook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gitcrook}
       NODE_ENV: production
       # Absolute, not the schema's relative default — web and worker have
       # different WORKDIRs (/app vs /repo), so a relative path would resolve
@@ -66,7 +71,7 @@ services:
       dockerfile: docker/worker.Dockerfile
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://voiddocs:${POSTGRES_PASSWORD}@postgres:5432/voiddocs
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gitcrook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gitcrook}
       NODE_ENV: production
       STORAGE_DIR: /data/uploads
     volumes:

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
 import { requireSite } from "@/lib/dashboard/site";
 
 export interface RedirectActionState {

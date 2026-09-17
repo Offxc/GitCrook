@@ -1,11 +1,11 @@
 {
-  "name": "@voiddocs/web",
+  "name": "@gitcrook/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev",
-    "build": "dotenv -e ../../.env -- next build",
+    "build": "dotenv -e ../../.env -- sh -c 'NODE_ENV=production next build'",
     "start": "dotenv -e ../../.env -- next start",
     "lint": "eslint ."
   },
@@ -18,9 +18,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@phosphor-icons/react": "2.1.10",
-    "@voiddocs/auth": "workspace:*",
-    "@voiddocs/db": "workspace:*",
-    "@voiddocs/shared": "workspace:*",
+    "@gitcrook/auth": "workspace:*",
+    "@gitcrook/db": "workspace:*",
+    "@gitcrook/shared": "workspace:*",
     "clsx": "2.1.1",
     "file-type": "22.0.2",
     "katex": "0.18.7",

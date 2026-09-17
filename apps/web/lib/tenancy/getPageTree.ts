@@ -1,4 +1,4 @@
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 
 export interface PageTreeNode {
   id: string;

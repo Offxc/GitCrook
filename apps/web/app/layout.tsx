@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "VoidDocs",
+  title: "GitCrook",
   description: "Publish beautiful documentation, on your own domain.",
 };
 

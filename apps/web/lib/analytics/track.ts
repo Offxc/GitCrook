@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { createHash } from "node:crypto";
-import { prisma, type AnalyticsEventType } from "@voiddocs/db";
+import { prisma, type AnalyticsEventType } from "@gitcrook/db";
 
 /**
  * Rotates daily so a visitorHash can't be correlated across days (no
@@ -10,7 +10,7 @@ import { prisma, type AnalyticsEventType } from "@voiddocs/db";
  */
 function dailySalt(): string {
   const day = new Date().toISOString().slice(0, 10);
-  return `voiddocs-analytics-salt:${day}`;
+  return `gitcrook-analytics-salt:${day}`;
 }
 
 export function computeVisitorHash(siteId: string, ip: string, userAgent: string): string {

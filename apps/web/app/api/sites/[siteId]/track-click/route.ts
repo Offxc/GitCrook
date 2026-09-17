@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { checkRateLimit } from "@voiddocs/shared/server";
+import { checkRateLimit } from "@gitcrook/shared/server";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 

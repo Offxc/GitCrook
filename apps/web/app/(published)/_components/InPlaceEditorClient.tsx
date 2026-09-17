@@ -8,8 +8,8 @@ import { multiColumnDropCursor, locales as multiColumnLocales } from "@blocknote
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { savePageContent } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pages/[pageId]/actions";
-import { voidDocsSchema } from "@/lib/editor/schema";
-import { getVoidDocsSlashMenuItems } from "@/lib/editor/slashMenu";
+import { gitCrookSchema } from "@/lib/editor/schema";
+import { getGitCrookSlashMenuItems } from "@/lib/editor/slashMenu";
 
 type SaveStatus = "idle" | "saving" | "saved" | "conflict" | "error";
 
@@ -47,7 +47,7 @@ export function InPlaceEditorClient({
   }, []);
 
   const editor = useCreateBlockNote({
-    schema: voidDocsSchema,
+    schema: gitCrookSchema,
     dropCursor: multiColumnDropCursor,
     dictionary: { ...blockNoteLocales.en, multi_column: multiColumnLocales.en },
     initialContent: isNonEmptyArray(initialContent) ? initialContent : DEFAULT_CONTENT,
@@ -103,7 +103,7 @@ export function InPlaceEditorClient({
         <BlockNoteView editor={editor} onChange={scheduleSave} theme={blockNoteTheme} slashMenu={false}>
           <SuggestionMenuController
             triggerCharacter="/"
-            getItems={async (query) => filterSuggestionItems(getVoidDocsSlashMenuItems(editor), query)}
+            getItems={async (query) => filterSuggestionItems(getGitCrookSlashMenuItems(editor), query)}
           />
         </BlockNoteView>
       </div>

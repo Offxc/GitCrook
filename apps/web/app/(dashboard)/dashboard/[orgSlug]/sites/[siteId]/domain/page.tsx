@@ -43,7 +43,7 @@ export default async function DomainPage({ params }: { params: Promise<{ orgSlug
                   </div>
                   <div>
                     <dt className="text-ink-muted">Value</dt>
-                    <dd className="text-ink">voiddocs-verify={domain.verificationToken}</dd>
+                    <dd className="text-ink">gitcrook-verify={domain.verificationToken}</dd>
                   </div>
                 </dl>
                 <p className="mt-3 text-ink-muted">

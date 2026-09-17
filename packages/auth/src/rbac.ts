@@ -1,4 +1,4 @@
-import { prisma, Role } from "@voiddocs/db";
+import { prisma, Role } from "@gitcrook/db";
 
 /**
  * Centralized authorization. This is the ONLY place in the codebase that should

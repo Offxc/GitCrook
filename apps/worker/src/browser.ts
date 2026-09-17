@@ -1,5 +1,5 @@
 import { chromium, type Browser } from "playwright-core";
-import { getEnv } from "@voiddocs/shared/server";
+import { getEnv } from "@gitcrook/shared/server";
 
 export async function launchBrowser(): Promise<Browser> {
   const executablePath = getEnv().CHROMIUM_EXECUTABLE_PATH;

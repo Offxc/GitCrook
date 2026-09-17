@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@voiddocs/db";
-import { getSessionUserId, resolveVisitorAccess } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
 import { readStoredFile } from "@/lib/storage/localFs";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ assetId: string }> }) {

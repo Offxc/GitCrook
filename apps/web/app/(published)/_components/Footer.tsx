@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ThemeConfig } from "@voiddocs/shared";
+import type { ThemeConfig } from "@gitcrook/shared";
 
 const SOCIAL_LABELS: Record<string, string> = {
   x: "X (Twitter)",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
-import type { ShareLink } from "@voiddocs/db";
+import type { ShareLink } from "@gitcrook/db";
 import { createShareLink, revokeShareLink, type AccessActionState } from "./actions";
 
 export function ShareLinksSection({

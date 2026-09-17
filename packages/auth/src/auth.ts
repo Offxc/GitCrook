@@ -2,8 +2,8 @@ import NextAuth from "next-auth";
 import type { DefaultSession } from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@voiddocs/db";
-import { getEnv } from "@voiddocs/shared/server";
+import { prisma } from "@gitcrook/db";
+import { getEnv } from "@gitcrook/shared/server";
 
 // trustHost (below) covers most of Auth.js's own host inference, but that
 // inference isn't reliably applied to every internal code path in this

@@ -1,7 +1,7 @@
 "use server";
 
-import { prisma, type ExportJobStatus } from "@voiddocs/db";
-import { canUserDoX, getSessionUserId } from "@voiddocs/auth";
+import { prisma, type ExportJobStatus } from "@gitcrook/db";
+import { canUserDoX, getSessionUserId } from "@gitcrook/auth";
 
 export interface ExportJobState {
   jobId?: string;

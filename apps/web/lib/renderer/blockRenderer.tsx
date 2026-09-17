@@ -1,11 +1,11 @@
 import { Fragment } from "react";
 import katex from "katex";
-import { isHintStyle, resolveEmbed } from "@voiddocs/shared";
+import { isHintStyle, resolveEmbed } from "@gitcrook/shared";
 import { highlightCode, type CodeThemePair } from "./highlightCode";
 import { CodeBlockChrome } from "@/app/(published)/_components/CodeBlockChrome";
 
 /**
- * Read-only renderer for BlockNote's default blocks plus VoidDocs' custom
+ * Read-only renderer for BlockNote's default blocks plus GitCrook' custom
  * ones (lib/editor/blocks/*, assembled in lib/editor/schema.ts). Duck-types
  * the block shapes (same reasoning as lib/editor/extractText.ts) rather than
  * importing BlockNote's editor types into a route that ships zero editor JS

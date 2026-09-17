@@ -23,7 +23,7 @@ export function DarkModeToggle() {
   useEffect(() => {
     let stored: string | null = null;
     try {
-      stored = localStorage.getItem("voiddocs-site-mode");
+      stored = localStorage.getItem("gitcrook-site-mode");
     } catch {
       // best-effort only — some private-browsing contexts throw on access
     }
@@ -35,14 +35,14 @@ export function DarkModeToggle() {
     if (next === "system") {
       getSiteRoot()?.removeAttribute("data-site-mode");
       try {
-        localStorage.removeItem("voiddocs-site-mode");
+        localStorage.removeItem("gitcrook-site-mode");
       } catch {
         // best-effort only
       }
     } else {
       getSiteRoot()?.setAttribute("data-site-mode", next);
       try {
-        localStorage.setItem("voiddocs-site-mode", next);
+        localStorage.setItem("gitcrook-site-mode", next);
       } catch {
         // best-effort only
       }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@voiddocs/db";
-import { checkRateLimit } from "@voiddocs/shared/server";
-import { getSessionUserId, resolveVisitorAccess } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { checkRateLimit } from "@gitcrook/shared/server";
+import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
 import { computePagePath } from "@/lib/tenancy/computePagePath";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";

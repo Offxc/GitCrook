@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /*
- * Tokens for VoidDocs' own app chrome (marketing, login, dashboard, editor).
+ * Tokens for GitCrook' own app chrome (marketing, login, dashboard, editor).
  * Published docs sites are themed separately and dynamically via each Site's
- * ThemeConfig (see @voiddocs/shared/theme.ts) — these variables are NOT used
+ * ThemeConfig (see @gitcrook/shared/theme.ts) — these variables are NOT used
  * there, only here in the app shell.
  */
 :root {

@@ -1,4 +1,4 @@
-import { prisma, type Section, type Space, type Variant, type Page } from "@voiddocs/db";
+import { prisma, type Section, type Space, type Variant, type Page } from "@gitcrook/db";
 import type { ResolvedSite } from "./resolveSite";
 
 export interface VariantOption {

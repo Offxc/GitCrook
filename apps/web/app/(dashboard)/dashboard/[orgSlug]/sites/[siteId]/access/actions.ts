@@ -3,8 +3,8 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX, hashSitePassword } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX, hashSitePassword } from "@gitcrook/auth";
 import { requireSite } from "@/lib/dashboard/site";
 
 export interface AccessActionState {

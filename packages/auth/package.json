@@ -1,5 +1,5 @@
 {
-  "name": "@voiddocs/auth",
+  "name": "@gitcrook/auth",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
   "types": "src/index.ts",
   "dependencies": {
     "@auth/prisma-adapter": "2.11.3",
-    "@voiddocs/db": "workspace:*",
-    "@voiddocs/shared": "workspace:*",
+    "@gitcrook/db": "workspace:*",
+    "@gitcrook/shared": "workspace:*",
     "argon2": "0.44.0",
     "next-auth": "5.0.0-beta.32"
   },

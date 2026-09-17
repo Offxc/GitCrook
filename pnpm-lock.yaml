@@ -38,18 +38,18 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.8)
+      '@gitcrook/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@gitcrook/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@gitcrook/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@phosphor-icons/react':
         specifier: 2.1.10
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@voiddocs/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@voiddocs/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@voiddocs/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -111,10 +111,10 @@ importers:
 
   apps/worker:
     dependencies:
-      '@voiddocs/db':
+      '@gitcrook/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@voiddocs/shared':
+      '@gitcrook/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       playwright-core:
@@ -139,10 +139,10 @@ importers:
       '@auth/prisma-adapter':
         specifier: 2.11.3
         version: 2.11.3(@prisma/client@7.10.0(prisma@7.10.0(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3))
-      '@voiddocs/db':
+      '@gitcrook/db':
         specifier: workspace:*
         version: link:../db
-      '@voiddocs/shared':
+      '@gitcrook/shared':
         specifier: workspace:*
         version: link:../shared
       argon2:
@@ -158,15 +158,15 @@ importers:
 
   packages/db:
     dependencies:
+      '@gitcrook/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@prisma/adapter-pg':
         specifier: 7.10.0
         version: 7.10.0
       '@prisma/client':
         specifier: 7.10.0
         version: 7.10.0(prisma@7.10.0(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(typescript@5.9.3)
-      '@voiddocs/shared':
-        specifier: workspace:*
-        version: link:../shared
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1

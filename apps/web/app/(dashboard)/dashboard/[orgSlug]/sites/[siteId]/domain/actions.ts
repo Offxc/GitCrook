@@ -4,8 +4,8 @@ import { randomBytes } from "node:crypto";
 import dns from "node:dns";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
 import { requireSite } from "@/lib/dashboard/site";
 import { VERIFICATION_PREFIX, type DomainActionState } from "./shared";
 
@@ -57,7 +57,7 @@ export async function verifyDomain(orgSlug: string, siteId: string): Promise<Dom
   if (!domain) return { error: "No domain configured yet." };
 
   const recordName = `${VERIFICATION_PREFIX}.${domain.hostname}`;
-  const expected = `voiddocs-verify=${domain.verificationToken}`;
+  const expected = `gitcrook-verify=${domain.verificationToken}`;
 
   let found = false;
   try {

@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 
 /**
  * Per-request memoized (React's `cache()` — not cross-request; Redis-backed

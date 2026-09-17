@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A new push to the same branch supersedes an in-flight run.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Both are needed at *build* time but never connected to: `prisma
+      # generate` (packages/db's postinstall) only parses DATABASE_URL, and
+      # the env schema in packages/shared validates AUTH_SECRET's length on
+      # import. Neither value is a secret or reaches a real service.
+      DATABASE_URL: postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder
+      AUTH_SECRET: ci-placeholder-secret-at-least-32-chars-long
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile is what the Docker build uses, so this also catches
+      # a lockfile that wasn't regenerated after a dependency or workspace
+      # package name changed.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @gitcrook/web exec tsc --noEmit -p .
+
+      - name: Build
+        run: pnpm --filter @gitcrook/web build
+
+  migrations:
+    name: Migrations apply cleanly
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: gitcrook
+          POSTGRES_PASSWORD: gitcrook
+          POSTGRES_DB: gitcrook
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitcrook"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://gitcrook:gitcrook@127.0.0.1:5432/gitcrook
+      AUTH_SECRET: ci-placeholder-secret-at-least-32-chars-long
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Catches the failure mode this schema is actually prone to: the
+      # Page.searchVector generated column can't be expressed in Prisma's
+      # schema language, so its migration is hand-edited and easy to break.
+      # Applying the whole chain to an empty database is the check that
+      # matters. (A `migrate diff` against the schema is deliberately *not*
+      # here — that same generated column makes it report a difference
+      # forever, so it would only ever be a red check nobody trusts.)
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Seed
+        run: pnpm db:seed

@@ -1,4 +1,4 @@
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 
 /**
  * Inverse of resolvePublishedPath: given a page, build the URL path segments

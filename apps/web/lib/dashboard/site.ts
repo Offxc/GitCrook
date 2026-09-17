@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@voiddocs/db";
+import { prisma } from "@gitcrook/db";
 import { requireOrgMembership } from "./org";
 
 /** Resolves a Site scoped to its org, after confirming the caller is an org member. */

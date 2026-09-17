@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
-import type { ThemeConfig } from "@voiddocs/shared";
+import type { ThemeConfig } from "@gitcrook/shared";
 import { PageIcon } from "./PageIcon";
 
 /**

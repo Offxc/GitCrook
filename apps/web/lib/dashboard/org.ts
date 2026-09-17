@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { prisma, type Role } from "@voiddocs/db";
-import { getSessionUserId } from "@voiddocs/auth";
+import { prisma, type Role } from "@gitcrook/db";
+import { getSessionUserId } from "@gitcrook/auth";
 
 export interface OrgContext {
   organization: { id: string; name: string; slug: string };

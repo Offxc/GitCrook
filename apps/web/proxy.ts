@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { EMBED_FRAME_SRC_HOSTS, GOOGLE_FONTS_CSS_HOST, GOOGLE_FONTS_STATIC_HOST } from "@voiddocs/shared";
+import { EMBED_FRAME_SRC_HOSTS, GOOGLE_FONTS_CSS_HOST, GOOGLE_FONTS_STATIC_HOST } from "@gitcrook/shared";
 
 /**
  * Runs on every request (Node.js runtime — this is Next.js 16's renamed

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@voiddocs/db";
-import { canUserDoX } from "@voiddocs/auth";
+import { prisma } from "@gitcrook/db";
+import { canUserDoX } from "@gitcrook/auth";
 import { requireSite } from "@/lib/dashboard/site";
 import { extractPlainText } from "@/lib/editor/extractText";
 import { RestoreButton } from "./RestoreButton";

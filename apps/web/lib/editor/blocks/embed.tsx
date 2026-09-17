@@ -1,5 +1,5 @@
 import { createReactBlockSpec } from "@blocknote/react";
-import { resolveEmbed } from "@voiddocs/shared";
+import { resolveEmbed } from "@gitcrook/shared";
 
 export const createEmbed = createReactBlockSpec(
   {
