@@ -1,3 +1,4 @@
+import { GitCrookMark } from "@/app/_components/GitCrookMark";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@gitcrook/auth";
 
@@ -9,10 +10,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen bg-surface">
       <header className="flex h-14 items-center justify-between border-b border-border bg-canvas px-5">
         <div className="flex items-center gap-2">
-          <svg viewBox="0 0 32 32" fill="none" className="h-6 w-6" aria-hidden>
-            <rect width="32" height="32" rx="8" fill="var(--color-brand)" />
-            <path d="M9 10.5 16 22l7-11.5" stroke="var(--color-brand-ink)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <GitCrookMark className="h-6 w-auto text-brand" />
           <span className="text-sm font-semibold text-ink">GitCrook</span>
         </div>
         <div className="flex items-center gap-3">

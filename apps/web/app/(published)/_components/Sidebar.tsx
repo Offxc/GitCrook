@@ -1,6 +1,6 @@
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import type { ThemeConfig } from "@gitcrook/shared";
-import { GitCrookMark } from "./GitCrookMark";
+import { GitCrookMark } from "@/app/_components/GitCrookMark";
 import { AddNewButton } from "./AddNewButton";
 import { SidebarList } from "./SidebarList";
 import { SidebarBody } from "./SidebarBody";

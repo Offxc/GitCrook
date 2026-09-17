@@ -1,4 +1,12 @@
-/** The "Powered by" mark, next to the badge text — same spot GitBook's own logo sits in its sidebar. */
+/**
+ * The GitCrook frog — the project's mark, used everywhere a logo appears:
+ * the app chrome (dashboard, login, marketing) and the "Powered by" badge on
+ * published sites.
+ *
+ * Stroked in `currentColor` and sized by `className`, so a caller sets both
+ * with text utilities. The viewBox is wider than it is tall, so prefer
+ * `h-* w-auto` over a square box.
+ */
 export function GitCrookMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 200 130" className={className} fill="none" stroke="currentColor" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

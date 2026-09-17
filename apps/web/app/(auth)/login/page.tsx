@@ -1,3 +1,4 @@
+import { GitCrookMark } from "@/app/_components/GitCrookMark";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@gitcrook/auth";
 
@@ -14,7 +15,7 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <GitCrookMark className="h-9 w-9" />
+          <GitCrookMark className="h-9 w-auto text-brand" />
           <h1 className="text-xl font-semibold text-ink">Sign in to GitCrook</h1>
           <p className="text-center text-sm text-ink-muted">Publish and manage your documentation.</p>
         </div>
@@ -49,14 +50,6 @@ export default async function LoginPage({
   );
 }
 
-function GitCrookMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden>
-      <rect width="32" height="32" rx="8" fill="var(--color-brand)" />
-      <path d="M9 10.5 16 22l7-11.5" stroke="var(--color-brand-ink)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function DiscordMark({ className }: { className?: string }) {
   return (

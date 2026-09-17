@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/Offxc/GitCrook/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Offxc/GitCrook/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <a href="LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg"></a>
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-black.svg">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6.svg">
   <img alt="PostgreSQL 18" src="https://img.shields.io/badge/PostgreSQL-18-336791.svg">
@@ -164,13 +164,15 @@ generated PDFs, shared between `web` and `worker`).
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | Postgres connection string. Under Compose this is built from `POSTGRES_PASSWORD` — don't set it directly there. |
+| `DATABASE_URL` | yes | Postgres connection string. Under Compose it's assembled from the `POSTGRES_*` vars below — don't set it directly there. |
 | `AUTH_SECRET` | yes | 32+ characters. `openssl rand -base64 32`. |
 | `AUTH_DISCORD_ID` | for sign-in | Discord OAuth client ID. |
 | `AUTH_DISCORD_SECRET` | for sign-in | Discord OAuth client secret. |
 | `ROOT_DOMAIN` | defaults to `localhost:3000` | The domain sites are published under. |
 | `ROOT_PROTOCOL` | defaults to `http` | `https` in production. |
 | `POSTGRES_PASSWORD` | Compose only | The `postgres` service's password. |
+| `POSTGRES_USER` | Compose only | Defaults to `gitcrook`. Postgres applies this only when it initialises an empty data directory, so an existing volume keeps the role it was created with — set this to match one. |
+| `POSTGRES_DB` | Compose only | Defaults to `gitcrook`. Same caveat as `POSTGRES_USER`. |
 | `ALLOWED_DISCORD_IDS` | no | Comma-separated Discord user IDs. Set it and sign-in is allowlisted; leave it unset and anyone with a Discord account gets their own organization. |
 | `STORAGE_DIR` | no | Upload directory. Compose points this at the shared volume. |
 | `CHROMIUM_EXECUTABLE_PATH` | no | Local-only; the worker image bakes its own Chromium. |
@@ -265,6 +267,21 @@ migration.
 
 ## License
 
-[MIT](LICENSE)
+[PolyForm Noncommercial 1.0.0](LICENSE).
+
+Use it, change it, self-host it, build on it — for any **noncommercial** purpose. Personal and
+hobby use, study and research, and charities, schools, public research and government bodies are
+all explicitly covered. What the licence does not grant is commercial use: you may not sell it,
+run it as a paid service, or use it commercially inside a business.
+
+Attribution is a condition, not a courtesy. If you pass on any part of this software you must
+include these terms (or the URL to them) and preserve the `Required Notice:` line at the top of
+[LICENSE](LICENSE).
+
+Want to use it commercially? Open an issue and ask — the licence reserves that right rather than
+forbidding it forever.
+
+> Note: this is a *source-available* licence, not an OSI-approved open-source one. That's
+> deliberate, and it's why GitHub won't label the repository with a recognised licence.
 
 GitCrook is not affiliated with GitBook.
