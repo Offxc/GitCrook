@@ -5,6 +5,11 @@ build/
 .next/
 out/
 *.log
+*.tsbuildinfo
+
+# Local editor/agent tooling state, not project config
+.claude/
+apps/web/CLAUDE.md
 .env
 .env.local
 .DS_Store
