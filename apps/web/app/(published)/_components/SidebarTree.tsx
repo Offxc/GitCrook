@@ -30,7 +30,8 @@ interface Row {
   isGroup: boolean;
 }
 
-const ROOT_DROPZONE_ID = "__root__";
+const ROOT_END_DROPZONE_ID = "__root_end__";
+const ROOT_START_DROPZONE_ID = "__root_start__";
 
 function flatten(tree: PageTreeNode[], parentId: string | null = null): Row[] {
   const out: Row[] = [];
@@ -77,15 +78,20 @@ function isDescendantOf(rows: Row[], nodeId: string, maybeAncestorId: string): b
 
 /**
  * Editable stand-in for SidebarList, swapped in by SidebarBody while the
- * site is in edit mode. Two drop rules, both anchored on the row you drop
- * ON rather than pixel position within it (simpler to get right, and covers
+ * site is in edit mode. Drop rules, anchored on the row you drop ON rather
+ * than pixel position within it (simpler to get right, and covers
  * everything the current UI can actually produce — see the reorderPageTree
  * comment for why nesting under a plain page isn't a case that exists yet):
- *   - drop on a group's header  -> nest inside that group, as its last child
+ *   - dragging a group          -> always becomes a root-level sibling of
+ *                                  whatever it's dropped on; groups can
+ *                                  never nest, not even inside each other
+ *   - drop a page on a group    -> nest inside that group, as its last child
  *   - drop on anything else     -> become that row's sibling, inserted before it
- * A "move to top level" strip appears at the bottom only while dragging, for
- * the case where there's no root-level row to drop beside (e.g. an
- * otherwise-empty root, or wanting to append at the very end).
+ * Two dashed strips appear only while dragging, above and below the list:
+ * "move to top level" (drop at the very end of the root) and "move to the
+ * top" (drop before whatever's currently first, including a leading group —
+ * the only way to land there, since dropping ON a group always means
+ * nesting rather than becoming its sibling).
  */
 export function SidebarTree({
   tree,
@@ -209,9 +215,21 @@ export function SidebarTree({
     const activeRow = rows.find((r) => r.id === active.id);
     if (!activeRow) return;
 
-    if (over.id === ROOT_DROPZONE_ID) {
+    if (over.id === ROOT_END_DROPZONE_ID) {
       if (activeRow.parentId === null) return; // already root; dropping at the end-of-root strip is a no-op unless it's actually moving
       applyMove(activeRow.id, null, rows.filter((r) => r.parentId === null).length);
+      return;
+    }
+
+    // The one way to land before whatever's currently first at the root —
+    // including a group, which the rule below can never target for a
+    // sibling-insert (dropping ON a group always means "go inside it").
+    // Without this, a brand new group (or a page meant to sit outside every
+    // group) had no way to ever get positioned above an existing leading
+    // group: dropping on it nested you inside instead of beside it, and
+    // there was nothing else above it to drop on.
+    if (over.id === ROOT_START_DROPZONE_ID) {
+      applyMove(activeRow.id, null, 0);
       return;
     }
 
@@ -219,9 +237,21 @@ export function SidebarTree({
     if (!overRow) return;
     if (isDescendantOf(rows, overRow.id, activeRow.id)) return; // can't drop into/beside your own descendant
 
-    // Groups are always top-level (schema invariant) — only allow reordering
-    // them among other root-level rows, never nesting them under anything.
-    if (activeRow.isGroup && overRow.parentId !== null) return;
+    // Groups are always top-level (schema invariant), so a dragged group can
+    // only ever become a root-level sibling of whatever it's dropped on —
+    // never nest inside it. This has to be checked before the "dropped on a
+    // group -> nest inside" rule below, which is otherwise unconditional:
+    // without this branch, dragging one group onto another tried to nest
+    // it, which both makes no sense for a group and is exactly why groups
+    // could never be reordered against each other by dropping directly on
+    // one another.
+    if (activeRow.isGroup) {
+      if (overRow.parentId !== null) return; // target isn't root-level either; nothing sensible to do
+      const rootSiblings = rows.filter((r) => r.parentId === null && r.id !== activeRow.id);
+      const overIndex = rootSiblings.findIndex((r) => r.id === overRow.id);
+      applyMove(activeRow.id, null, overIndex === -1 ? rootSiblings.length : overIndex);
+      return;
+    }
 
     if (overRow.isGroup) {
       const childCount = rows.filter((r) => r.parentId === overRow.id).length;
@@ -270,6 +300,7 @@ export function SidebarTree({
         onDragCancel={() => setActiveId(null)}
         onDragEnd={handleDragEnd}
       >
+        <RootDropzone id={ROOT_START_DROPZONE_ID} label="Drop here to move to the top" visible={activeId !== null} />
         <SortableContext items={display.map((r) => r.id)} strategy={verticalListSortingStrategy}>
           <ul>
             {display.map((row) => (
@@ -291,7 +322,7 @@ export function SidebarTree({
             ))}
           </ul>
         </SortableContext>
-        <RootDropzone visible={activeId !== null} />
+        <RootDropzone id={ROOT_END_DROPZONE_ID} label="Drop here to move to top level" visible={activeId !== null} />
       </DndContext>
       {status === "saving" ? <p className="mt-2 px-2 text-xs text-site-ink-muted">Saving order…</p> : null}
     </div>
@@ -534,17 +565,17 @@ function PlaceholderIcon() {
   );
 }
 
-function RootDropzone({ visible }: { visible: boolean }) {
-  const { setNodeRef, isOver } = useDroppable({ id: ROOT_DROPZONE_ID });
+function RootDropzone({ id, label, visible }: { id: string; label: string; visible: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
   if (!visible) return null;
   return (
     <div
       ref={setNodeRef}
-      className={`mt-2 rounded-md border border-dashed px-2 py-2 text-center text-[11px] ${
+      className={`my-2 rounded-md border border-dashed px-2 py-2 text-center text-[11px] ${
         isOver ? "border-site-primary bg-site-primary/10 text-site-primary" : "border-site-border text-site-ink-muted"
       }`}
     >
-      Drop here to move to top level
+      {label}
     </div>
   );
 }
