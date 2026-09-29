@@ -1,10 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 interface EditModeState {
   editing: boolean;
-  setEditing: (editing: boolean) => void;
+  setEditing: (editing: boolean) => Promise<void>;
+  /** InPlaceEditorClient registers its pending-save flush here while mounted, so
+   * turning editing off can await it first instead of racing an in-flight debounce
+   * against the unmount that would otherwise drop it — see registerSaveFlush below. */
+  registerSaveFlush: (flush: (() => Promise<void>) | null) => void;
 }
 
 const EditModeContext = createContext<EditModeState | null>(null);
@@ -30,6 +34,7 @@ export function EditModeProvider({ siteId, children }: { siteId: string; childre
   // sessionStorage, so anything else would be a hydration mismatch.
   const [editing, setEditingState] = useState(false);
   const storageKey = `${STORAGE_PREFIX}${siteId}`;
+  const saveFlushRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     try {
@@ -41,7 +46,11 @@ export function EditModeProvider({ siteId, children }: { siteId: string; childre
   }, [storageKey]);
 
   const setEditing = useCallback(
-    (next: boolean) => {
+    async (next: boolean) => {
+      // Flush before switching to read-only: the editor is about to unmount,
+      // which would silently drop anything still sitting in its 800ms
+      // debounce (e.g. a table edit made right before clicking "Done").
+      if (!next) await saveFlushRef.current?.();
       setEditingState(next);
       try {
         if (next) sessionStorage.setItem(storageKey, "1");
@@ -53,7 +62,11 @@ export function EditModeProvider({ siteId, children }: { siteId: string; childre
     [storageKey],
   );
 
-  return <EditModeContext.Provider value={{ editing, setEditing }}>{children}</EditModeContext.Provider>;
+  const registerSaveFlush = useCallback((flush: (() => Promise<void>) | null) => {
+    saveFlushRef.current = flush;
+  }, []);
+
+  return <EditModeContext.Provider value={{ editing, setEditing, registerSaveFlush }}>{children}</EditModeContext.Provider>;
 }
 
 export function useEditMode(): EditModeState {

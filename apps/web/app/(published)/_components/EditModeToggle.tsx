@@ -17,11 +17,12 @@ export function EditModeToggle({ orgSlug, siteId, siteName }: { orgSlug: string 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const router = useRouter();
 
-  function toggle() {
+  async function toggle() {
     const next = !editing;
-    setEditing(next);
-    // Turning editing off: reconcile the read-only view with whatever was
-    // just saved — nothing else refetches it, since this is local state.
+    // Awaited so turning editing off can flush a pending debounced save
+    // (see EditModeContext) before we refresh the read-only view — otherwise
+    // refresh can render the pre-save content and look like the edit reverted.
+    await setEditing(next);
     if (!next) router.refresh();
   }
 

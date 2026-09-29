@@ -10,6 +10,7 @@ import "@blocknote/mantine/style.css";
 import { savePageContent } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pages/[pageId]/actions";
 import { gitCrookSchema } from "@/lib/editor/schema";
 import { getGitCrookSlashMenuItems } from "@/lib/editor/slashMenu";
+import { useEditMode } from "./EditModeContext";
 
 type SaveStatus = "idle" | "saving" | "saved" | "conflict" | "error";
 
@@ -38,6 +39,8 @@ export function InPlaceEditorClient({
   const [blockNoteTheme, setBlockNoteTheme] = useState<"light" | "dark">("light");
   const versionRef = useRef(initialVersion);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirty = useRef(false);
+  const { registerSaveFlush } = useEditMode();
 
   useEffect(() => {
     const root = document.querySelector("[data-site-root]");
@@ -67,6 +70,7 @@ export function InPlaceEditorClient({
   });
 
   const doSave = useCallback(async () => {
+    dirty.current = false;
     setStatus("saving");
     const result = await savePageContent(pageId, versionRef.current, editor.document);
     if (result.ok && result.contentVersion !== undefined) {
@@ -80,9 +84,22 @@ export function InPlaceEditorClient({
   }, [pageId, editor]);
 
   const scheduleSave = useCallback(() => {
+    dirty.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(doSave, 800);
   }, [doSave]);
+
+  // Exposed to EditModeContext so turning editing off can flush a pending
+  // debounced save before this component unmounts, instead of losing an edit
+  // made just before "Done editing" is clicked.
+  useEffect(() => {
+    registerSaveFlush(async () => {
+      if (!dirty.current) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      await doSave();
+    });
+    return () => registerSaveFlush(null);
+  }, [registerSaveFlush, doSave]);
 
   return (
     <div>
