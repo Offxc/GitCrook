@@ -367,12 +367,15 @@ function SidebarTreeRow({
         </Link>
       )}
       {!isRenaming && !row.isGroup ? (
+        // Always visible, not hover-gated: an icon that only appears once
+        // you happen to hover the exact row is indistinguishable from "not
+        // there" until you already know to look for it.
         <button
           type="button"
           onClick={onStartRename}
           title="Rename page"
           aria-label="Rename page"
-          className="shrink-0 rounded p-1 text-site-ink-muted opacity-0 transition hover:bg-site-surface hover:text-site-ink focus-visible:opacity-100 group-hover:opacity-100"
+          className="shrink-0 rounded p-1 text-site-ink-muted transition hover:bg-site-surface hover:text-site-ink"
         >
           <PencilIcon />
         </button>
@@ -383,7 +386,7 @@ function SidebarTreeRow({
           onClick={onStartDelete}
           title={row.isGroup ? "Delete group" : "Delete page"}
           aria-label={row.isGroup ? "Delete group" : "Delete page"}
-          className="shrink-0 rounded p-1 text-site-ink-muted opacity-0 transition hover:bg-site-surface hover:text-site-danger focus-visible:opacity-100 group-hover:opacity-100"
+          className="shrink-0 rounded p-1 text-site-ink-muted transition hover:bg-site-surface hover:text-site-danger"
         >
           <TrashIcon />
         </button>
