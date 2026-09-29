@@ -13,6 +13,20 @@ export interface SaveResult {
   error?: string;
 }
 
+/**
+ * BlockNote's own document isn't guaranteed to be strict JSON — e.g. an
+ * unresized table's `columnWidths` comes through as `[undefined, undefined,
+ * ...]`, one entry per column. `JSON.parse(JSON.stringify(...))` is the
+ * simplest way to get the same normalization `JSON.stringify` already does
+ * implicitly everywhere else (array holes/undefined become `null`, object
+ * keys with an `undefined` value are dropped) — Prisma's `Json` field
+ * rejects `undefined` inside an array outright rather than doing this
+ * itself, which silently failed every save containing a table until now.
+ */
+function toJsonSafe(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value));
+}
+
 export async function savePageContent(pageId: string, expectedVersion: number, content: unknown): Promise<SaveResult> {
   const userId = await getSessionUserId();
   if (!userId) return { ok: false, error: "Unauthorized" };
@@ -26,6 +40,8 @@ export async function savePageContent(pageId: string, expectedVersion: number, c
   if (current.contentVersion !== expectedVersion) {
     return { ok: false, conflict: true, contentVersion: current.contentVersion, error: "This page changed elsewhere — reload to see the latest version before saving again." };
   }
+
+  const safeContent = toJsonSafe(content);
 
   // Throttled snapshot, not one-per-autosave: at 800ms-debounced keystrokes
   // that would be hundreds of rows per editing session. A restore point
@@ -42,7 +58,7 @@ export async function savePageContent(pageId: string, expectedVersion: number, c
     return tx.page.update({
       where: { id: pageId },
       data: {
-        content: content as object,
+        content: safeContent as object,
         contentText: extractPlainText(content),
         contentVersion: { increment: 1 },
       },
