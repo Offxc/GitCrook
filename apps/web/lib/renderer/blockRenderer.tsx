@@ -323,7 +323,7 @@ function renderTable(content: unknown) {
             <tr key={ri}>
               {(row.cells ?? []).map((cell, ci) => (
                 <td key={ci} className="border border-site-border px-3 py-2 text-site-ink">
-                  {renderInline(cell)}
+                  {renderInline(tableCellContent(cell))}
                 </td>
               ))}
             </tr>
@@ -332,6 +332,17 @@ function renderTable(content: unknown) {
       </table>
     </div>
   );
+}
+
+// A real BlockNote table cell is { type: "tableCell", content: Inline[], props }
+// — renderInline only accepts a bare Inline[], so unwrap it here. Also
+// accepts a bare array directly (the shape hand-written content used before
+// this was found to be wrong), so already-saved pages using either shape
+// keep rendering.
+function tableCellContent(cell: unknown): unknown {
+  if (Array.isArray(cell)) return cell;
+  if (cell && typeof cell === "object" && "content" in cell) return (cell as { content?: unknown }).content;
+  return cell;
 }
 
 function renderKatex(formula: string): string {

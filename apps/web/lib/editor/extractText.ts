@@ -26,12 +26,21 @@ function walkContent(content: unknown, out: string[]): void {
   if (Array.isArray(content)) {
     for (const item of content) walkInline(item, out);
   } else if (content && typeof content === "object" && "rows" in content) {
-    // Table content: { type: "tableContent", rows: [{ cells: [...] }] }
+    // Table content: { type: "tableContent", rows: [{ cells: [...] }] }.
+    // Each cell is itself { type: "tableCell", content: Inline[], props },
+    // not a bare Inline[] — unwrap before walking, same as the read-only
+    // renderer's tableCellContent, or every table's text silently drops out
+    // of search (contentText) despite the table itself rendering fine.
     const rows = (content as { rows?: unknown }).rows;
     if (Array.isArray(rows)) {
       for (const row of rows) {
         const cells = (row as { cells?: unknown })?.cells;
-        if (Array.isArray(cells)) for (const cell of cells) walkContent(cell, out);
+        if (Array.isArray(cells)) {
+          for (const cell of cells) {
+            const cellContent = Array.isArray(cell) ? cell : cell && typeof cell === "object" && "content" in cell ? (cell as { content?: unknown }).content : cell;
+            walkContent(cellContent, out);
+          }
+        }
       }
     }
   } else if (typeof content === "string") {
