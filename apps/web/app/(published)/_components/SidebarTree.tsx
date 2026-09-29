@@ -363,7 +363,7 @@ function SidebarTreeRow({
   // divider, not another row in the list, and needs to read as one at a
   // glance in edit mode too, not just in the read-only sidebar.
   const liClassName = row.isGroup
-    ? `group flex items-center gap-1 rounded-md py-1 pr-1 mt-5 border-t border-site-border pt-4 first:mt-0 first:border-t-0 first:pt-1 ${isDragging ? "opacity-40" : ""}`
+    ? `group flex items-center gap-1 rounded-md py-1 pr-1 mt-6 border-t border-site-border pt-5 first:mt-0 first:border-t-0 first:pt-1 ${isDragging ? "opacity-40" : ""}`
     : `group flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""}`;
 
   return (
@@ -540,7 +540,7 @@ function GroupLabel({
           if (e.key === "Escape") onCancelRename();
         }}
         onBlur={() => onSubmitRename(draft)}
-        className="min-w-0 flex-1 rounded-md border border-site-primary bg-site-canvas px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-site-ink outline-none"
+        className="min-w-0 flex-1 rounded-md border border-site-primary bg-site-canvas px-1.5 py-0.5 text-[13px] font-bold uppercase tracking-wide text-site-ink outline-none"
       />
     );
   }
@@ -550,7 +550,7 @@ function GroupLabel({
       type="button"
       onClick={onStartRename}
       title="Rename group"
-      className="min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-xs font-bold uppercase tracking-wider text-site-ink-muted hover:text-site-ink"
+      className="min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-[13px] font-bold uppercase tracking-wide text-site-ink hover:text-site-ink"
     >
       <span className="truncate">{row.title}</span>
     </button>

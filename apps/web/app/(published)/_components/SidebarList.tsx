@@ -43,9 +43,9 @@ export function SidebarList({
         // depth they'd be at without the group.
         if (node.isGroup) {
           return (
-            <li key={node.id} className={depth === 0 ? "mt-6 border-t border-site-border pt-4 first:mt-1 first:border-t-0 first:pt-0" : undefined}>
-              <p className="mb-1 flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-wider text-site-ink-muted">
-                <PageIcon icon={node.icon} className="h-3.5 w-3.5 shrink-0" />
+            <li key={node.id} className={depth === 0 ? "mt-7 border-t border-site-border pt-5 first:mt-1 first:border-t-0 first:pt-0" : "mt-5 first:mt-0"}>
+              <p className="mb-2 flex items-center gap-2 px-3 text-[13px] font-bold uppercase tracking-wide text-site-ink">
+                <PageIcon icon={node.icon} className="h-4 w-4 shrink-0" />
                 {node.title}
               </p>
               {node.children.length > 0 ? (
