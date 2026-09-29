@@ -6,6 +6,7 @@ import { prisma } from "@gitcrook/db";
 import { canUserDoX } from "@gitcrook/auth";
 import { validateSlug } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
+import { computePagePath } from "@/lib/tenancy/computePagePath";
 
 export interface CreatePageState {
   error?: string;
@@ -155,6 +156,11 @@ const ReorderSchema = z
 export interface ReorderResult {
   ok?: boolean;
   error?: string;
+  /** New URL path segments for every moved page, keyed by id — a move can change a page's
+   * URL (a new parent group, or a different position relative to section/space siblings),
+   * so the caller can redirect off a now-stale URL instead of leaving the visitor on a
+   * link that 404s the moment they reload it. */
+  newPaths?: Record<string, string[]>;
 }
 
 /**
@@ -207,8 +213,14 @@ export async function reorderPageTree(orgSlug: string, siteId: string, updates: 
 
   await prisma.$transaction(parsed.data.map((u) => prisma.page.update({ where: { id: u.id }, data: { parentId: u.parentId, order: u.order } })));
 
+  const newPaths: Record<string, string[]> = {};
+  for (const u of parsed.data) {
+    const path = await computePagePath(u.id);
+    if (path) newPaths[u.id] = path;
+  }
+
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
-  return { ok: true };
+  return { ok: true, newPaths };
 }
 
 const RenamePageSchema = z.object({

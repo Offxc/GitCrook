@@ -195,6 +195,12 @@ export function SidebarTree({
       return;
     }
     setStatus("idle");
+    // A move can change the URL of the page currently being viewed — a new
+    // parent group, or shifting past a section/space boundary — leaving the
+    // address bar pointing at a path that now 404s. Follow it to the new one
+    // rather than stranding the visitor there.
+    const newPath = result.newPaths?.[activePageId];
+    if (newPath) window.location.href = `${baseHref}/${newPath.join("/")}`;
   }
 
   function applyMove(activeRowId: string, targetParentId: string | null, insertAt: number) {
