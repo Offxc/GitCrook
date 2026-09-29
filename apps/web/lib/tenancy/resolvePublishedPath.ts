@@ -105,12 +105,19 @@ export async function resolvePublishedPath(site: ResolvedSite, segments: string[
 /** Walks a page-slug path (e.g. ["getting-started", "install"]) within one variant; empty path resolves to that variant's root page. */
 async function resolvePageBySlugPath(variantId: string, slugPath: string[]): Promise<Page | null> {
   if (slugPath.length === 0) {
-    return resolveThroughGroup(
-      await prisma.page.findFirst({
-        where: { variantId, parentId: null, isDraft: false },
-        orderBy: { order: "asc" },
-      }),
-    );
+    // The first top-level item might be an empty group (its only child was
+    // just deleted) — resolveThroughGroup then has nothing to land on, so
+    // scan forward to the next top-level item instead of 404ing the whole
+    // site root over one empty group.
+    const topLevel = await prisma.page.findMany({
+      where: { variantId, parentId: null, isDraft: false },
+      orderBy: { order: "asc" },
+    });
+    for (const candidate of topLevel) {
+      const resolved = await resolveThroughGroup(candidate);
+      if (resolved) return resolved;
+    }
+    return null;
   }
   let parentId: string | null = null;
   let page: Page | null = null;
