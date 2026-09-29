@@ -111,13 +111,35 @@ export async function updatePageIcon(orgSlug: string, siteId: string, pageId: st
   return { ok: true };
 }
 
+export interface PageChildCountResult {
+  ok: boolean;
+  childCount?: number;
+  error?: string;
+}
+
+/** So a delete confirmation can warn about cascaded descendants before committing — used by both the dashboard's DeletePageButton and the live sidebar's, which each need it before their own confirm step. Same content.edit gate as deletePage itself: a child count is structural information about the page tree, not something to hand to any signed-in user regardless of their access to this site. */
+export async function getPageChildCount(siteId: string, pageId: string): Promise<PageChildCountResult> {
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false, error: "Unauthorized" };
+
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  if (!page || page.siteId !== siteId) return { ok: false, error: "Page not found." };
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
+  if (!allowed) return { ok: false, error: "You don't have permission to view this page." };
+
+  const childCount = await prisma.page.count({ where: { parentId: pageId } });
+  return { ok: true, childCount };
+}
+
 export interface DeletePageResult {
   ok: boolean;
   error?: string;
+  /** Only ever the dashboard's own page-list route — the live sidebar's delete button knows its own site URL to send the visitor back to instead of using this. */
   redirectTo?: string;
 }
 
-/** Page.parentId is onDelete: Cascade (packages/db/prisma/schema.prisma), so this also removes every descendant in the page tree — the caller is expected to have already warned about that (see the child count this returns nothing about; DeletePageButton fetches it separately before showing the confirm step). */
+/** Page.parentId is onDelete: Cascade (packages/db/prisma/schema.prisma), so this also removes every descendant in the page tree — the caller is expected to have already warned about that via getPageChildCount before calling this. */
 export async function deletePage(orgSlug: string, siteId: string, pageId: string): Promise<DeletePageResult> {
   const userId = await getSessionUserId();
   if (!userId) return { ok: false, error: "Unauthorized" };

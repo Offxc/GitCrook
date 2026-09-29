@@ -13,9 +13,10 @@ import {
 } from "@dnd-kit/core";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useRouter } from "next/navigation";
 import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import { reorderPageTree, renamePage } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pagesActions";
-import { updatePageIcon } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pages/[pageId]/actions";
+import { updatePageIcon, deletePage, getPageChildCount } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pages/[pageId]/actions";
 import { PageIcon } from "./PageIcon";
 import { IconPickerPopover } from "./IconPickerPopover";
 
@@ -107,7 +108,11 @@ export function SidebarTree({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [iconPickerRowId, setIconPickerRowId] = useState<string | null>(null);
+  const [deleteState, setDeleteState] = useState<{ id: string; childCount: number } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const router = useRouter();
 
   useEffect(() => {
     setRows(flatten(tree));
@@ -136,6 +141,41 @@ export function SidebarTree({
       setRows(previousRows);
       setRenameError(result.error ?? "Couldn't update icon.");
     }
+  }
+
+  async function startDelete(id: string) {
+    setDeleteError(null);
+    const result = await getPageChildCount(siteId, id);
+    if (!result.ok) {
+      setDeleteError(result.error ?? "Couldn't check this page.");
+      return;
+    }
+    setDeleteState({ id, childCount: result.childCount ?? 0 });
+  }
+
+  async function confirmDelete() {
+    if (!deleteState) return;
+    const { id } = deleteState;
+    setDeletingId(id);
+    const wasActive = id === activePageId || isDescendantOf(rows, activePageId, id);
+    const result = await deletePage(orgSlug, siteId, id);
+    setDeletingId(null);
+    setDeleteState(null);
+    if (!result.ok) {
+      setDeleteError(result.error ?? "Couldn't delete this page.");
+      return;
+    }
+    // deletePage's own redirectTo is the dashboard's page list — right for
+    // its original caller there, wrong here, since we're already looking at
+    // the site. If the deleted page (or an ancestor of the page you're on)
+    // is gone, the current URL 404s next render, so send the visitor to the
+    // site root instead; otherwise just drop the row and stay put.
+    if (wasActive) {
+      window.location.href = baseHref;
+      return;
+    }
+    setRows((prev) => prev.filter((r) => r.id !== id && !isDescendantOf(prev, r.id, id)));
+    router.refresh();
   }
 
   async function persist(updates: { id: string; parentId: string | null; order: number }[], previousRows: Row[]) {
@@ -200,6 +240,29 @@ export function SidebarTree({
     <div>
       {status === "error" ? <p className="mb-2 px-2 text-xs text-site-danger">Couldn&apos;t save that change — try again.</p> : null}
       {renameError ? <p className="mb-2 px-2 text-xs text-site-danger">{renameError}</p> : null}
+      {deleteError ? <p className="mb-2 px-2 text-xs text-site-danger">{deleteError}</p> : null}
+      {deleteState ? (
+        <div className="mb-2 rounded-md border border-site-danger/40 bg-site-danger/5 px-2.5 py-2 text-xs text-site-ink">
+          <p>
+            {deleteState.childCount > 0
+              ? `Delete this and ${deleteState.childCount} sub-page${deleteState.childCount === 1 ? "" : "s"}?`
+              : "Delete this page?"}
+          </p>
+          <div className="mt-1.5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={confirmDelete}
+              disabled={deletingId !== null}
+              className="font-medium text-site-danger hover:underline disabled:opacity-60"
+            >
+              {deletingId ? "Deleting…" : "Confirm"}
+            </button>
+            <button type="button" onClick={() => setDeleteState(null)} className="text-site-ink-muted hover:text-site-ink">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -223,6 +286,7 @@ export function SidebarTree({
                 onStartPickIcon={() => setIconPickerRowId(row.id)}
                 onCancelPickIcon={() => setIconPickerRowId(null)}
                 onPickIcon={(icon) => chooseIcon(row.id, icon)}
+                onStartDelete={() => startDelete(row.id)}
               />
             ))}
           </ul>
@@ -246,6 +310,7 @@ function SidebarTreeRow({
   onStartPickIcon,
   onCancelPickIcon,
   onPickIcon,
+  onStartDelete,
 }: {
   row: Row & { depth: number };
   href: string;
@@ -258,6 +323,7 @@ function SidebarTreeRow({
   onStartPickIcon: () => void;
   onCancelPickIcon: () => void;
   onPickIcon: (icon: string | null) => void;
+  onStartDelete: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -266,8 +332,8 @@ function SidebarTreeRow({
   // divider, not another row in the list, and needs to read as one at a
   // glance in edit mode too, not just in the read-only sidebar.
   const liClassName = row.isGroup
-    ? `flex items-center gap-1 rounded-md py-1 pr-1 mt-5 border-t border-site-border pt-4 first:mt-0 first:border-t-0 first:pt-1 ${isDragging ? "opacity-40" : ""}`
-    : `flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""}`;
+    ? `group flex items-center gap-1 rounded-md py-1 pr-1 mt-5 border-t border-site-border pt-4 first:mt-0 first:border-t-0 first:pt-1 ${isDragging ? "opacity-40" : ""}`
+    : `group flex items-center gap-1 rounded-md py-1 pr-1 ${isDragging ? "opacity-40" : ""}`;
 
   return (
     <li ref={setNodeRef} style={{ ...style, paddingLeft: row.depth * 16 }} className={liClassName}>
@@ -283,9 +349,16 @@ function SidebarTreeRow({
       <RowIconButton icon={row.icon} isPicking={isPickingIcon} onStart={onStartPickIcon} onCancel={onCancelPickIcon} onPick={onPickIcon} />
       {row.isGroup ? (
         <GroupLabel row={row} isRenaming={isRenaming} onStartRename={onStartRename} onSubmitRename={onSubmitRename} onCancelRename={onCancelRename} />
+      ) : isRenaming ? (
+        <RenameInput title={row.title} onSubmit={onSubmitRename} onCancel={onCancelRename} />
       ) : (
         <Link
           href={href}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            onStartRename();
+          }}
+          title="Double-click to rename"
           className={`min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-[13px] leading-5 ${
             isActive ? "font-medium text-site-primary" : "text-site-ink-muted hover:text-site-ink"
           }`}
@@ -293,7 +366,72 @@ function SidebarTreeRow({
           <span className="truncate">{row.title}</span>
         </Link>
       )}
+      {!isRenaming && !row.isGroup ? (
+        <button
+          type="button"
+          onClick={onStartRename}
+          title="Rename page"
+          aria-label="Rename page"
+          className="shrink-0 rounded p-1 text-site-ink-muted opacity-0 transition hover:bg-site-surface hover:text-site-ink focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <PencilIcon />
+        </button>
+      ) : null}
+      {!isRenaming ? (
+        <button
+          type="button"
+          onClick={onStartDelete}
+          title={row.isGroup ? "Delete group" : "Delete page"}
+          aria-label={row.isGroup ? "Delete group" : "Delete page"}
+          className="shrink-0 rounded p-1 text-site-ink-muted opacity-0 transition hover:bg-site-surface hover:text-site-danger focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <TrashIcon />
+        </button>
+      ) : null}
     </li>
+  );
+}
+
+/**
+ * The page-row equivalent of GroupLabel's inline rename, but simpler: this
+ * only ever exists in the DOM while isRenaming is true (SidebarTreeRow swaps
+ * it in for the <Link> at that same position), so it mounts fresh on every
+ * open and its own `useState(title)` initializer is always current — no
+ * resync effect needed the way GroupLabel needs one for its always-mounted
+ * wrapper.
+ */
+function RenameInput({ title, onSubmit, onCancel }: { title: string; onSubmit: (title: string) => void; onCancel: () => void }) {
+  const [draft, setDraft] = useState(title);
+  return (
+    // eslint-disable-next-line jsx-a11y/no-autofocus -- opening rename should focus the input immediately
+    <input
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={(e) => e.target.select()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onSubmit(draft);
+        if (e.key === "Escape") onCancel();
+      }}
+      onBlur={() => onSubmit(draft)}
+      className="min-w-0 flex-1 rounded-md border border-site-primary bg-site-canvas px-1.5 py-0.5 text-[13px] text-site-ink outline-none"
+    />
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" />
+    </svg>
   );
 }
 
