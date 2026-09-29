@@ -50,7 +50,18 @@ export function EditModeProvider({ siteId, children }: { siteId: string; childre
       // Flush before switching to read-only: the editor is about to unmount,
       // which would silently drop anything still sitting in its 800ms
       // debounce (e.g. a table edit made right before clicking "Done").
-      if (!next) await saveFlushRef.current?.();
+      // Failures are swallowed here on purpose: InPlaceEditorClient already
+      // surfaces a failed save via its own "error" status, and a rejection
+      // escaping this await would skip setEditingState below entirely,
+      // leaving "Done editing" looking completely inert — exiting edit mode
+      // must not depend on the flush having succeeded.
+      if (!next) {
+        try {
+          await saveFlushRef.current?.();
+        } catch {
+          // best-effort — see comment above
+        }
+      }
       setEditingState(next);
       try {
         if (next) sessionStorage.setItem(storageKey, "1");

@@ -81,17 +81,27 @@ export function InPlaceEditorClient({
 
   // The actual network call, run only from within saveChain so it can never
   // overlap another one — reads editor.document fresh right before sending,
-  // so whichever save runs last always carries the latest content.
+  // so whichever save runs last always carries the latest content. Never
+  // throws: a rejection here would propagate through saveChain and poison
+  // every save queued after it (the chain is never replaced, only appended
+  // to), permanently hanging "Done editing" since it awaits saveChain.
   const runSave = useCallback(async () => {
     dirty.current = false;
     setStatus("saving");
-    const result = await savePageContent(pageId, versionRef.current, editor.document);
-    if (result.ok && result.contentVersion !== undefined) {
-      versionRef.current = result.contentVersion;
-      setStatus("saved");
-    } else if (result.conflict) {
-      setStatus("conflict");
-    } else {
+    try {
+      const result = await savePageContent(pageId, versionRef.current, editor.document);
+      if (result.ok && result.contentVersion !== undefined) {
+        versionRef.current = result.contentVersion;
+        setStatus("saved");
+      } else if (result.conflict) {
+        setStatus("conflict");
+      } else {
+        setStatus("error");
+      }
+    } catch {
+      // e.g. the Server Action's notFound() (page deleted elsewhere) throws
+      // instead of returning — surface it the same as any other save
+      // failure rather than letting it escape as a rejection.
       setStatus("error");
     }
   }, [pageId, editor]);
