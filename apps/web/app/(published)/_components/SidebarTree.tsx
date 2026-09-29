@@ -137,7 +137,12 @@ export function SidebarTree({
     if (result.error) {
       setRows(previousRows);
       setRenameError(result.error);
+      return;
     }
+    // The slug now follows the title, so renaming the page currently being
+    // viewed changes its URL — follow it there instead of leaving the
+    // visitor on a path that 404s on the next load.
+    if (id === activePageId && result.newPath) window.location.href = `${baseHref}/${result.newPath.join("/")}`;
   }
 
   async function chooseIcon(id: string, icon: string | null) {

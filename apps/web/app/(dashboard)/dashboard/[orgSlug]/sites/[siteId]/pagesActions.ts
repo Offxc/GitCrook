@@ -230,15 +230,20 @@ const RenamePageSchema = z.object({
 export interface RenamePageResult {
   ok?: boolean;
   error?: string;
+  /** The page's freshly recomputed URL path, since the slug now follows the title —
+   * lets a caller viewing this page's old URL redirect to where it lives now. */
+  newPath?: string[];
 }
 
 /**
- * Only the title, never the slug — the slug is the page's stable URL
- * identifier, set once at creation (see createPage/createPageGroup), so a
- * rename doesn't break existing links to it. Used from the live sidebar's
- * edit-mode tree, primarily for groups: a group has no content of its own to
- * navigate to, so clicking one in edit mode renames it in place instead of
- * linking anywhere.
+ * Renaming updates the slug to match, so the URL always reflects the
+ * current title — the trade-off (accepted deliberately, see the user
+ * discussion this changed from the original "slug is stable" design) is
+ * that a link to the old URL 404s after a rename, same as if the page were
+ * deleted and recreated with the new title. Used from the live sidebar's
+ * edit-mode tree, primarily for groups: a group has no content of its own
+ * to navigate to, so clicking one in edit mode renames it in place instead
+ * of linking anywhere.
  */
 export async function renamePage(orgSlug: string, siteId: string, pageId: string, title: string): Promise<RenamePageResult> {
   const { site, userId } = await requireSite(orgSlug, siteId);
@@ -246,13 +251,25 @@ export async function renamePage(orgSlug: string, siteId: string, pageId: string
   const parsed = RenamePageSchema.safeParse({ title });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, variantId: true, parentId: true, slug: true } });
   if (!page || page.siteId !== site.id) return { error: "Page not found." };
 
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { error: "You don't have permission to rename this page." };
 
-  await prisma.page.update({ where: { id: pageId }, data: { title: parsed.data.title } });
+  const baseSlug = slugify(parsed.data.title);
+  let slug = baseSlug;
+  let suffix = 0;
+  while (
+    slug !== page.slug &&
+    ((await prisma.page.findFirst({ where: { variantId: page.variantId, parentId: page.parentId, slug, id: { not: pageId } } })) || !validateSlug(slug).ok)
+  ) {
+    suffix += 1;
+    slug = `${baseSlug}-${suffix}`;
+  }
+
+  await prisma.page.update({ where: { id: pageId }, data: { title: parsed.data.title, slug } });
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
-  return { ok: true };
+  const newPath = await computePagePath(pageId);
+  return { ok: true, newPath: newPath ?? undefined };
 }
