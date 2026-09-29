@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -32,6 +32,8 @@ interface Row {
 
 const ROOT_END_DROPZONE_ID = "__root_end__";
 const ROOT_START_DROPZONE_ID = "__root_start__";
+const GROUP_DROPZONE_PREFIX = "__group_empty__:";
+const groupDropzoneId = (groupId: string) => `${GROUP_DROPZONE_PREFIX}${groupId}`;
 
 function flatten(tree: PageTreeNode[], parentId: string | null = null): Row[] {
   const out: Row[] = [];
@@ -233,6 +235,13 @@ export function SidebarTree({
       return;
     }
 
+    if (typeof over.id === "string" && over.id.startsWith(GROUP_DROPZONE_PREFIX)) {
+      const groupId = over.id.slice(GROUP_DROPZONE_PREFIX.length);
+      if (activeRow.isGroup || isDescendantOf(rows, groupId, activeRow.id)) return; // groups can't nest; can't drop a group into its own descendant group
+      applyMove(activeRow.id, groupId, 0);
+      return;
+    }
+
     const overRow = rows.find((r) => r.id === over.id);
     if (!overRow) return;
     if (isDescendantOf(rows, overRow.id, activeRow.id)) return; // can't drop into/beside your own descendant
@@ -304,21 +313,33 @@ export function SidebarTree({
         <SortableContext items={display.map((r) => r.id)} strategy={verticalListSortingStrategy}>
           <ul>
             {display.map((row) => (
-              <SidebarTreeRow
-                key={row.id}
-                row={row}
-                href={`${baseHref}/${(paths.get(row.id) ?? [row.slug]).join("/")}`}
-                isActive={row.id === activePageId}
-                isRenaming={renamingId === row.id}
-                onStartRename={() => setRenamingId(row.id)}
-                onSubmitRename={(title) => submitRename(row.id, title)}
-                onCancelRename={() => setRenamingId(null)}
-                isPickingIcon={iconPickerRowId === row.id}
-                onStartPickIcon={() => setIconPickerRowId(row.id)}
-                onCancelPickIcon={() => setIconPickerRowId(null)}
-                onPickIcon={(icon) => chooseIcon(row.id, icon)}
-                onStartDelete={() => startDelete(row.id)}
-              />
+              <Fragment key={row.id}>
+                <SidebarTreeRow
+                  row={row}
+                  href={`${baseHref}/${(paths.get(row.id) ?? [row.slug]).join("/")}`}
+                  isActive={row.id === activePageId}
+                  isRenaming={renamingId === row.id}
+                  onStartRename={() => setRenamingId(row.id)}
+                  onSubmitRename={(title) => submitRename(row.id, title)}
+                  onCancelRename={() => setRenamingId(null)}
+                  isPickingIcon={iconPickerRowId === row.id}
+                  onStartPickIcon={() => setIconPickerRowId(row.id)}
+                  onCancelPickIcon={() => setIconPickerRowId(null)}
+                  onPickIcon={(icon) => chooseIcon(row.id, icon)}
+                  onStartDelete={() => startDelete(row.id)}
+                />
+                {/* An empty group's own row is the only drop target dropping a page
+                    "into" it — with closestCenter collision detection that's a thin,
+                    fiddly band, worse now that group headers carry extra spacing for
+                    visual weight. A dedicated, generously-sized zone right under an
+                    empty group's header makes that drop actually easy to land. Not
+                    needed once the group has a child: dropping near/on that child
+                    already inserts as its new first/last sibling via the normal
+                    sortable rows below. */}
+                {row.isGroup && activeId !== null && activeId !== row.id && rows.filter((r) => r.parentId === row.id).length === 0 ? (
+                  <GroupDropzone groupId={row.id} depth={row.depth} />
+                ) : null}
+              </Fragment>
             ))}
           </ul>
         </SortableContext>
@@ -562,6 +583,22 @@ function PlaceholderIcon() {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" strokeDasharray="2.5 2.5" />
     </svg>
+  );
+}
+
+function GroupDropzone({ groupId, depth }: { groupId: string; depth: number }) {
+  const { setNodeRef, isOver } = useDroppable({ id: groupDropzoneId(groupId) });
+  return (
+    <li style={{ paddingLeft: depth * 16 }} className="py-0.5">
+      <div
+        ref={setNodeRef}
+        className={`rounded-md border border-dashed px-2 py-2 text-center text-[11px] ${
+          isOver ? "border-site-primary bg-site-primary/10 text-site-primary" : "border-site-border text-site-ink-muted"
+        }`}
+      >
+        Drop here to add to this group
+      </div>
+    </li>
   );
 }
 
