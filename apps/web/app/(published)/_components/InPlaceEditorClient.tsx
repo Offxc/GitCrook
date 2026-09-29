@@ -40,6 +40,16 @@ export function InPlaceEditorClient({
   const versionRef = useRef(initialVersion);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
+  // Chains every save attempt onto the last one instead of letting them run
+  // concurrently: an in-flight save from the debounce firing mid-edit can
+  // otherwise still be carrying pre-edit content (e.g. a table before a row
+  // was deleted) when a second, newer save — triggered moments later by
+  // another edit or by "Done editing" flushing — starts before the first
+  // has finished. Both would report ok:true (same expectedVersion, since
+  // the first hasn't resolved yet to bump it), and whichever's request
+  // happens to commit to the DB last silently wins, regardless of which
+  // edit was actually more recent.
+  const saveChain = useRef<Promise<void>>(Promise.resolve());
   const { registerSaveFlush } = useEditMode();
 
   useEffect(() => {
@@ -69,7 +79,10 @@ export function InPlaceEditorClient({
     },
   });
 
-  const doSave = useCallback(async () => {
+  // The actual network call, run only from within saveChain so it can never
+  // overlap another one — reads editor.document fresh right before sending,
+  // so whichever save runs last always carries the latest content.
+  const runSave = useCallback(async () => {
     dirty.current = false;
     setStatus("saving");
     const result = await savePageContent(pageId, versionRef.current, editor.document);
@@ -83,6 +96,15 @@ export function InPlaceEditorClient({
     }
   }, [pageId, editor]);
 
+  // Enqueues a save behind whatever's currently running. Re-checks `dirty`
+  // once it's actually its turn — if a prior queued save already covered
+  // this change (or there's nothing new), it's a no-op rather than an
+  // extra redundant request.
+  const doSave = useCallback(() => {
+    saveChain.current = saveChain.current.then(() => (dirty.current ? runSave() : undefined));
+    return saveChain.current;
+  }, [runSave]);
+
   const scheduleSave = useCallback(() => {
     dirty.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -91,12 +113,14 @@ export function InPlaceEditorClient({
 
   // Exposed to EditModeContext so turning editing off can flush a pending
   // debounced save before this component unmounts, instead of losing an edit
-  // made just before "Done editing" is clicked.
+  // made just before "Done editing" is clicked. Also waits for the chain
+  // (not just dirty) so an already-in-flight save finishes before we report
+  // "done" and the read-only view re-fetches.
   useEffect(() => {
     registerSaveFlush(async () => {
-      if (!dirty.current) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      await doSave();
+      if (dirty.current) doSave();
+      await saveChain.current;
     });
     return () => registerSaveFlush(null);
   }, [registerSaveFlush, doSave]);
