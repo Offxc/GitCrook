@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@gitcrook/db";
 import { canUserDoX } from "@gitcrook/auth";
-import { requireSite } from "@/lib/dashboard/site";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import {
   RANGE_OPTIONS,
@@ -15,6 +15,7 @@ import {
   getBrokenUrls,
   type RangeOption,
 } from "@/lib/analytics/queries";
+import { getPasswordLog } from "@/lib/analytics/passwordLog";
 import { RedirectsSection } from "./RedirectsSection";
 
 const RANGE_LABELS: Record<RangeOption, string> = { "24h": "24 hours", "7d": "7 days", "30d": "30 days", "3mo": "3 months" };
@@ -34,7 +35,7 @@ export default async function AnalyticsPage({
 
   const range: RangeOption = isRangeOption(rangeParam) ? rangeParam : "7d";
 
-  const [traffic, topPages, feedback, searchQueries, linkClicks, brokenUrls, redirects] = await Promise.all([
+  const [traffic, topPages, feedback, searchQueries, linkClicks, brokenUrls, redirects, passwordLog] = await Promise.all([
     getTrafficSummary(ctx.site.id, range),
     getTopPages(ctx.site.id, range),
     getRecentFeedback(ctx.site.id, 20),
@@ -42,10 +43,11 @@ export default async function AnalyticsPage({
     getTopLinkClicks(ctx.site.id, range),
     getBrokenUrls(ctx.site.id, range),
     prisma.siteRedirect.findMany({ where: { siteId: ctx.site.id }, orderBy: { createdAt: "desc" } }),
+    ctx.site.audienceMode === "PASSWORD" ? getPasswordLog(ctx.site.id) : Promise.resolve(null),
   ]);
 
   return (
-    <SettingsShell orgSlug={orgSlug} siteId={siteId} siteName={ctx.site.name} active="analytics" title="Analytics" wide>
+    <SettingsShell orgSlug={orgSlug} siteId={siteId} siteName={ctx.site.name} publishedUrl={publishedUrlFor(ctx.site)} active="analytics" title="Analytics" wide>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <nav className="flex gap-1 rounded-lg border border-border p-1 text-sm">
           {RANGE_OPTIONS.map((opt) => (
@@ -79,6 +81,48 @@ export default async function AnalyticsPage({
             <Breakdown title="Referrer" rows={traffic.byReferrer} />
           </div>
         </Section>
+
+        {passwordLog ? (
+          <Section title="Password logins">
+            {passwordLog.length === 0 ? (
+              <EmptyState label="No password attempts in the last 90 days." />
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-ink-muted">
+                    <th className="pb-2 font-normal">When</th>
+                    <th className="pb-2 font-normal">Country</th>
+                    <th className="pb-2 font-normal">IP</th>
+                    <th className="pb-2 font-normal">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {passwordLog.map((entry) => (
+                    <tr key={entry.id} className="border-b border-border last:border-0">
+                      <td className="py-1.5 text-ink-muted">{entry.occurredAt.toLocaleString()}</td>
+                      <td className="py-1.5 text-ink">{entry.country ?? "—"}</td>
+                      <td className="py-1.5 font-mono text-xs text-ink">{entry.ip}</td>
+                      <td className="py-1.5">
+                        <span
+                          className={
+                            entry.result === "success"
+                              ? "text-green-500"
+                              : entry.result === "rateLimited"
+                                ? "text-amber-500"
+                                : "text-ink-muted"
+                          }
+                        >
+                          {entry.result === "success" ? "Success" : entry.result === "rateLimited" ? "Rate limited" : "Wrong password"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="mt-3 text-xs text-ink-muted">Kept for 90 days, then deleted automatically.</p>
+          </Section>
+        ) : null}
 
         <Section title="Pages & feedback" action={<a href={`/dashboard/${orgSlug}/sites/${siteId}/analytics/export?range=${range}`} className="text-xs text-brand hover:underline">Export CSV</a>}>
           {topPages.length === 0 ? (
