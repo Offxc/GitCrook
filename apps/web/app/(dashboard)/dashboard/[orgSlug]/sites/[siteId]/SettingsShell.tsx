@@ -24,6 +24,7 @@ export function SettingsShell({
   orgSlug,
   siteId,
   siteName,
+  publishedUrl,
   active,
   title,
   description,
@@ -33,6 +34,11 @@ export function SettingsShell({
   orgSlug: string;
   siteId: string;
   siteName: string;
+  /** The site's live URL — rendered as a direct link back to it, so getting from a
+   * settings page (especially Analytics, which has no modal equivalent on the live
+   * site) back to the actual site doesn't require a new tab or retracing through
+   * the dashboard's site overview first. */
+  publishedUrl: string;
   active: SettingsSectionKey;
   title: string;
   description?: React.ReactNode;
@@ -48,6 +54,10 @@ export function SettingsShell({
           <span aria-hidden>←</span>
           <span className="truncate">{siteName}</span>
         </Link>
+        <a href={publishedUrl} className="mt-1 flex items-center gap-1.5 text-sm text-brand transition hover:underline">
+          Go to live site
+          <span aria-hidden>↗</span>
+        </a>
         <p className="mb-2 mt-6 hidden px-3 text-xs font-semibold uppercase tracking-wider text-ink-muted lg:block">Site settings</p>
         {/* Horizontal scroller below lg, vertical rail above it. */}
         <nav className="-mx-1 mt-4 flex gap-1 overflow-x-auto px-1 lg:mt-0 lg:flex-col lg:overflow-visible">

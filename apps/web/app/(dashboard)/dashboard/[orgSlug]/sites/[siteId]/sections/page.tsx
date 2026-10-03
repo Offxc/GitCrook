@@ -1,5 +1,5 @@
 import { prisma } from "@gitcrook/db";
-import { requireSite } from "@/lib/dashboard/site";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import { SectionsManager, type SectionRow } from "./SectionsManager";
 
@@ -25,6 +25,7 @@ export default async function SectionsPage({ params }: { params: Promise<{ orgSl
       orgSlug={orgSlug}
       siteId={siteId}
       siteName={site.name}
+      publishedUrl={publishedUrlFor(site)}
       active="sections"
       title="Sections"
       description="Top-level divisions of this site — each has its own page tree, and visitors switch between them from a row of tabs under the header. A site with one section doesn't show the tabs at all."

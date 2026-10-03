@@ -1,5 +1,5 @@
 import { ThemeConfigSchema, defaultTheme } from "@gitcrook/shared";
-import { requireSite } from "@/lib/dashboard/site";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import { ThemeForm } from "./ThemeForm";
 
@@ -15,6 +15,7 @@ export default async function ThemePage({ params }: { params: Promise<{ orgSlug:
       orgSlug={orgSlug}
       siteId={siteId}
       siteName={site.name}
+      publishedUrl={publishedUrlFor(site)}
       active="theme"
       title="Theme"
       description={`Customize how ${site.name} looks to visitors. Changes apply the moment you save.`}

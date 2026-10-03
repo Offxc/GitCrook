@@ -111,12 +111,20 @@ export function SiteSettingsModal({
               </button>
             ))}
           </nav>
-          <Link
-            href={`/dashboard/${orgSlug}/sites/${siteId}/analytics`}
-            className="mt-auto rounded-lg px-3 py-2 text-sm text-ink-muted transition hover:bg-surface/60 hover:text-ink"
-          >
-            Analytics ↗
-          </Link>
+          <div className="mt-auto flex flex-col gap-0.5">
+            <Link
+              href={`/dashboard/${orgSlug}/sites/${siteId}/analytics`}
+              className="rounded-lg px-3 py-2 text-sm text-ink-muted transition hover:bg-surface/60 hover:text-ink"
+            >
+              Analytics ↗
+            </Link>
+            <Link
+              href={`/dashboard/${orgSlug}/sites/${siteId}`}
+              className="rounded-lg px-3 py-2 text-sm text-ink-muted transition hover:bg-surface/60 hover:text-ink"
+            >
+              Dashboard overview ↗
+            </Link>
+          </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">

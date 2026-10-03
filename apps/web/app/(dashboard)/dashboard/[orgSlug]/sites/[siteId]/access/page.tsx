@@ -1,6 +1,5 @@
 import { prisma } from "@gitcrook/db";
-import { getEnv } from "@gitcrook/shared/server";
-import { requireSite } from "@/lib/dashboard/site";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import { AudienceForm } from "./AudienceForm";
 import { PasswordForm } from "./PasswordForm";
@@ -9,17 +8,24 @@ import { ShareLinksSection } from "./ShareLinksSection";
 export default async function AccessPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
   const { orgSlug, siteId } = await params;
   const { site } = await requireSite(orgSlug, siteId);
-  const env = getEnv();
 
   const [hasPassword, shareLinks] = await Promise.all([
     prisma.sitePassword.findUnique({ where: { siteId: site.id } }),
     prisma.shareLink.findMany({ where: { siteId: site.id }, orderBy: { createdAt: "desc" } }),
   ]);
 
-  const publishedBase = site.customDomain?.status === "ACTIVE" ? `https://${site.customDomain.hostname}` : `${env.ROOT_PROTOCOL}://${env.ROOT_DOMAIN}/${site.slug}`;
+  const publishedBase = publishedUrlFor(site);
 
   return (
-    <SettingsShell orgSlug={orgSlug} siteId={siteId} siteName={site.name} active="access" title="Visitor access" description={`Control who can view ${site.name}.`}>
+    <SettingsShell
+      orgSlug={orgSlug}
+      siteId={siteId}
+      siteName={site.name}
+      publishedUrl={publishedBase}
+      active="access"
+      title="Visitor access"
+      description={`Control who can view ${site.name}.`}
+    >
       <div className="space-y-6">
         <section className="rounded-xl border border-border bg-canvas p-5">
           <div className="mb-1 flex items-center gap-2">

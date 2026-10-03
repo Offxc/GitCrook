@@ -1,4 +1,4 @@
-import { requireSite } from "@/lib/dashboard/site";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
 import { SettingsShell } from "../SettingsShell";
 import { AddDomainForm } from "./AddDomainForm";
 import { VerifyButton, RemoveDomainButton } from "./DomainActions";
@@ -14,6 +14,7 @@ export default async function DomainPage({ params }: { params: Promise<{ orgSlug
       orgSlug={orgSlug}
       siteId={siteId}
       siteName={site.name}
+      publishedUrl={publishedUrlFor(site)}
       active="domain"
       title="Custom domain"
       description="Point a domain you own at this site. HTTPS is issued automatically once it's verified."

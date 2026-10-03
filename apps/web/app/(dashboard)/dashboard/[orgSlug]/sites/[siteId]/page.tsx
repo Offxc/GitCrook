@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@gitcrook/db";
-import { getEnv } from "@gitcrook/shared/server";
-import { requireSite } from "@/lib/dashboard/site";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
 import { DeleteSiteSection } from "./DeleteSiteSection";
 
 export default async function SiteOverviewPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
   const { orgSlug, siteId } = await params;
   const { site } = await requireSite(orgSlug, siteId);
-  const env = getEnv();
 
-  const publishedBase = site.customDomain?.status === "ACTIVE" ? `https://${site.customDomain.hostname}` : `${env.ROOT_PROTOCOL}://${env.ROOT_DOMAIN}/${site.slug}`;
+  const publishedBase = publishedUrlFor(site);
 
   const [pageCount, sectionCount] = await Promise.all([
     prisma.page.count({ where: { siteId: site.id, isGroup: false } }),
