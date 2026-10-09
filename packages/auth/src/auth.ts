@@ -45,6 +45,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Discord({
       clientId: process.env.AUTH_DISCORD_ID,
       clientSecret: process.env.AUTH_DISCORD_SECRET,
+      // Discord started sending an RFC 9207 "iss" parameter on its OAuth
+      // redirect; @auth/core@0.41.3 (bundled with next-auth 5.0.0-beta.32,
+      // the latest beta as of writing) never sets a real `issuer` for
+      // non-OIDC providers like Discord — it falls back to a literal
+      // "https://authjs.dev" placeholder (see its callback.js, which even
+      // has a "TODO: review fallback issuer" comment on that line), so the
+      // comparison against Discord's real "iss" always failed with
+      // CallbackRouteError / "unexpected iss response parameter value".
+      // Setting the real issuer here is enough: provider options get
+      // shallow-merged over the provider's defaults, and this only affects
+      // which value `as.issuer` resolves to for that one check.
+      issuer: "https://discord.com",
       // We only need identity, not ongoing Discord API access — the adapter would
       // otherwise persist the access/refresh token on the Account row. Returning
       // only these three fields means nothing sensitive is ever stored (OWASP A02).
