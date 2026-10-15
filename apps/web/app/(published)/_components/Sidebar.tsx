@@ -105,10 +105,15 @@ export function Sidebar({
         </div>
         {showPoweredByBadge ? (
           <div className="shrink-0 p-3">
-            <span className="flex items-center gap-2 rounded-xl border border-site-border bg-site-canvas px-3 py-2 text-xs font-medium text-site-ink-muted">
+            <a
+              href="https://github.com/Offxc/GitCrook"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-site-border bg-site-canvas px-3 py-2 text-xs font-medium text-site-ink-muted transition hover:text-site-ink"
+            >
               <GitCrookMark className="h-4 w-4 shrink-0" />
               Powered by GitCrook
-            </span>
+            </a>
           </div>
         ) : null}
       </div>
