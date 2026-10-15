@@ -1,8 +1,18 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { createPage, createPageGroup } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/pagesActions";
+
+// Markdown parsing pulls in BlockNote's core — same reasoning as
+// InPlaceEditorLoader: keep it out of the sidebar's bundle until someone
+// actually chooses to import, rather than shipping it to everyone in edit
+// mode.
+const ImportMarkdownForm = dynamic(() => import("./ImportMarkdownForm").then((m) => m.ImportMarkdownForm), {
+  ssr: false,
+  loading: () => <p className="px-2 text-xs text-site-ink-muted">Loading…</p>,
+});
 
 /**
  * Creating a page or group used to only be possible from a separate
@@ -11,7 +21,7 @@ import { createPage, createPageGroup } from "@/app/(dashboard)/dashboard/[orgSlu
  * requires leaving the page you're looking at.
  */
 export function AddNewButton({ orgSlug, siteId, baseHref }: { orgSlug: string; siteId: string; baseHref: string }) {
-  const [mode, setMode] = useState<"closed" | "menu" | "page" | "group">("closed");
+  const [mode, setMode] = useState<"closed" | "menu" | "page" | "group" | "import">("closed");
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -79,8 +89,20 @@ export function AddNewButton({ orgSlug, siteId, baseHref }: { orgSlug: string; s
           <GroupIcon />
           Group
         </button>
+        <button
+          type="button"
+          onClick={() => setMode("import")}
+          className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] text-site-ink-muted transition hover:bg-site-surface hover:text-site-ink"
+        >
+          <ImportIcon />
+          Import Markdown
+        </button>
       </div>
     );
+  }
+
+  if (mode === "import") {
+    return <ImportMarkdownForm orgSlug={orgSlug} siteId={siteId} baseHref={baseHref} onCancel={reset} />;
   }
 
   return (
@@ -128,6 +150,16 @@ function PageIcon() {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
       <path d="M14 2v6h6" />
+    </svg>
+  );
+}
+
+function ImportIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M12 15V3" />
     </svg>
   );
 }

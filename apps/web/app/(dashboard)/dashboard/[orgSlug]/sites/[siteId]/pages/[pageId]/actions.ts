@@ -5,26 +5,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@gitcrook/db";
 import { canUserDoX, getSessionUserId } from "@gitcrook/auth";
 import { extractPlainText } from "@/lib/editor/extractText";
+import { toJsonSafe } from "@/lib/editor/jsonSafe";
 
 export interface SaveResult {
   ok: boolean;
   conflict?: boolean;
   contentVersion?: number;
   error?: string;
-}
-
-/**
- * BlockNote's own document isn't guaranteed to be strict JSON — e.g. an
- * unresized table's `columnWidths` comes through as `[undefined, undefined,
- * ...]`, one entry per column. `JSON.parse(JSON.stringify(...))` is the
- * simplest way to get the same normalization `JSON.stringify` already does
- * implicitly everywhere else (array holes/undefined become `null`, object
- * keys with an `undefined` value are dropped) — Prisma's `Json` field
- * rejects `undefined` inside an array outright rather than doing this
- * itself, which silently failed every save containing a table until now.
- */
-function toJsonSafe(value: unknown): unknown {
-  return JSON.parse(JSON.stringify(value));
 }
 
 export async function savePageContent(pageId: string, expectedVersion: number, content: unknown): Promise<SaveResult> {

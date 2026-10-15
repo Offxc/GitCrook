@@ -7,6 +7,8 @@ import { canUserDoX } from "@gitcrook/auth";
 import { validateSlug } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
 import { computePagePath } from "@/lib/tenancy/computePagePath";
+import { extractPlainText } from "@/lib/editor/extractText";
+import { toJsonSafe } from "@/lib/editor/jsonSafe";
 
 export interface CreatePageState {
   error?: string;
@@ -140,6 +142,109 @@ export async function createPageGroup(orgSlug: string, siteId: string, _prev: Cr
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   return { slug };
+}
+
+const MAX_IMPORT_FILES = 50;
+/** Generous for prose, but bounded — this is client-supplied JSON hitting a Json column. */
+const MAX_IMPORT_BYTES_PER_PAGE = 1_000_000;
+
+const ImportPagesSchema = z
+  .array(
+    z.object({
+      title: z.string().trim().min(1, "Each file needs a title").max(120),
+      blocks: z.array(z.unknown()).min(1),
+    }),
+  )
+  .min(1)
+  .max(MAX_IMPORT_FILES, `Up to ${MAX_IMPORT_FILES} files at a time.`);
+
+export interface ImportPagesResult {
+  error?: string;
+  created?: number;
+  /** Slug of the first page created, so the caller can navigate straight to it. */
+  firstSlug?: string;
+}
+
+/**
+ * Creates one page per imported Markdown file, at the root of the tree.
+ *
+ * The Markdown is parsed into blocks *client-side* by BlockNote's own
+ * `tryParseMarkdownToBlocks` (see ImportMarkdownForm) rather than by a
+ * parser of our own: that guarantees the stored document is shaped exactly
+ * like one the editor itself would produce. Hand-rolling block JSON is how
+ * tables ended up with a cell shape the editor never emits, which rendered
+ * blank everywhere outside the editor.
+ *
+ * Blocks arrive as client-supplied JSON, so they're size-capped and
+ * normalised here (toJsonSafe) before touching the database — BlockNote
+ * emits `undefined` inside arrays, which Prisma's Json column rejects
+ * outright.
+ */
+export async function importMarkdownPages(orgSlug: string, siteId: string, pages: unknown): Promise<ImportPagesResult> {
+  const { site, userId } = await requireSite(orgSlug, siteId);
+
+  const parsed = ImportPagesSchema.safeParse(pages);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const allowed = await canUserDoX(userId, "content.edit", { type: "site", id: site.id });
+  if (!allowed) return { error: "You don't have permission to add pages to this site." };
+
+  const section = await prisma.section.findFirst({ where: { siteId: site.id }, orderBy: { order: "asc" } });
+  if (!section) return { error: "This site has no section to add pages to." };
+  const space = await prisma.space.findFirst({ where: { sectionId: section.id }, orderBy: { order: "asc" } });
+  if (!space) return { error: "This site has no space to add pages to." };
+  const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
+  if (!variant) return { error: "This site has no default variant to add pages to." };
+
+  // Load the existing root-level slugs once and dedupe in memory: a
+  // per-candidate query (fine for createPage's single page) would also miss
+  // collisions *within* this batch, since none of them are committed yet.
+  const existing = await prisma.page.findMany({ where: { variantId: variant.id, parentId: null }, select: { slug: true } });
+  const taken = new Set(existing.map((p) => p.slug));
+
+  const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
+  let order = (maxOrder._max.order ?? -1) + 1;
+
+  const rows: { title: string; slug: string; content: object; contentText: string; order: number }[] = [];
+  for (const page of parsed.data) {
+    const content = toJsonSafe(page.blocks);
+    if (JSON.stringify(content).length > MAX_IMPORT_BYTES_PER_PAGE) {
+      return { error: `"${page.title}" is too large to import.` };
+    }
+
+    const baseSlug = slugify(page.title);
+    let slug = baseSlug;
+    let suffix = 0;
+    while (taken.has(slug) || !validateSlug(slug).ok) {
+      suffix += 1;
+      slug = `${baseSlug}-${suffix}`;
+    }
+    taken.add(slug);
+
+    rows.push({ title: page.title, slug, content: content as object, contentText: extractPlainText(content), order: order++ });
+  }
+
+  // All-or-nothing: a half-finished import would leave the tree in a state
+  // the person has to hand-unpick, with no record of which files landed.
+  await prisma.$transaction(
+    rows.map((row) =>
+      prisma.page.create({
+        data: {
+          variantId: variant.id,
+          siteId: site.id,
+          title: row.title,
+          slug: row.slug,
+          order: row.order,
+          content: row.content,
+          contentText: row.contentText,
+          publishedAt: new Date(),
+        },
+      }),
+    ),
+  );
+
+  revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
+  return { created: rows.length, firstSlug: rows[0]?.slug };
 }
 
 const ReorderSchema = z
