@@ -56,6 +56,18 @@ async function main() {
 
   const storageDir = process.env.STORAGE_DIR ?? "/data/uploads";
   const path = join(storageDir, asset.storageKey);
+
+  // The uploads volume is mounted on web and worker, NOT on migrate (see
+  // docker-compose.yml) — which is where this script usually runs. Without
+  // this check the absent mount looks exactly like an absent file, which is
+  // a far more alarming and completely wrong conclusion.
+  if (!existsSync(storageDir)) {
+    console.log(`\nBytes on disk: CANNOT CHECK — ${storageDir} isn't mounted in this container.`);
+    console.log(`  Check from one that mounts the uploads volume instead:`);
+    console.log(`    docker compose exec web ls -l ${path}`);
+    return;
+  }
+
   if (existsSync(path)) {
     console.log(`\nBytes on disk: present (${statSync(path).size} bytes at ${path})`);
   } else {
