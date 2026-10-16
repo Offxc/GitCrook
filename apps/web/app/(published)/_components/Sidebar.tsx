@@ -4,6 +4,7 @@ import { GitCrookMark } from "@/app/_components/GitCrookMark";
 import { AddNewButton } from "./AddNewButton";
 import { SidebarList } from "./SidebarList";
 import { SidebarBody } from "./SidebarBody";
+import { SidebarScrollArea } from "./SidebarScrollArea";
 
 /**
  * The desktop sidebar is hidden below lg (288px of nav is too much of a
@@ -91,7 +92,7 @@ export function Sidebar({
       aria-label="Table of contents"
     >
       <div className={`flex min-h-0 flex-1 flex-col ${filled ? "rounded-2xl border border-site-border bg-site-surface" : ""}`}>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
+        <SidebarScrollArea storageKey={`gitcrook-sidebar-scroll:${siteId}`} className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
           {editable ? (
             <SidebarBody tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} listStyle={sidebarStyle.listStyle} orgSlug={orgSlug} siteId={siteId} />
           ) : (
@@ -102,7 +103,7 @@ export function Sidebar({
               <AddNewButton orgSlug={orgSlug} siteId={siteId} baseHref={baseHref} />
             </div>
           ) : null}
-        </div>
+        </SidebarScrollArea>
         {showPoweredByBadge ? (
           <div className="shrink-0 p-3">
             <a
