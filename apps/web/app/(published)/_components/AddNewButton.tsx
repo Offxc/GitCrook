@@ -107,8 +107,8 @@ export function AddNewButton({ orgSlug, siteId, baseHref }: { orgSlug: string; s
 
   return (
     <div className="space-y-1.5 px-2">
-      {/* eslint-disable-next-line jsx-a11y/no-autofocus -- opening this form should focus the title immediately */}
       <input
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- opening this form should focus the title immediately
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}

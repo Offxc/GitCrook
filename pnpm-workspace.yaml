@@ -8,6 +8,9 @@ allowBuilds:
   argon2: true
   esbuild: true
   prisma: true
+  # Native resolver pulled in by eslint-config-next. It ships prebuilt binaries as optional
+  # dependencies; its install script is only a fallback for platforms without one.
+  unrs-resolver: false
 
 onlyBuiltDependencies:
   - embedded-postgres

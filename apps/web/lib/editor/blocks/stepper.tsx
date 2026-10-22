@@ -13,7 +13,7 @@ export const createStepper = createReactBlockSpec(
     content: "none",
   },
   {
-    render: (props) => (
+    render: () => (
       <div className="stepper-block" style={{ width: "100%" }}>
         {/* BlockNote renders `block.children` (the "step" blocks) automatically,
             indented beneath whatever this component returns — nothing to do

@@ -48,7 +48,7 @@ export default async function DomainPage({ params }: { params: Promise<{ orgSlug
                   </div>
                 </dl>
                 <p className="mt-3 text-ink-muted">
-                  Also point an A/CNAME record for {domain.hostname} at this platform's server so traffic actually
+                  Also point an A/CNAME record for {domain.hostname} at this platform&apos;s server so traffic actually
                   reaches it — the TXT record only proves ownership.
                 </p>
                 <div className="mt-4">

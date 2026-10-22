@@ -65,8 +65,8 @@ export function IconPickerPopover({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div className={`absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border ${t.border} ${t.canvas} p-2 shadow-2xl`}>
-        {/* eslint-disable-next-line jsx-a11y/no-autofocus -- opening the picker should focus search immediately */}
         <input
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- opening the picker should focus search immediately
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}

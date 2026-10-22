@@ -1,3 +1,4 @@
+/* eslint-disable no-var, @typescript-eslint/no-unused-vars -- see the note below: this function's source text is shipped to the browser as-is */
 /**
  * Puts the sidebar back the way the reader left it: the groups they had open,
  * then their scroll offset, then — if the page they're on is still out of view —

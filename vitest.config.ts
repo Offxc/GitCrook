@@ -1,0 +1,52 @@
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
+
+const webRoot = fileURLToPath(new URL("./apps/web", import.meta.url));
+const pkg = (path: string) => fileURLToPath(new URL(`./packages/${path}`, import.meta.url));
+
+// Two projects so the fast, dependency-free suite can run anywhere and the database-backed one is
+// opt-in with a clear failure instead of a silent skip:
+//   pnpm test               unit tests — no database, no network
+//   pnpm test:integration   needs TEST_DATABASE_URL (see tests/support/globalSetup.ts)
+export default defineConfig({
+  resolve: {
+    alias: [
+      // Workspace packages by source, so tests under tests/ (which have no node_modules link to them)
+      // and tests inside packages resolve the same files. More specific subpaths come first.
+      { find: /^@gitcrook\/shared\/server$/, replacement: pkg("shared/src/server.ts") },
+      { find: /^@gitcrook\/shared$/, replacement: pkg("shared/src/index.ts") },
+      { find: /^@gitcrook\/db$/, replacement: pkg("db/src/index.ts") },
+      { find: /^@gitcrook\/auth$/, replacement: pkg("auth/src/index.ts") },
+      { find: /^@\//, replacement: `${webRoot}/` },
+    ],
+  },
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["{packages,apps}/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
+          exclude: ["**/node_modules/**", "**/*.int.test.ts", "**/.next/**"],
+          environment: "node",
+          setupFiles: ["tests/support/unitSetup.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          include: ["{packages,apps}/**/*.int.test.ts"],
+          exclude: ["**/node_modules/**", "**/.next/**"],
+          environment: "node",
+          globalSetup: ["tests/support/globalSetup.ts"],
+          setupFiles: ["tests/support/integrationSetup.ts"],
+          // One shared database: files run one after another and each starts from an empty one.
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+    ],
+  },
+});

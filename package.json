@@ -2,6 +2,7 @@
   "name": "gitcrook",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@11.28.7",
   "engines": {
     "node": ">=20"
   },
@@ -14,10 +15,20 @@
     "db:deploy": "pnpm --filter @gitcrook/db exec prisma migrate deploy",
     "db:seed": "pnpm --filter @gitcrook/db exec prisma db seed",
     "db:studio": "pnpm --filter @gitcrook/db exec prisma studio",
-    "test": "vitest run",
-    "lint": "pnpm -r lint"
+    "test": "vitest run --project unit",
+    "lint": "eslint .",
+    "test:integration": "vitest run --project integration",
+    "test:all": "vitest run",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "typecheck": "pnpm --filter @gitcrook/web exec tsc --noEmit -p . && pnpm --filter @gitcrook/worker exec tsc --noEmit -p . && tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "8.23.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.8",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "pg": "8.23.0",
     "typescript": "^5.7.3",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"

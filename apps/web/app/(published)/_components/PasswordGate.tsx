@@ -17,8 +17,8 @@ export function PasswordGate({ siteId, siteName, redirectTo }: { siteId: string;
         <p className="mt-1 text-center text-sm text-site-ink-muted">This site is password-protected.</p>
         <form action={formAction} className="mt-6 space-y-3">
           <input type="hidden" name="redirectTo" value={redirectTo} />
-          {/* eslint-disable-next-line jsx-a11y/no-autofocus -- the only field on the page; focusing it is the whole point */}
           <input
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the only field on the page; focusing it is the whole point
             autoFocus
             type="password"
             name="password"

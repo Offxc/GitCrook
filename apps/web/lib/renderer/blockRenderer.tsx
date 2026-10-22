@@ -244,6 +244,7 @@ function renderBlock(block: RenderBlock, codeHtml: Map<string, string>) {
         <div className="mb-4">
           <iframe
             src={match.embedUrl}
+            title={typeof props.title === "string" && props.title ? props.title : "Embedded content"}
             className="aspect-video w-full rounded-lg border border-site-border"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"

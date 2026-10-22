@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev",
-    "build": "dotenv -e ../../.env -- sh -c 'NODE_ENV=production next build'",
-    "lint": "eslint ."
+    "build": "dotenv -e ../../.env -- sh -c 'NODE_ENV=production next build'"
   },
   "dependencies": {
     "@blocknote/core": "0.54.0",

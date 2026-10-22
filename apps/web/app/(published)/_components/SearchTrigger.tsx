@@ -111,8 +111,8 @@ export function SearchTrigger({ siteId, baseHref, compact = false }: { siteId: s
           >
             <div className="flex items-center gap-2 border-b border-site-border px-4 py-3">
               <SearchIcon />
-              {/* eslint-disable-next-line jsx-a11y/no-autofocus -- opening the palette should focus it immediately, matching every other Cmd+K pattern */}
               <input
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- opening the palette should focus it immediately, matching every other Cmd+K pattern
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

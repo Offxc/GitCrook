@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "jsx": "preserve",
+    "lib": ["dom", "dom.iterable", "ES2022"],
+    "baseUrl": ".",
+    "paths": {
+      "@gitcrook/shared/server": ["packages/shared/src/server.ts"],
+      "@gitcrook/shared": ["packages/shared/src/index.ts"],
+      "@gitcrook/db": ["packages/db/src/index.ts"],
+      "@gitcrook/auth": ["packages/auth/src/index.ts"],
+      "@/*": ["apps/web/*"]
+    }
+  },
+  "include": ["tests", "vitest.config.ts", "packages/**/*.test.ts", "apps/**/*.test.ts", "apps/**/*.test.tsx"],
+  "exclude": ["**/node_modules/**", "**/.next/**"]
+}

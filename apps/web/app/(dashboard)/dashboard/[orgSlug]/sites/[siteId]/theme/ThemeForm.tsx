@@ -248,7 +248,7 @@ export function ThemeForm({
             onChange={(v) => update((t) => ({ ...t, externalLinksNewTab: v }))}
           />
         </div>
-        <p className="mt-1 text-xs text-ink-muted">Where the site name in the header links to — defaults to the site's own homepage.</p>
+        <p className="mt-1 text-xs text-ink-muted">Where the site name in the header links to — defaults to the site&apos;s own homepage.</p>
       </Section>
 
       <div className="flex items-center gap-3 border-t border-border pt-6">

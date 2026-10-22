@@ -10,6 +10,7 @@
     "./server": "./src/server.ts"
   },
   "dependencies": {
+    "undici": "7.30.1",
     "zod": "^4.5.4"
   },
   "devDependencies": {

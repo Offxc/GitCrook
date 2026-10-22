@@ -187,7 +187,7 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
     case "conflict":
       return <span className="text-site-danger">Edited elsewhere — reload the page before continuing</span>;
     case "error":
-      return <span className="text-site-danger">Couldn't save — check your connection</span>;
+      return <span className="text-site-danger">Couldn&apos;t save — check your connection</span>;
     default:
       return <span>&nbsp;</span>;
   }

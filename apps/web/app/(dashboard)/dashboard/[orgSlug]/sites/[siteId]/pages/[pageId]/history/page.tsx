@@ -31,7 +31,7 @@ export default async function PageHistoryPage({ params }: { params: Promise<{ or
       </p>
       <h1 className="mt-2 text-2xl font-semibold text-ink">Page history</h1>
       <p className="mt-1 text-sm text-ink-muted">
-        A checkpoint is saved roughly every 5 minutes of active editing. Restoring saves the current content as a new checkpoint first, so it's never a dead end.
+        A checkpoint is saved roughly every 5 minutes of active editing. Restoring saves the current content as a new checkpoint first, so it&apos;s never a dead end.
       </p>
 
       <div className="mt-6 space-y-3">
