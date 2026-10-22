@@ -8,6 +8,7 @@ import {
   addShareToken,
   isReservedSlug,
   isShareToken,
+  markdownRewrite,
 } from "@gitcrook/shared";
 
 /**
@@ -48,6 +49,17 @@ export default function proxy(req: NextRequest) {
   // Rewriting those into the custom-domain page route made them all 404 — so a verified
   // domain showed no images and no search, and could never be issued a certificate.
   const isApi = req.nextUrl.pathname.startsWith("/api/");
+
+  // `/{page}.md` is that page as Markdown. A suffix cannot be a route of its own, so it is sent to the handler that
+  // serves the text forms (which applies the page's own visitor rules); everything else about the request is unchanged.
+  const markdownPath = req.method === "GET" || req.method === "HEAD" ? markdownRewrite(req.nextUrl.pathname, isRootDomain) : null;
+  if (markdownPath && !isApi) {
+    const url = req.nextUrl.clone();
+    url.pathname = isRootDomain ? markdownPath : `/site-by-domain/${host.replace(/:\d+$/, "")}${markdownPath}`;
+    const res = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    applySecurityHeaders(res, nonce);
+    return res;
+  }
 
   if (!isRootDomain && !isApi) {
     // Any other Host is a candidate tenant custom domain — rewrite into the

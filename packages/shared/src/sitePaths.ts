@@ -14,7 +14,12 @@
  *  - A non-default variant adds a literal `~v/{variantSlug}` after the section/space segments.
  */
 
+import { isReservedSlug } from "./reservedSlugs";
+
 export const VARIANT_SEGMENT = "~v";
+
+/** The folder the text forms of a site are served from. `~` is not allowed in a slug, so it can never be a page. */
+export const MARKDOWN_SEGMENT = "~md";
 
 export interface StructureVariant {
   id: string;
@@ -175,4 +180,22 @@ export function publishedBaseUrl({ protocol, rootDomain, siteSlug, customDomain 
 /** `base` plus path segments, with no trailing slash for an empty path. */
 export function joinUrl(base: string, segments: readonly string[]): string {
   return segments.length > 0 ? `${base}/${segments.join("/")}` : base;
+}
+
+/**
+ * `/{site}/guides/install.md` → `/{site}/~md/guides/install` (on a custom domain, `/guides/install.md` → `/~md/guides/install`).
+ * `~` cannot appear in a slug, so the handler's folder can never be a page's address. Null when the path is not a
+ * Markdown request, or is one of the platform's own routes.
+ */
+export function markdownRewrite(pathname: string, isRootDomain: boolean): string | null {
+  const segments = pathname.split("/").filter(Boolean);
+  const last = segments.at(-1);
+  if (!last || last.length <= 3 || !last.endsWith(".md") || segments.includes(MARKDOWN_SEGMENT)) return null;
+  const stem = last.slice(0, -3);
+  if (isRootDomain) {
+    // A site's address starts with its slug, so a path needs one more segment than that; the platform's own routes are not sites.
+    if (segments.length < 2 || isReservedSlug(segments[0]!)) return null;
+    return `/${[segments[0], MARKDOWN_SEGMENT, ...segments.slice(1, -1), stem].join("/")}`;
+  }
+  return `/${[MARKDOWN_SEGMENT, ...segments.slice(0, -1), stem].join("/")}`;
 }

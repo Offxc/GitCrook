@@ -68,7 +68,8 @@ keeps the published site up to date. The one external integration is the Git hos
 - Section tabs, collapsible sidebar groups, breadcrumbs, prev/next, "on this page" with scroll-spy
 - Full-text search over page content (PostgreSQL `tsvector`)
 - Content variants — parallel versions of a site (v1/v2 of an API, per-region docs)
-- Copy or view any page as Markdown
+- Copy or view any page as Markdown — and every page is available at `/{page}.md`, with `llms.txt` and `llms-full.txt`
+  per site, for tools and AI agents that read documentation (same visitor access as the page itself)
 - RSS feed for changelog-style updates
 - PDF export, rendered by a background worker
 - **Git Sync** — pages from a GitHub repository, updated on every push (see [below](#git-sync))
@@ -147,9 +148,10 @@ the Markdown dialect is specified in [docs/git-sync/FORMAT.md](docs/git-sync/FOR
 
 An agent doesn't need a GitCrook integration: it edits Markdown in the repository and commits.
 [FORMAT.md](docs/git-sync/FORMAT.md) is written to double as the cheat-sheet for agent instructions.
-Still planned: a `gitcrook-docs check` command that validates front matter, links, images and
-directives locally and in CI with the same parser the server uses, and `.md` / `llms.txt` endpoints
-on the published site so agents can read the docs back. See [PLAN.md](PLAN.md).
+The published site answers back in a form agents can read: add `.md` to any page's address, or fetch
+`/llms.txt` (a table of contents) and `/llms-full.txt` (all the text). Still planned: a
+`gitcrook-docs check` command that validates front matter, links, images and directives locally and
+in CI with the same parser the server uses. See [PLAN.md](PLAN.md).
 
 Not yet supported: authenticating as a GitHub App (access tokens only for now), Git hosts other
 than GitHub / GitHub Enterprise Server, and previewing a sync before it applies.

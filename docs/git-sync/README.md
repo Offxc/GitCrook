@@ -10,6 +10,7 @@ The sync is **one way**: repository → site. GitCrook never writes to your repo
 - [Push webhooks](#push-webhooks)
 - [What a repository looks like](#what-a-repository-looks-like)
 - [What a sync does](#what-a-sync-does)
+- [Reading the docs back](#reading-the-docs-back)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Moving from GitBook](#moving-from-gitbook)
@@ -160,6 +161,24 @@ transaction: it either all lands or none of it does.
   don't exist, missing images, unknown directives and files left out of the navigation are warnings you can see.
 - **One run at a time per source.** A push during a run queues exactly one follow-up; ten pushes during a run
   still give one.
+
+## Reading the docs back
+
+Every published site, whether or not it uses Git Sync, can be read as plain text — by a person with `curl`, a search
+tool, or an AI agent that has to answer questions about the product (or check its own change against the docs):
+
+| Address | What you get |
+| --- | --- |
+| `/{site}/guides/install.md` | That page as Markdown: its title, its description as a quote, then the content. |
+| `/{site}/llms.txt` | A table of contents in the [llms.txt](https://llmstxt.org) format: the site's name and a Markdown link to each page's `.md`. |
+| `/{site}/llms-full.txt` | The text of every page in one file, each introduced by its address. It stops at about 2 MB and says so. |
+
+On a custom domain the same addresses work without the `/{site}` part (`https://docs.example.com/guides/install.md`).
+
+These follow the page's own rules: a private or password-protected site returns "not found" for them unless the
+visitor could open the page, a draft is never served, and a page marked `hidden` can be fetched by its address but is
+left out of both listings. Each visitor may ask for the full text ten times a minute. Responses are cached for a minute
+on public sites and never cached on gated ones.
 
 ## Configuration
 

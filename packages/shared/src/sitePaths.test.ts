@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { validateSlug } from "./reservedSlugs";
 import {
   basePrefix,
   joinUrl,
   matchLegacyStructure,
+  markdownRewrite,
   matchStructure,
   publishedBaseUrl,
   variantPrefix,
@@ -206,5 +208,41 @@ describe("matchLegacyStructure", () => {
       expect(again.variant.id).toBe(legacy.match.variant.id);
       expect(again.rest).toEqual(legacy.match.rest);
     }
+  });
+});
+
+describe("markdownRewrite", () => {
+  it("turns /{site}/{page}.md into the handler's address on the root domain", () => {
+    expect(markdownRewrite("/acme/install.md", true)).toBe("/acme/~md/install");
+    expect(markdownRewrite("/acme/guides/setup/install.md", true)).toBe("/acme/~md/guides/setup/install");
+    expect(markdownRewrite("/acme/guides/~v/v1/install.md", true)).toBe("/acme/~md/guides/~v/v1/install");
+  });
+
+  it("drops the site slug on a custom domain", () => {
+    expect(markdownRewrite("/install.md", false)).toBe("/~md/install");
+    expect(markdownRewrite("/guides/install.md", false)).toBe("/~md/guides/install");
+  });
+
+  it("leaves everything else alone", () => {
+    expect(markdownRewrite("/acme/install", true)).toBeNull();
+    expect(markdownRewrite("/acme", true)).toBeNull();
+    expect(markdownRewrite("/acme/.md", true)).toBeNull();
+    expect(markdownRewrite("/", false)).toBeNull();
+    expect(markdownRewrite("/acme/install.markdown", true)).toBeNull();
+    expect(markdownRewrite("/acme/install.mdx", true)).toBeNull();
+  });
+
+  it("does not treat the platform's own routes as sites", () => {
+    expect(markdownRewrite("/dashboard/notes.md", true)).toBeNull();
+    expect(markdownRewrite("/api/notes.md", true)).toBeNull();
+    expect(markdownRewrite("/login/readme.md", true)).toBeNull();
+  });
+
+  it("does not rewrite an address that is already the handler's", () => {
+    expect(markdownRewrite("/acme/~md/install.md", true)).toBeNull();
+  });
+
+  it("uses a segment no page can have", () => {
+    expect(validateSlug("~md").ok).toBe(false);
   });
 });
