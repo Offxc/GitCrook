@@ -62,7 +62,7 @@ export function SidebarList({
           isActive ? activeClass : "rounded-r-2xl text-site-ink-muted hover:bg-site-surface hover:text-site-ink"
         }`;
         const label = (
-          <Link href={href} className={linkClass}>
+          <Link href={href} className={linkClass} aria-current={isActive ? "page" : undefined}>
             <PageIcon icon={node.icon} className="h-4 w-4 shrink-0" />
             <span className="truncate">{node.title}</span>
           </Link>
@@ -74,7 +74,7 @@ export function SidebarList({
 
         return (
           <li key={node.id}>
-            <details open={containsActive(node, activePageId)} className="group">
+            <details open={containsActive(node, activePageId)} data-node-id={node.id} className="group">
               <summary className="flex list-none items-center [&::-webkit-details-marker]:hidden">
                 {label}
                 <span className="ml-auto mr-1 shrink-0 rounded p-1 text-site-ink-muted transition group-open:rotate-90 hover:text-site-ink">

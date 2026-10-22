@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { Metadata } from "next";
 import { prisma } from "@gitcrook/db";
 import type { ResolvedSite } from "./resolveSite";
@@ -24,6 +24,7 @@ import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBl
 import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@gitcrook/auth";
 import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
+import { editModeCookieName } from "@/app/(published)/_components/editModeCookie";
 import { EditModeToggle } from "@/app/(published)/_components/EditModeToggle";
 import { PageIcon } from "@/app/(published)/_components/PageIcon";
 import { PageActions } from "@/app/(published)/_components/PageActions";
@@ -106,6 +107,10 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   // whether to show the "Add new" control at all, never trusted on its own.
   const canManageContent = theme.showToolbarForMembers && userId !== null && (await canUserDoX(userId, "content.edit", { type: "site", id: site.id }));
   const orgSlugForSidebar = canManageContent ? (await prisma.organization.findUnique({ where: { id: site.organizationId }, select: { slug: true } }))?.slug ?? null : null;
+  // Edit mode is a cookie so the very first render is already the right one (see editModeCookie.ts).
+  const initialEditing = canManageContent && jar.get(editModeCookieName(site.id))?.value === "1";
+  // proxy.ts mints a CSP nonce per request; the sidebar's pre-hydration script needs it to be allowed to run.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const cssVars = themeToCssVars(theme);
   if (theme.fonts.customFontAssetId) {
     const customFontVar = `"${CUSTOM_FONT_FAMILY}", ui-sans-serif, system-ui, sans-serif`;
@@ -154,7 +159,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         logoAssetId={theme.branding.logoAssetId}
       />
       <SectionTabs sections={sections} activeSectionId={section.id} baseHref={baseHref} />
-      <EditModeProvider siteId={site.id}>
+      <EditModeProvider siteId={site.id} initialEditing={initialEditing}>
         <div className="mx-auto flex w-full max-w-[1600px] flex-1">
           <Sidebar
             tree={tree}
@@ -166,6 +171,8 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
             canManageContent={canManageContent}
             orgSlug={orgSlugForSidebar}
             siteId={site.id}
+            variantId={variant.id}
+            nonce={nonce}
             belowSectionTabs={sections.length > 1}
           />
           <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">

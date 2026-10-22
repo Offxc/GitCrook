@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { editModeCookieName } from "./editModeCookie";
 
 interface EditModeState {
   editing: boolean;
@@ -13,38 +14,21 @@ interface EditModeState {
 
 const EditModeContext = createContext<EditModeState | null>(null);
 
-const STORAGE_PREFIX = "gitcrook-edit-mode:";
-
 /**
  * One toggle, shared by the sidebar and the page content area, so "Edit"
  * puts the whole site — structure (page/group ordering) and the current
  * page's content — into edit mode together.
  *
- * Backed by sessionStorage rather than plain state because this provider
- * lives inside the page, not a layout: every navigation remounts it, and
- * some of them (AddNewButton after creating a page) are full document loads
- * that would reset React state regardless of where the provider sat. Edit
- * mode is supposed to last until you actually click Done, so it has to
- * survive both. Keyed per site so editing one site doesn't silently put
- * another into edit mode in the same tab, and session-scoped so it doesn't
- * outlive the tab.
+ * The value is remembered in a cookie (see editModeCookie.ts) and handed in as
+ * `initialEditing`, which the server reads from that cookie. This provider lives
+ * inside the page, not a layout, so every navigation remounts it; starting from
+ * the right value means the first render is already the right one, instead of
+ * rendering read-only and flipping to editable from an effect. Edit mode is
+ * supposed to last until you actually click Done.
  */
-export function EditModeProvider({ siteId, children }: { siteId: string; children: React.ReactNode }) {
-  // Always starts false: the server render can't know what's in
-  // sessionStorage, so anything else would be a hydration mismatch.
-  const [editing, setEditingState] = useState(false);
-  const storageKey = `${STORAGE_PREFIX}${siteId}`;
+export function EditModeProvider({ siteId, initialEditing, children }: { siteId: string; initialEditing: boolean; children: React.ReactNode }) {
   const saveFlushRef = useRef<(() => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(storageKey) === "1") setEditingState(true);
-    } catch {
-      // Private-browsing contexts can throw on access — edit mode just
-      // won't persist there, which is a degradation rather than a break.
-    }
-  }, [storageKey]);
-
+  const [editing, setEditingState] = useState(initialEditing);
   const setEditing = useCallback(
     async (next: boolean) => {
       // Flush before switching to read-only: the editor is about to unmount,
@@ -63,14 +47,12 @@ export function EditModeProvider({ siteId, children }: { siteId: string; childre
         }
       }
       setEditingState(next);
-      try {
-        if (next) sessionStorage.setItem(storageKey, "1");
-        else sessionStorage.removeItem(storageKey);
-      } catch {
-        // best-effort only
-      }
+      const secure = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = next
+        ? `${editModeCookieName(siteId)}=1; Path=/; SameSite=Lax${secure}`
+        : `${editModeCookieName(siteId)}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
     },
-    [storageKey],
+    [siteId],
   );
 
   const registerSaveFlush = useCallback((flush: (() => Promise<void>) | null) => {

@@ -57,6 +57,8 @@ export function Sidebar({
   canManageContent,
   orgSlug,
   siteId,
+  variantId,
+  nonce,
   belowSectionTabs = false,
 }: {
   tree: PageTreeNode[];
@@ -68,6 +70,10 @@ export function Sidebar({
   canManageContent: boolean;
   orgSlug: string | null;
   siteId: string;
+  /** Keys the remembered scroll offset and open groups: a section's or variant's tree must not inherit another's. */
+  variantId: string;
+  /** CSP nonce for the pre-hydration scroll-restore script. */
+  nonce?: string;
   /** A multi-section site renders SectionTabs between the header and this, which sticks at top-16 too — so this has to start below both. */
   belowSectionTabs?: boolean;
 }) {
@@ -92,7 +98,7 @@ export function Sidebar({
       aria-label="Table of contents"
     >
       <div className={`flex min-h-0 flex-1 flex-col ${filled ? "rounded-2xl border border-site-border bg-site-surface" : ""}`}>
-        <SidebarScrollArea storageKey={`gitcrook-sidebar-scroll:${siteId}`} className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
+        <SidebarScrollArea storageKey={`gitcrook-sidebar:${siteId}:${variantId}`} nonce={nonce} className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
           {editable ? (
             <SidebarBody tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} listStyle={sidebarStyle.listStyle} orgSlug={orgSlug} siteId={siteId} />
           ) : (

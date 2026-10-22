@@ -422,6 +422,7 @@ function SidebarTreeRow({
             onStartRename();
           }}
           title="Double-click to rename"
+          aria-current={isActive ? "page" : undefined}
           className={`min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-[13px] leading-5 ${
             isActive ? "font-medium text-site-primary" : "text-site-ink-muted hover:text-site-ink"
           }`}
