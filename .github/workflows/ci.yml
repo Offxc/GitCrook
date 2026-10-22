@@ -1,0 +1,240 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A new push to the same branch supersedes an in-flight run.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Nothing here needs to write to the repository.
+permissions:
+  contents: read
+
+env:
+  # Both are needed at *build* time but never connected to: `prisma generate`
+  # (packages/db's postinstall) only parses DATABASE_URL, and the env schema in
+  # packages/shared validates AUTH_SECRET's length on import. Neither value is a
+  # secret or reaches a real service.
+  DATABASE_URL: postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder
+  AUTH_SECRET: ci-placeholder-secret-at-least-32-chars-long
+
+jobs:
+  check:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The pnpm version comes from the "packageManager" field in package.json, so CI,
+      # Docker (corepack) and contributors all run the same one.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile is what the Docker build uses, so this also catches a lockfile
+      # that wasn't regenerated after a dependency or workspace package changed. pnpm 11
+      # additionally rejects a lockfile that pins a release younger than its
+      # minimum-release-age policy, which an older pnpm happily writes.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Migration history
+        run: pnpm check:migrations
+
+      - name: Build
+        run: pnpm build
+
+  integration:
+    name: Integration tests (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: gitcrook
+          POSTGRES_PASSWORD: gitcrook
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitcrook"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # A server to create a throwaway database on; see tests/support/globalSetup.ts.
+      TEST_DATABASE_URL: postgresql://gitcrook:gitcrook@127.0.0.1:5432/postgres
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Integration tests
+        run: pnpm test:integration
+
+  migrations:
+    name: Migrations apply cleanly
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: gitcrook
+          POSTGRES_PASSWORD: gitcrook
+          POSTGRES_DB: gitcrook
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitcrook"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://gitcrook:gitcrook@127.0.0.1:5432/gitcrook
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Catches the failure mode this schema is actually prone to: the
+      # Page.searchVector generated column can't be expressed in Prisma's
+      # schema language, so its migration is hand-edited and easy to break.
+      # Applying the whole chain to an empty database is the check that
+      # matters. (A `migrate diff` against the schema is deliberately *not*
+      # here — that same generated column makes it report a difference
+      # forever, so it would only ever be a red check nobody trusts.)
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Seed
+        run: pnpm db:seed
+
+  e2e:
+    name: End-to-end (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: gitcrook
+          POSTGRES_PASSWORD: gitcrook
+          POSTGRES_DB: gitcrook
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitcrook"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://gitcrook:gitcrook@127.0.0.1:5432/gitcrook
+      AUTH_SECRET: ci-placeholder-secret-at-least-32-chars-long
+      ROOT_DOMAIN: localhost:3000
+      ROOT_PROTOCOL: http
+      E2E_BASE_URL: http://localhost:3000
+      # Read by the app (webhook route) and by the tests that sign requests to it. Not a secret.
+      GITHUB_WEBHOOK_SECRET: e2e-webhook-secret-0123456789abcdef0123456789abcdef
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:deploy
+      - run: pnpm build
+
+      - name: Install Chromium
+        run: pnpm exec playwright-core install --with-deps chromium
+
+      # The same standalone server the Docker image runs.
+      - name: Start the app
+        run: |
+          cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+          PORT=3000 HOSTNAME=0.0.0.0 node apps/web/.next/standalone/apps/web/server.js > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs -o /dev/null http://localhost:3000/login && exit 0; sleep 1; done
+          echo "server did not come up"; cat server.log; exit 1
+
+      - name: End-to-end tests
+        run: pnpm test:e2e
+
+      - name: Server log
+        if: failure()
+        run: cat server.log
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Production dependencies must be clean. Dev-only advisories are reported by Dependabot
+      # instead of failing unrelated pull requests.
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/web.Dockerfile
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+      - name: Build worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/worker.Dockerfile
+          push: false
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,scope=worker,mode=max

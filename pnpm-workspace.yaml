@@ -1,0 +1,41 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  "@embedded-postgres/linux-x64": true
+  "@prisma/engines": true
+  argon2: true
+  esbuild: true
+  prisma: true
+  # Native resolver pulled in by eslint-config-next. It ships prebuilt binaries as optional
+  # dependencies; its install script is only a fallback for platforms without one.
+  unrs-resolver: false
+
+onlyBuiltDependencies:
+  - embedded-postgres
+  - "@embedded-postgres/linux-x64"
+  - prisma
+  - "@prisma/client"
+  - "@prisma/engines"
+  - esbuild
+  - sharp
+  - argon2
+
+# Transitive packages with published advisories whose parents have not bumped them
+# yet (source-map-js via next → postcss; fast-uri via Prisma's dev tooling). Both are
+# patch-level fixes within the same major, so forcing the floor is safe. Remove an
+# entry once its parent ships the fix itself; `pnpm audit` should stay clean.
+#
+# vite (a peer of vitest) is not listed here on purpose: it is an explicit devDependency
+# of the root package at a patched version, and an override that restates a direct
+# dependency's range makes pnpm 11 reject `install --frozen-lockfile` (CI) because the
+# lockfile and manifest specifiers then disagree.
+#
+# katex: micromark-extension-math pins ^0.16, which has a published advisory. Only its HTML
+# renderer uses katex, and packages/markdown never calls that (it uses the math syntax and the
+# mdast extension), so the web app's patched katex stands in for it.
+overrides:
+  source-map-js: ">=1.2.2"
+  fast-uri: ">=3.1.8"
+  "micromark-extension-math>katex": "0.18.7"

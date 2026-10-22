@@ -1,0 +1,289 @@
+@import "tailwindcss";
+
+/*
+ * Tokens for GitCrook' own app chrome (marketing, login, dashboard, editor).
+ * Published docs sites are themed separately and dynamically via each Site's
+ * ThemeConfig (see @gitcrook/shared/theme.ts) — these variables are NOT used
+ * there, only here in the app shell.
+ */
+:root {
+  --color-canvas: #ffffff;
+  --color-surface: #f7f7f8;
+  --color-border: #e5e5e8;
+  --color-ink: #18181b;
+  --color-ink-muted: #6b6b74;
+  --color-brand: #4f46e5;
+  --color-brand-ink: #ffffff;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* True neutral (zinc) scale, not a blue-tinted "cool gray" — this is what
+       reads as "actual dark mode" rather than a tinted-navy approximation. */
+    --color-canvas: #09090b;
+    --color-surface: #18181b;
+    --color-border: #27272a;
+    --color-ink: #fafafa;
+    --color-ink-muted: #a1a1aa;
+    --color-brand: #818cf8;
+    --color-brand-ink: #09090b;
+    --color-danger: #f87171;
+    --color-success: #4ade80;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-border: var(--color-border);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-brand: var(--color-brand);
+  --color-brand-ink: var(--color-brand-ink);
+  --color-danger: var(--color-danger);
+  --color-success: var(--color-success);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/*
+ * Published-site tokens — deliberately separate namespace from the app
+ * shell's --color-* above. Phase 4 overrides --site-primary/--site-tint etc.
+ * inline per Site.theme; these are just sensible defaults until then.
+ * Dark mode: system preference by default, overridden by an explicit
+ * data-site-mode attribute set by the reader's toggle (see DarkModeToggle).
+ */
+[data-site-root] {
+  --site-canvas: #ffffff;
+  --site-surface: #f7f7f8;
+  --site-border: #e5e7eb;
+  --site-ink: #1f2328;
+  --site-ink-muted: #656d76;
+  --site-primary: #4f46e5;
+  --site-tint: transparent;
+
+  /* Phase 4 theming defaults — a Site whose ThemeConfig leaves an axis at its
+     schema default gets NO inline override for it (see themeToCssVars in
+     packages/shared/src/themeVars.ts), so these ARE what "default" looks
+     like, not just a pre-hydration flash. */
+  --site-info: #3b82f6;
+  --site-success: #22c55e;
+  --site-warning: #f59e0b;
+  --site-danger: #ef4444;
+  --site-radius: 0.625rem;
+  --site-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  /* Reuse the app's already-loaded next/font variables for the schema's own
+     defaults ("Inter"/"JetBrains Mono") — only a site that picks a different
+     curated font pays for an external Google Fonts request (see fonts.ts). */
+  --site-font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --site-font-heading: var(--site-font-body);
+  --site-font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  font-family: var(--site-font-body);
+}
+
+/* Dark values measured off a real GitBook-published site rather than picked
+   from a Tailwind scale: their canvas is a warm near-black (#1d1d1d), not
+   zinc-950, with elevated surfaces a clear step lighter (#2c2c2c) and
+   noticeably soft muted text (#c0c0c0). The zinc scale read as colder and
+   flatter than the reference. */
+@media (prefers-color-scheme: dark) {
+  [data-site-root]:not([data-site-mode="light"]) {
+    --site-canvas: #1d1d1d;
+    --site-surface: #2c2c2c;
+    --site-border: #393939;
+    --site-ink: #ffffff;
+    --site-ink-muted: #c0c0c0;
+    --site-primary: #818cf8;
+  }
+}
+
+[data-site-root][data-site-mode="dark"] {
+  --site-canvas: #1d1d1d;
+  --site-surface: #2c2c2c;
+  --site-border: #393939;
+  --site-ink: #ffffff;
+  --site-ink-muted: #c0c0c0;
+  --site-primary: #818cf8;
+}
+
+/* Tint: an optional subtle wash of --site-tint over the canvas, only active
+   when renderPublishedSite.tsx marks data-tint (i.e. the theme actually set
+   one) — keeps the untinted default a plain, unconditional --site-canvas
+   paint rather than a color-mix() that would need a safe no-op fallback. */
+[data-site-root][data-tint="true"] {
+  background-color: color-mix(in srgb, var(--site-tint) 6%, var(--site-canvas));
+}
+
+/* Shiki code blocks (lib/renderer/highlightCode.ts renders with themes:{light,dark}
+   + defaultColor:false, which emits BOTH palettes as --shiki-light/--shiki-dark
+   per token with no default) — pick between them via our own [data-site-mode]
+   convention, same pattern as every --site-* token above, not Shiki's own CSS. */
+[data-site-root] .shiki,
+[data-site-root] .shiki span {
+  font-family: var(--site-font-mono) !important;
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg) !important;
+}
+@media (prefers-color-scheme: dark) {
+  [data-site-root]:not([data-site-mode="light"]) .shiki,
+  [data-site-root]:not([data-site-mode="light"]) .shiki span {
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg) !important;
+  }
+}
+[data-site-root][data-site-mode="dark"] .shiki,
+[data-site-root][data-site-mode="dark"] .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg) !important;
+}
+
+/* cornerStyle="straight" / depthStyle="flat" / linkStyle="accent": additive
+   overrides only, gated by a class renderPublishedSite.tsx puts on the root
+   — the unmarked (default) case is untouched, so nothing already verified
+   this session changes unless a theme explicitly opts in. */
+[data-site-root].vd-corners-straight [class*="rounded"] {
+  border-radius: 0 !important;
+}
+[data-site-root].vd-depth-flat [class*="shadow"] {
+  box-shadow: none !important;
+}
+[data-site-root].vd-links-accent .prose-content a {
+  text-decoration: underline;
+}
+
+/* Hint/callout colors, theme-overridable via --site-info/success/warning/danger.
+   Each variant sets one indirection var; the shared rules below derive
+   background/border/text from it with color-mix so light and dark mode (and
+   any semanticColors override) all fall out of the one accent value. */
+[data-site-root] .hint-info {
+  --hint-accent: var(--site-info);
+}
+[data-site-root] .hint-success {
+  --hint-accent: var(--site-success);
+}
+[data-site-root] .hint-warning {
+  --hint-accent: var(--site-warning);
+}
+[data-site-root] .hint-danger {
+  --hint-accent: var(--site-danger);
+}
+/* Two-tone, matching a real GitBook callout: a solid accent bar down the
+   left edge, a slightly stronger header band carrying the icon + title, and
+   a lighter body beneath it. A titleless hint collapses to just the body
+   half, which is the shape GitBook's own docs use. */
+[data-site-root] .hint-block {
+  background: color-mix(in srgb, var(--hint-accent) 7%, var(--site-canvas));
+  border-left: 3px solid var(--hint-accent);
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+[data-site-root] .hint-block .hint-header {
+  background: color-mix(in srgb, var(--hint-accent) 16%, var(--site-canvas));
+  color: var(--site-ink);
+}
+[data-site-root] .hint-block .hint-icon {
+  color: var(--hint-accent);
+}
+[data-site-root] .hint-block .hint-text {
+  color: color-mix(in srgb, var(--site-ink) 88%, var(--hint-accent));
+}
+
+/* BlockNote's named text and background colours (the editor's "Colors" menu), for blocks and for
+   inline runs. The renderer marks them with data-tc / data-bg; one hue per name drives both, and
+   the background is that hue washed into the canvas so it follows light and dark mode on its own.
+   Dark mode gets lighter hues so coloured text keeps its contrast. */
+[data-site-root] {
+  --c-gray: #8a8985;
+  --c-brown: #8d6a57;
+  --c-red: #d83a3a;
+  --c-orange: #c9650a;
+  --c-yellow: #b58900;
+  --c-green: #2f8f63;
+  --c-blue: #1f78b0;
+  --c-purple: #7c4dc4;
+  --c-pink: #c2308a;
+}
+@media (prefers-color-scheme: dark) {
+  [data-site-root]:not([data-site-mode="light"]) {
+    --c-gray: #a8a7a2;
+    --c-brown: #b08a76;
+    --c-red: #f07575;
+    --c-orange: #ee9a4d;
+    --c-yellow: #e6bf3f;
+    --c-green: #5fc596;
+    --c-blue: #62b4e8;
+    --c-purple: #b090ec;
+    --c-pink: #ee79bd;
+  }
+}
+[data-site-root][data-site-mode="dark"] {
+  --c-gray: #a8a7a2;
+  --c-brown: #b08a76;
+  --c-red: #f07575;
+  --c-orange: #ee9a4d;
+  --c-yellow: #e6bf3f;
+  --c-green: #5fc596;
+  --c-blue: #62b4e8;
+  --c-purple: #b090ec;
+  --c-pink: #ee79bd;
+}
+.prose-content [data-tc="gray"] { color: var(--c-gray); }
+.prose-content [data-tc="brown"] { color: var(--c-brown); }
+.prose-content [data-tc="red"] { color: var(--c-red); }
+.prose-content [data-tc="orange"] { color: var(--c-orange); }
+.prose-content [data-tc="yellow"] { color: var(--c-yellow); }
+.prose-content [data-tc="green"] { color: var(--c-green); }
+.prose-content [data-tc="blue"] { color: var(--c-blue); }
+.prose-content [data-tc="purple"] { color: var(--c-purple); }
+.prose-content [data-tc="pink"] { color: var(--c-pink); }
+.prose-content [data-bg="gray"] { background-color: color-mix(in srgb, var(--c-gray) 22%, var(--site-canvas)); }
+.prose-content [data-bg="brown"] { background-color: color-mix(in srgb, var(--c-brown) 22%, var(--site-canvas)); }
+.prose-content [data-bg="red"] { background-color: color-mix(in srgb, var(--c-red) 20%, var(--site-canvas)); }
+.prose-content [data-bg="orange"] { background-color: color-mix(in srgb, var(--c-orange) 20%, var(--site-canvas)); }
+.prose-content [data-bg="yellow"] { background-color: color-mix(in srgb, var(--c-yellow) 24%, var(--site-canvas)); }
+.prose-content [data-bg="green"] { background-color: color-mix(in srgb, var(--c-green) 20%, var(--site-canvas)); }
+.prose-content [data-bg="blue"] { background-color: color-mix(in srgb, var(--c-blue) 20%, var(--site-canvas)); }
+.prose-content [data-bg="purple"] { background-color: color-mix(in srgb, var(--c-purple) 20%, var(--site-canvas)); }
+.prose-content [data-bg="pink"] { background-color: color-mix(in srgb, var(--c-pink) 20%, var(--site-canvas)); }
+.prose-content [data-bg] { border-radius: 0.25rem; }
+.prose-content [data-bg]:not(span) { padding: 0.125rem 0.5rem; }
+
+/* Heading anchors: a "#" that appears on hover/focus, linking to the heading itself. Pure CSS,
+   no script; touch devices show it faintly since they have no hover. */
+.prose-content .heading-anchor {
+  margin-left: 0.4em;
+  color: var(--site-ink-muted);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.prose-content :is(h1, h2, h3, h4, h5, h6):hover > .heading-anchor,
+.prose-content .heading-anchor:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .prose-content .heading-anchor { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prose-content .heading-anchor { transition: none; }
+}
+
+@theme inline {
+  --color-site-canvas: var(--site-canvas);
+  --color-site-surface: var(--site-surface);
+  --color-site-border: var(--site-border);
+  --color-site-ink: var(--site-ink);
+  --color-site-ink-muted: var(--site-ink-muted);
+  --color-site-primary: var(--site-primary);
+}

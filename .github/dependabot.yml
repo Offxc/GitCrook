@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One pull request per ecosystem keeps the review small; security updates still arrive on their own.
+      prisma:
+        patterns: ["prisma", "@prisma/*"]
+      next:
+        patterns: ["next", "eslint-config-next", "@next/*"]
+      blocknote:
+        patterns: ["@blocknote/*"]
+      lint-and-test:
+        patterns: ["eslint*", "@eslint/*", "typescript-eslint", "vitest", "vite"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly

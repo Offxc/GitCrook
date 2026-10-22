@@ -1,0 +1,192 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {}
+  },
+  "title": null,
+  "blocks": [
+    {
+      "type": "toggleListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Frequently asked",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "paragraph",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "Answers can hold ",
+              "styles": {}
+            },
+            {
+              "type": "text",
+              "text": "Markdown",
+              "styles": {
+                "bold": true
+              }
+            },
+            {
+              "type": "text",
+              "text": ".",
+              "styles": {}
+            }
+          ],
+          "children": []
+        },
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "one",
+              "styles": {}
+            }
+          ],
+          "children": []
+        },
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "two",
+              "styles": {}
+            }
+          ],
+          "children": []
+        },
+        {
+          "type": "toggleListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "Nested question",
+              "styles": {}
+            }
+          ],
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A nested answer.",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "A heading written in HTML",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "image",
+      "props": {
+        "url": "./images/logo.png",
+        "caption": "The logo",
+        "name": "Logo"
+      },
+      "children": []
+    },
+    {
+      "type": "paragraph",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Centered ",
+          "styles": {}
+        },
+        {
+          "type": "link",
+          "href": "https://example.com",
+          "content": [
+            {
+              "type": "text",
+              "text": "text",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": " with a ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "bold",
+          "styles": {
+            "bold": true
+          }
+        },
+        {
+          "type": "text",
+          "text": " word.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "paragraph",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "click me",
+          "styles": {}
+        }
+      ],
+      "children": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "GS-204",
+      "line": 26
+    },
+    {
+      "code": "GS-204",
+      "line": 28
+    },
+    {
+      "code": "GS-132",
+      "line": 32
+    }
+  ],
+  "references": [
+    {
+      "kind": "image",
+      "target": "./images/logo.png"
+    }
+  ]
+}

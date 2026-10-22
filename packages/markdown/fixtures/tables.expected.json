@@ -1,0 +1,312 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {}
+  },
+  "title": null,
+  "blocks": [
+    {
+      "type": "table",
+      "props": {},
+      "content": {
+        "type": "tableContent",
+        "headerRows": 1,
+        "rows": [
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Name",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "left"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Role",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "center"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Count",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "right"
+                }
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Ada",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "left"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Engineer",
+                    "styles": {
+                      "bold": true
+                    }
+                  }
+                ],
+                "props": {
+                  "textAlignment": "center"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "3",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "right"
+                }
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Grace",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "left"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Admiral, ",
+                    "styles": {}
+                  },
+                  {
+                    "type": "text",
+                    "text": "COBOL",
+                    "styles": {
+                      "code": true
+                    }
+                  }
+                ],
+                "props": {
+                  "textAlignment": "center"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "12",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "right"
+                }
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Linus",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "left"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "See ",
+                    "styles": {}
+                  },
+                  {
+                    "type": "link",
+                    "href": "https://example.com",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "site",
+                        "styles": {}
+                      }
+                    ]
+                  }
+                ],
+                "props": {
+                  "textAlignment": "center"
+                }
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "0",
+                    "styles": {}
+                  }
+                ],
+                "props": {
+                  "textAlignment": "right"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    {
+      "type": "table",
+      "props": {},
+      "content": {
+        "type": "tableContent",
+        "rows": [
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Plan",
+                    "styles": {}
+                  }
+                ],
+                "props": {}
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Price",
+                    "styles": {}
+                  }
+                ],
+                "props": {}
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Free",
+                    "styles": {}
+                  }
+                ],
+                "props": {}
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "$0",
+                    "styles": {}
+                  }
+                ],
+                "props": {}
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Team",
+                    "styles": {
+                      "bold": true
+                    }
+                  }
+                ],
+                "props": {}
+              },
+              {
+                "type": "tableCell",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "$12",
+                    "styles": {}
+                  }
+                ],
+                "props": {}
+              }
+            ]
+          }
+        ],
+        "headerRows": 1
+      },
+      "children": []
+    }
+  ],
+  "diagnostics": [],
+  "references": [
+    {
+      "kind": "link",
+      "target": "https://example.com"
+    }
+  ]
+}

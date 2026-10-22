@@ -1,0 +1,89 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {}
+  },
+  "title": null,
+  "blocks": [
+    {
+      "type": "codeBlock",
+      "props": {
+        "language": "bash",
+        "title": "install.sh"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "pnpm install\npnpm dev",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "codeBlock",
+      "props": {
+        "language": "typescript"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "const answer: number = 42;",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "codeBlock",
+      "props": {
+        "language": "text"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "plain text, no language",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "codeBlock",
+      "props": {
+        "language": "markdown"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "```js\na fence inside a fence\n```",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "math",
+      "props": {
+        "formula": "\\int_0^1 x^2 \\, dx = \\frac{1}{3}"
+      },
+      "children": []
+    },
+    {
+      "type": "paragraph",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "It costs $5 and $6, which is not math.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    }
+  ],
+  "diagnostics": [],
+  "references": []
+}

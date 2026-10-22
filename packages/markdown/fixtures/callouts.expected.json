@@ -1,0 +1,129 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {}
+  },
+  "title": null,
+  "blocks": [
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "info"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "A short note.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "success",
+        "hintTitle": "Pro tip"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Titles follow the marker.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "info"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Written with the marker on its own line.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "warning",
+        "hintTitle": "Before you start"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Back up your data.",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "Export the database",
+              "styles": {}
+            }
+          ],
+          "children": []
+        },
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "Copy the uploads folder",
+              "styles": {}
+            }
+          ],
+          "children": []
+        },
+        {
+          "type": "codeBlock",
+          "props": {
+            "language": "bash"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "pg_dump gitcrook > backup.sql",
+              "styles": {}
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "danger"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "This cannot be undone.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "GS-206",
+      "line": 7
+    }
+  ],
+  "references": []
+}

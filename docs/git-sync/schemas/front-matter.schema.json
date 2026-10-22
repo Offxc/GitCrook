@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/Offxc/GitCrook/main/docs/git-sync/schemas/front-matter.schema.json",
+  "title": "GitCrook page front matter",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Page title. Default: the leading # heading, else the file name."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Subtitle and meta description."
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "An icon name from the editor's icon set."
+    },
+    "slug": {
+      "type": "string",
+      "description": "The URL segment. Default: the file name.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 96
+    },
+    "order": {
+      "type": "number",
+      "description": "Sort key among siblings. Default: alphabetical."
+    },
+    "draft": {
+      "type": "boolean",
+      "description": "Do not publish this page."
+    },
+    "hidden": {
+      "type": "boolean",
+      "description": "Publish the page but leave it out of the sidebar."
+    },
+    "redirect_from": {
+      "description": "Old paths that should redirect to this page.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "An identity that survives renames and moves."
+    },
+    "nav_title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Sidebar label when it should differ from the title."
+    }
+  },
+  "additionalProperties": true
+}

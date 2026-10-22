@@ -1,0 +1,49 @@
+import { prisma } from "@gitcrook/db";
+import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
+import { SettingsShell } from "../SettingsShell";
+import { CreateVariantForm } from "./CreateVariantForm";
+
+export default async function VariantsPage({ params }: { params: Promise<{ orgSlug: string; siteId: string }> }) {
+  const { orgSlug, siteId } = await params;
+  const { site } = await requireSite(orgSlug, siteId);
+
+  const section = await prisma.section.findFirst({ where: { siteId: site.id }, orderBy: { order: "asc" } });
+  const space = section && (await prisma.space.findFirst({ where: { sectionId: section.id }, orderBy: { order: "asc" } }));
+  const variants = space ? await prisma.variant.findMany({ where: { spaceId: space.id }, orderBy: { order: "asc" } }) : [];
+
+  const publishedBase = publishedUrlFor(site);
+
+  return (
+    <SettingsShell
+      orgSlug={orgSlug}
+      siteId={siteId}
+      siteName={site.name}
+      publishedUrl={publishedBase}
+      active="variants"
+      title="Variants"
+      description="Parallel versions of this site's content — e.g. v1/v2 of an API, or per-region docs. Visitors switch between them from the published site's header."
+    >
+      <div className="space-y-2">
+        {variants.map((v) => (
+          <div key={v.id} className="flex items-center justify-between rounded-lg border border-border bg-canvas px-4 py-3">
+            <div>
+              <p className="text-sm text-ink">
+                {v.name}
+                {v.isDefault ? <span className="ml-1.5 text-xs text-ink-muted">(default)</span> : null}
+              </p>
+              <p className="text-xs text-ink-muted">{v.slug}</p>
+            </div>
+            <a href={v.isDefault ? publishedBase : `${publishedBase}/~v/${v.slug}`} target="_blank" rel="noreferrer" className="text-xs text-brand hover:underline">
+              View ↗
+            </a>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 rounded-xl border border-border bg-canvas p-5">
+        <h2 className="mb-3 text-sm font-medium text-ink">New variant</h2>
+        <CreateVariantForm orgSlug={orgSlug} siteId={siteId} />
+      </div>
+    </SettingsShell>
+  );
+}

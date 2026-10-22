@@ -1,0 +1,21 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+out/
+*.log
+*.tsbuildinfo
+
+# Local editor/agent tooling state, not project config
+.env
+.env.local
+.DS_Store
+.turbo/
+packages/db/prisma/dev.db*
+packages/db/generated/
+packages/db/.pgdata/
+coverage/
+
+# Local upload storage (STORAGE_DIR default) - user content, never source
+.data/

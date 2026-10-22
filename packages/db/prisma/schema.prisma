@@ -1,0 +1,825 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================= Auth.js required models =============================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts           Account[]
+  sessions           Session[]
+  memberships        Membership[]
+  sitePermissions    SitePermission[]
+  sectionPermissions SectionPermission[]
+  spacePermissions   SpacePermission[]
+  pagePermissions    PagePermission[]
+  comments           Comment[]
+  auditLogs          AuditLog[]
+  uploadedAssets     Asset[]
+  shareLinks         ShareLink[]
+  pageVersions       PageVersion[]
+  exportJobs         ExportJob[]
+  invitationsSent    Invitation[]        @relation("InvitationsSent")
+  gitSourcesCreated  GitSource[]
+  gitCredentials     GitCredential[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  // access_token / refresh_token intentionally NOT persisted — we only need Discord for
+  // identity (OWASP A02: nothing sensitive to protect because it's never stored).
+  id_token          String?
+  scope             String?
+  expires_at        Int?
+  token_type        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===================================== Roles =====================================
+
+enum Role {
+  GUEST
+  READER
+  COMMENTER
+  EDITOR
+  REVIEWER
+  CREATOR
+  ADMIN
+}
+
+// ============================ Organization / membership ============================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships    Membership[]
+  sites          Site[]
+  assets         Asset[]
+  auditLogs      AuditLog[]
+  reusableBlocks ReusableBlock[]
+  invitations    Invitation[]
+  gitSources     GitSource[]
+  gitCredentials GitCredential[]
+}
+
+// Someone invited by email who has no account yet. Sign-up is closed by default, so an
+// invitation is what lets a collaborator create an account at all: when a new user signs
+// in with a *verified* Discord email that matches a pending, unexpired invitation, they
+// join the organization with this role instead of getting an organization of their own.
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String // lowercased
+  role           Role     @default(READER)
+  invitedById    String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@index([email])
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           Role     @default(READER)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// ========================= Sites, domains, and access control =========================
+
+enum DomainStatus {
+  PENDING
+  ACTIVE
+  NEEDS_REVERIFICATION
+  REVOKED
+}
+
+enum AudienceMode {
+  PUBLIC
+  PRIVATE
+  PASSWORD
+}
+
+model Site {
+  id               String       @id @default(cuid())
+  organizationId   String
+  name             String
+  slug             String       @unique // {rootDomain}/{slug}
+  iconAssetId      String?
+  logoLightAssetId String?
+  logoDarkAssetId  String?
+  theme            Json // ThemeConfig, validated by @gitcrook/shared's ThemeConfigSchema
+  audienceMode     AudienceMode @default(PUBLIC)
+  defaultLocale    String       @default("en")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sectionGroups   SectionGroup[]
+  sections        Section[]
+  customDomain    CustomDomain?
+  assets          Asset[]
+  password        SitePassword?
+  shareLinks      ShareLink[]
+  permissions     SitePermission[]
+  redirects       SiteRedirect[]
+  variables       Variable[]
+  pages           Page[]
+  analyticsEvents AnalyticsEvent[]
+  dailyRollups    AnalyticsDailyRollup[]
+  gitSources      GitSource[]
+
+  @@index([organizationId])
+}
+
+model CustomDomain {
+  id                  String       @id @default(cuid())
+  siteId              String       @unique
+  hostname            String // punycode-normalized, lowercase. NOT globally unique: any number of sites may
+  // *claim* a hostname (PENDING); only one may hold it (ACTIVE). That rule is a partial unique
+  // index in the migration (CustomDomain_active_hostname_key) because Prisma can't express it —
+  // `prisma migrate dev` will want to drop it, so delete that statement from the generated SQL,
+  // as with Page.searchVector below. A globally unique hostname let anyone add a name they didn't
+  // own and block its real owner from ever adding it.
+  status              DomainStatus @default(PENDING)
+  verificationToken   String
+  verifiedAt          DateTime?
+  lastCheckedAt       DateTime?
+  consecutiveFailures Int          @default(0)
+  createdAt           DateTime     @default(now())
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([hostname])
+}
+
+model SitePassword {
+  siteId       String   @id
+  passwordHash String // argon2id
+  // Bound into every issued proof cookie. Bumped when the password changes and when the
+  // site's audience changes, so previously issued proofs stop working at once.
+  version      Int      @default(1)
+  updatedAt    DateTime @updatedAt
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+}
+
+model ShareLink {
+  id           String    @id @default(cuid())
+  siteId       String
+  token        String    @unique // 128-bit random, url-safe
+  label        String?
+  scopeSpaceId String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+
+  site      Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+}
+
+model SiteRedirect {
+  id         String   @id @default(cuid())
+  siteId     String
+  fromPath   String
+  toPath     String
+  statusCode Int      @default(308)
+  createdAt  DateTime @default(now())
+  // Set on a redirect that a sync made (a moved page, `redirect_from`), so the next sync can add and
+  // remove its own redirects without touching the ones people made by hand. A removed source leaves
+  // them in place as ordinary redirects.
+  sourceId   String?
+  // Why a sync made it: "MOVE" (the page's file was moved or renamed) or "FRONT_MATTER" (a
+  // `redirect_from` entry). Move redirects accumulate; front-matter ones follow the files.
+  origin     String?
+
+  site   Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  source GitSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@unique([siteId, fromPath])
+  @@index([sourceId])
+}
+
+// ==================== Sections / groups / spaces / variants / pages ====================
+
+model SectionGroup {
+  id     String @id @default(cuid())
+  siteId String
+  title  String
+  order  Int
+
+  site     Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  sections Section[]
+
+  @@index([siteId])
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  siteId    String
+  groupId   String?
+  title     String
+  slug      String
+  order     Int
+  icon      String?
+  createdAt DateTime @default(now())
+
+  site        Site                @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  group       SectionGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  spaces      Space[]
+  permissions SectionPermission[]
+
+  @@unique([siteId, slug])
+  @@index([siteId])
+}
+
+enum EditMode {
+  OPEN // Editor+ edit directly and publish immediately (v1 default)
+  LOCKED // change-request review/merge workflow — reserved for a later phase
+}
+
+model Space {
+  id        String   @id @default(cuid())
+  sectionId String
+  title     String
+  slug      String
+  order     Int
+  icon      String?
+  editMode  EditMode @default(OPEN)
+  createdAt DateTime @default(now())
+
+  section     Section           @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  variants    Variant[]
+  permissions SpacePermission[]
+
+  @@unique([sectionId, slug])
+  @@index([sectionId])
+}
+
+model Variant {
+  id        String   @id @default(cuid())
+  spaceId   String
+  name      String
+  slug      String
+  isDefault Boolean  @default(false)
+  order     Int
+  createdAt DateTime @default(now())
+
+  space     Space      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  pages     Page[]
+  gitSource GitSource?
+
+  @@unique([spaceId, slug])
+  @@index([spaceId])
+}
+
+model Page {
+  id             String                   @id @default(cuid())
+  variantId      String
+  siteId         String // denormalized from variant->space->section->site: one indexed filter
+  // for search/analytics instead of a 4-way join, and no cross-tenant join bugs possible.
+  parentId       String?
+  title          String
+  slug           String
+  description    String?
+  icon           String?
+  isGroup        Boolean                  @default(false) // a page group (GitBook's term): title/icon/slug, no
+  // content, not itself navigable — just a header in the sidebar for the pages nested under it.
+  // Always top-level (enforced in the create action, not the schema): GitBook's own page groups
+  // can't nest inside each other either.
+  coverAssetId   String?
+  content        Json // BlockNote document (array of Block) — unused for a group; kept required
+  // rather than nullable so every other query touching Page.content doesn't need a null check
+  // for the one row-kind that doesn't use it.
+  contentText    String                   @default("") @db.Text // plain-text extract of
+  // `content`, kept in sync on every save; feeds searchVector below.
+  searchVector   Unsupported("tsvector")? // generated column + GIN index, set up in a raw-SQL
+  // migration (Prisma can't express GENERATED ALWAYS AS ... STORED) — see migration.sql for
+  // Phase 3's search feature. Typed here only so the Prisma client knows the column exists.
+  //
+  // WARNING: because of this field, `prisma migrate dev` on ANY future schema
+  // change will generate a false diff — a spurious `DROP INDEX
+  // "Page_searchVector_idx"` + `ALTER COLUMN "searchVector" DROP DEFAULT` —
+  // since Prisma can't see that the column is GENERATED. Always run with
+  // `--create-only` first, delete those two statements from the generated
+  // migration.sql, THEN apply. Applying it unedited silently drops the search
+  // index (found the hard way: it stayed dropped, with search still
+  // "working" via a slow seq scan, until an unrelated later migration's own
+  // drift check surfaced it).
+  contentVersion Int                      @default(1) // optimistic concurrency for autosave
+  order          Int
+  isDraft        Boolean                  @default(false)
+  publishedAt    DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  // Git Sync. A page is managed by the editor or by a repository; a repository-managed page is
+  // read-only in the editor and its content is replaced by each sync. `sourcePath` is the file's
+  // path under the source's root directory and, with `sourceId`, identifies the page across syncs
+  // (the unique index below). `sourceBlobSha` lets a sync skip a file that has not changed.
+  // `frontMatterId` is the file's `id:` — an identity that survives renames and moves.
+  // A file that disappears from the repository is soft-deleted: `deletedAt` is set and the page is
+  // also marked a draft so every reader query that already skips drafts stops serving it. A page
+  // with `deletedAt` set does not hold its URL (see the partial slug indexes) and is removed for
+  // good once the source's grace period has passed.
+  managedBy     PageManagedBy @default(EDITOR)
+  sourceId      String?
+  sourcePath    String?
+  sourceBlobSha String?
+  frontMatterId String?
+  deletedAt     DateTime?
+  // Published but left out of the sidebar and prev/next (front matter `hidden: true`).
+  isHidden      Boolean       @default(false)
+  // What the parser read from the file's front matter and heading, kept so the navigation can be
+  // rebuilt on every sync without fetching the files that did not change.
+  sourceMeta    Json?
+
+  variant     Variant          @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  site        Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  parent      Page?            @relation("PageTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Page[]           @relation("PageTree")
+  permissions PagePermission[]
+  comments    Comment[]
+  ratings     PageRating[]
+  versions    PageVersion[]
+  exportJobs  ExportJob[]
+  analytics   AnalyticsEvent[]
+  source      GitSource?       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  // Sibling slugs are unique, enforced by two PARTIAL unique indexes the schema language can't
+  // express (migration 20261022170000_page_slug_uniqueness, narrowed to live pages by
+  // 20261022190000_git_sync): one on (variantId, slug) WHERE parentId IS NULL and one on
+  // (variantId, parentId, slug) WHERE parentId IS NOT NULL, both AND deletedAt IS NULL. A single
+  // @@unique can't do both because Postgres treats NULLs as distinct. They are invisible to
+  // `prisma migrate dev`, which will try to drop them — see the searchVector warning above and
+  // delete those statements from any generated migration. Writers should go through
+  // apps/web/lib/pages/withFreeSlug.ts, which retries on the P2002 these indexes raise.
+  @@unique([sourceId, sourcePath])
+  @@index([variantId, parentId, slug])
+  @@index([variantId])
+  @@index([siteId])
+  @@index([parentId])
+  @@index([sourceId, frontMatterId])
+  @@index([deletedAt])
+}
+
+enum PageManagedBy {
+  EDITOR
+  GIT
+}
+
+enum PageVersionOrigin {
+  EDITOR
+  GIT
+  RESTORE
+}
+
+model PageVersion {
+  id          String            @id @default(cuid())
+  pageId      String
+  content     Json
+  version     Int
+  createdById String?
+  createdAt   DateTime          @default(now())
+  // Where this version came from; a sync records the commit it read.
+  origin      PageVersionOrigin @default(EDITOR)
+  commitSha   String?
+
+  page      Page  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([pageId])
+}
+
+// Internal editorial discussion (Commenter role and up) — distinct from anonymous
+// visitor PageRating feedback below.
+model Comment {
+  id         String    @id @default(cuid())
+  pageId     String
+  blockId    String? // BlockNote block id being annotated, null = page-level comment
+  authorId   String
+  body       String
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  page   Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+// Site-wide reusable text snippets, referenced via an inline expression block
+// (e.g. product name, current version number) — updates everywhere at once.
+model Variable {
+  id        String   @id @default(cuid())
+  siteId    String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, key])
+}
+
+// "Synced blocks": authored once, embedded on multiple pages; editing the source
+// updates every embed. Scoped to an org so it can be reused across that org's sites.
+model ReusableBlock {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  content        Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ========================= Cascading RBAC overrides =========================
+// Resolution order (most specific wins): PagePermission -> SpacePermission ->
+// SectionPermission -> SitePermission -> Membership.role -> (none = no access).
+
+model SitePermission {
+  id     String @id @default(cuid())
+  siteId String
+  userId String
+  role   Role
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, userId])
+}
+
+model SectionPermission {
+  id        String @id @default(cuid())
+  sectionId String
+  userId    String
+  role      Role
+
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, userId])
+}
+
+model SpacePermission {
+  id      String @id @default(cuid())
+  spaceId String
+  userId  String
+  role    Role
+
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+}
+
+model PagePermission {
+  id     String @id @default(cuid())
+  pageId String
+  userId String
+  role   Role
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, userId])
+}
+
+// ===================================== Assets =====================================
+
+enum AssetKind {
+  IMAGE
+  FILE
+  FONT
+  DRAWING_SVG
+}
+
+model Asset {
+  id             String    @id @default(cuid())
+  organizationId String
+  uploaderId     String?
+  // Nullable: an asset predates this field, or is genuinely org-wide (not
+  // tied to one site's content) — /api/files/[assetId] treats a null siteId
+  // as unrestricted, matching pre-existing behavior. A non-null siteId gets
+  // that site's actual visitor-access check (public/private/password/share
+  // link), closing the gap where a Private site's images were fetchable by
+  // direct URL regardless of the page-level access control around them.
+  siteId         String?
+  kind           AssetKind
+  storageKey     String
+  mimeType       String
+  sizeBytes      Int
+  width          Int?
+  height         Int?
+  checksumSha256 String
+  createdAt      DateTime  @default(now())
+
+  // Git Sync: an image or file imported from a repository. (sourceId, sourcePath) is the file's
+  // identity; sourceBlobSha says whether it has changed since the last import.
+  sourceId      String?
+  sourcePath    String?
+  sourceBlobSha String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploader     User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  site         Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  source       GitSource?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  exportJobs   ExportJob[]
+
+  @@unique([sourceId, sourcePath])
+  @@index([siteId])
+  @@index([organizationId])
+}
+
+// =================================== Git Sync ===================================
+
+enum GitProvider {
+  GITHUB
+}
+
+enum GitSyncStatus {
+  IDLE
+  SYNCING
+  ERROR
+  PAUSED
+}
+
+enum GitSyncTrigger {
+  WEBHOOK
+  POLL
+  MANUAL
+  FULL
+}
+
+enum GitSyncRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+// A repository, branch and directory whose Markdown becomes one variant's page tree. Other
+// variants, sections and the rest of the site stay editor-managed, so ownership is never partial
+// within a tree.
+model GitSource {
+  id              String        @id @default(cuid())
+  organizationId  String
+  siteId          String
+  variantId       String        @unique
+  provider        GitProvider   @default(GITHUB)
+  owner           String
+  repo            String
+  branch          String
+  rootDir         String        @default("")
+  credentialId    String?
+  status          GitSyncStatus @default(IDLE)
+  lastSyncedSha   String?
+  lastSyncedAt    DateTime?
+  lastCheckedAt   DateTime?
+  lastError       String?
+  etag            String?
+  pollIntervalSec Int           @default(300)
+  deleteGraceDays Int           @default(14)
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  variant      Variant        @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  credential   GitCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  createdBy    User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  runs         GitSyncRun[]
+  pages        Page[]
+  assets       Asset[]
+  redirects    SiteRedirect[]
+
+  // The poller picks up sources that are due.
+  @@index([status, lastCheckedAt])
+  @@index([organizationId])
+  @@index([siteId])
+}
+
+// A token or app installation a source reads with. The secret is encrypted (AES-256-GCM, see
+// packages/shared/src/secrets.ts) and never selected by default: read it only where it is used, and
+// never log or return it. `keyId` names the key that sealed it so keys can be rotated.
+model GitCredential {
+  id               String   @id @default(cuid())
+  organizationId   String
+  label            String   @default("")
+  kind             String // GITHUB_APP_INSTALLATION | TOKEN
+  installationId   String?
+  secretCiphertext Bytes?
+  keyId            String
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sources      GitSource[]
+
+  @@index([organizationId])
+}
+
+// One attempt to bring a site up to a commit. `deliveryId` is the webhook's delivery id, so the same
+// delivery arriving twice creates one run. `stats` and `diagnostics` are capped JSON.
+model GitSyncRun {
+  id          String           @id @default(cuid())
+  sourceId    String
+  trigger     GitSyncTrigger
+  deliveryId  String?          @unique
+  fromSha     String?
+  toSha       String
+  status      GitSyncRunStatus @default(PENDING)
+  startedAt   DateTime?
+  heartbeatAt DateTime? // refreshed while running; a run that stops updating it is reaped
+  finishedAt  DateTime?
+  stats       Json?
+  diagnostics Json?
+  error       String?
+  createdAt   DateTime         @default(now())
+
+  source GitSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, createdAt])
+  @@index([status, createdAt])
+}
+
+// =========================== Visitor feedback & analytics ===========================
+
+model PageRating {
+  id          String   @id @default(cuid())
+  pageId      String
+  rating      Int
+  feedback    String?
+  visitorHash String // sha256(dailySalt + siteId + ip + userAgent) — never raw IP
+  createdAt   DateTime @default(now())
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+enum AnalyticsEventType {
+  PAGEVIEW
+  SEARCH
+  LINK_CLICK
+  NOT_FOUND
+}
+
+model AnalyticsEvent {
+  id            String             @id @default(cuid())
+  siteId        String
+  type          AnalyticsEventType
+  pageId        String?
+  path          String
+  country       String?
+  language      String?
+  browser       String?
+  device        String?
+  referrer      String?
+  query         String? // SEARCH events
+  linkTarget    String? // LINK_CLICK events
+  linkPlacement String? // header | footer | sidebar | body
+  visitorHash   String
+  occurredAt    DateTime           @default(now())
+
+  site Site  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: SetNull)
+
+  @@index([siteId, occurredAt])
+  @@index([siteId, type, occurredAt])
+}
+
+model AnalyticsDailyRollup {
+  id             String   @id @default(cuid())
+  siteId         String
+  date           DateTime @db.Date
+  pageviews      Int      @default(0)
+  uniqueVisitors Int      @default(0)
+  dimension      String // "country" | "device" | "browser" | "referrer"
+  dimensionValue String
+  count          Int
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, date, dimension, dimensionValue])
+  @@index([siteId, date])
+}
+
+// =================================== PDF export ===================================
+// Processed by apps/worker (a separate process/container — Playwright's headless
+// Chromium is kept out of the internet-facing web process on purpose, see the
+// architecture plan's OWASP A05 reasoning) via simple polling, not a Redis queue —
+// REDIS_URL stays optional; this table IS the queue, claimed with an atomic
+// conditional UPDATE (PENDING -> PROCESSING) so a second worker can never double-run it.
+
+enum ExportJobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model ExportJob {
+  id            String          @id @default(cuid())
+  pageId        String
+  requestedById String
+  status        ExportJobStatus @default(PENDING)
+  resultAssetId String?
+  error         String?
+  createdAt     DateTime        @default(now())
+  completedAt   DateTime?
+
+  page        Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  requestedBy User   @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  resultAsset Asset? @relation(fields: [resultAssetId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([pageId])
+}
+
+// =================================== Audit log ===================================
+// OWASP A09 — sensitive-action trail: role changes, domain add/verify/revoke,
+// password changes, member removal, site deletion, etc.
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  targetType     String
+  targetId       String
+  metadata       Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}

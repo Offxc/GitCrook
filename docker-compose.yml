@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      # Overridable because POSTGRES_USER/POSTGRES_DB are only applied when the
+      # data directory is first initialised. An existing deployment's volume
+      # keeps whatever role and database it was created with, so changing the
+      # defaults here would point the app at a role that doesn't exist — set
+      # POSTGRES_USER/POSTGRES_DB in .env to match an older volume instead.
+      POSTGRES_USER: ${POSTGRES_USER:-gitcrook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-gitcrook}
+    volumes:
+      # 18+ images expect the volume at the parent dir, not .../data directly —
+      # the image manages its own version-specific subdirectory underneath
+      # (/var/lib/postgresql/18/docker) so pg_upgrade --link works across
+      # major versions later.
+      - pgdata:/var/lib/postgresql
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gitcrook}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No `ports:` — only reachable from other containers on the `internal`
+    # network, never from the host/internet directly (OWASP A05).
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      target: build
+    command: ["pnpm", "--filter", "@gitcrook/db", "exec", "prisma", "migrate", "deploy"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gitcrook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gitcrook}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gitcrook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gitcrook}
+      NODE_ENV: production
+      # Absolute, not the schema's relative default — web and worker have
+      # different WORKDIRs (/app vs /repo), so a relative path would resolve
+      # to two different directories even with the volume shared below.
+      STORAGE_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    # No `ports:` — only Caddy is internet-reachable; this is also what makes
+    # the /api/internal/certs/ask endpoint safe to reason about (see its own
+    # doc comment).
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gitcrook}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gitcrook}
+      NODE_ENV: production
+      STORAGE_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    # No `ports:` either — PDF export is a poll loop against Postgres, never
+    # a server; nothing needs to reach this container directly, including Caddy.
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      ROOT_DOMAIN: ${ROOT_DOMAIN:?set ROOT_DOMAIN in .env, e.g. docs.voidsmp.com}
+    extra_hosts:
+      # Lets the Caddyfile's dev.voidsmp.com block reach AMP's panel, which
+      # runs directly on the VPS host (not in a container) on 127.0.0.1:8080.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - web
+    networks: [internal]
+    restart: unless-stopped
+
+networks:
+  internal: {}
+
+volumes:
+  pgdata: {}
+  caddy_data: {} # must persist across redeploys — this is where issued TLS certs live
+  caddy_config: {}
+  uploads: {} # shared between web (serves it) and worker (writes PDFs into it) — must persist across redeploys, same as pgdata
