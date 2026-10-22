@@ -14,6 +14,7 @@ import { AnnouncementBanner } from "@/app/(published)/_components/AnnouncementBa
 import { Footer } from "@/app/(published)/_components/Footer";
 import { PasswordGate } from "@/app/(published)/_components/PasswordGate";
 import { DarkModeToggle } from "@/app/(published)/_components/DarkModeToggle";
+import { SITE_MODE_COOKIE, isSiteMode, siteModeAttribute } from "@/app/(published)/_components/siteMode";
 import { TableOfContents } from "@/app/(published)/_components/TableOfContents";
 import { extractHeadings } from "@/lib/renderer/extractHeadings";
 import { PrivateSiteMessage } from "@/app/(published)/_components/PrivateSiteMessage";
@@ -90,6 +91,11 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   ];
 
   const theme = resolveTheme(site.theme);
+  // The reader's own choice wins, then the site's configured default. A site that
+  // turned dark mode off is pinned to light (and shows no toggle).
+  const storedMode = jar.get(SITE_MODE_COOKIE)?.value;
+  const preferredMode = isSiteMode(storedMode) ? storedMode : theme.darkMode.default;
+  const effectiveMode = theme.darkMode.enabled ? preferredMode : "light";
   const showPageActions = theme.pageActions.copyAsMarkdown || theme.pageActions.viewAsMarkdown;
   const pageMarkdown = showPageActions ? blocksToMarkdown(page.content) : "";
   // Gated by both a real permission check (never trust theme config for
@@ -124,7 +130,12 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   const hasTint = Boolean(theme.tintColor.light || theme.tintColor.dark);
 
   return (
-    <div data-site-root data-tint={hasTint ? "true" : undefined} className={rootClassNames}>
+    <div
+      data-site-root
+      data-site-mode={siteModeAttribute(effectiveMode)}
+      data-tint={hasTint ? "true" : undefined}
+      className={rootClassNames}
+    >
       {/* eslint-disable-next-line @next/next/no-page-custom-font -- per-site dynamic value, can't be a build-time next/font import */}
       {googleFontsHref ? <link rel="stylesheet" href={googleFontsHref} /> : null}
       <style dangerouslySetInnerHTML={{ __html: styleBlock }} />
@@ -228,7 +239,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
         {canManageContent ? <EditModeToggle orgSlug={orgSlugForSidebar} siteId={site.id} siteName={site.name} /> : null}
       </EditModeProvider>
       <Footer siteName={site.name} footer={theme.footer} socials={theme.socials} privacyPolicyHref={theme.privacyPolicyHref} />
-      <DarkModeToggle />
+      {theme.darkMode.enabled ? <DarkModeToggle initialChoice={preferredMode} /> : null}
     </div>
   );
 }

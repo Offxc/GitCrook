@@ -1,55 +1,67 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SITE_MODE_COOKIE, isSiteMode, siteModeAttribute, type SiteMode } from "./siteMode";
 
-type Choice = "light" | "system" | "dark";
+const LEGACY_STORAGE_KEY = "gitcrook-site-mode";
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 function getSiteRoot(): Element | null {
   return document.querySelector("[data-site-root]");
 }
 
+function applyMode(mode: SiteMode) {
+  const attribute = siteModeAttribute(mode);
+  const root = getSiteRoot();
+  if (!root) return;
+  if (attribute) root.setAttribute("data-site-mode", attribute);
+  else root.removeAttribute("data-site-mode");
+}
+
+function writeCookie(mode: SiteMode) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${SITE_MODE_COOKIE}=${mode}; Path=/; Max-Age=${ONE_YEAR_SECONDS}; SameSite=Lax${secure}`;
+}
+
+function hasModeCookie(): boolean {
+  return document.cookie.split("; ").some((part) => part.startsWith(`${SITE_MODE_COOKIE}=`));
+}
+
 /**
  * A 3-way light/system/dark control, not a single light<->dark toggle —
  * "system" isn't just a starting default, it's a real choice a visitor can
- * return to (clears the stored override and the data-site-mode attribute
- * entirely, handing control back to the [data-site-mode] media-query rules
- * in globals.css). Fixed to the corner rather than living in the header, so
- * it's reachable without scrolling back to the top.
+ * return to (it is stored explicitly, so it also overrides a site whose theme
+ * defaults to dark). `initialChoice` comes from the server, which already put
+ * the matching attribute on the page, so the toggle and the page agree from the
+ * first paint. Fixed to the corner rather than living in the header, so it's
+ * reachable without scrolling back to the top.
  */
-export function DarkModeToggle() {
-  // null until mount — the server can't know the visitor's stored choice.
-  const [choice, setChoice] = useState<Choice | null>(null);
+export function DarkModeToggle({ initialChoice }: { initialChoice: SiteMode }) {
+  const [choice, setChoice] = useState<SiteMode>(initialChoice);
 
+  // One-time migration for visitors who chose a mode before it moved from
+  // localStorage to a cookie: honour their old choice instead of resetting it.
   useEffect(() => {
-    let stored: string | null = null;
+    if (hasModeCookie()) return;
+    let legacy: string | null = null;
     try {
-      stored = localStorage.getItem("gitcrook-site-mode");
+      legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy !== null) localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
       // best-effort only — some private-browsing contexts throw on access
     }
-    setChoice(stored === "light" || stored === "dark" ? stored : "system");
+    if (isSiteMode(legacy)) {
+      writeCookie(legacy);
+      applyMode(legacy);
+      setChoice(legacy);
+    }
   }, []);
 
-  function choose(next: Choice) {
+  function choose(next: SiteMode) {
     setChoice(next);
-    if (next === "system") {
-      getSiteRoot()?.removeAttribute("data-site-mode");
-      try {
-        localStorage.removeItem("gitcrook-site-mode");
-      } catch {
-        // best-effort only
-      }
-    } else {
-      getSiteRoot()?.setAttribute("data-site-mode", next);
-      try {
-        localStorage.setItem("gitcrook-site-mode", next);
-      } catch {
-        // best-effort only
-      }
-    }
+    applyMode(next);
+    writeCookie(next);
   }
-
-  if (!choice) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-40 flex items-center gap-0.5 rounded-full border border-site-border bg-site-canvas p-1 shadow-lg">
