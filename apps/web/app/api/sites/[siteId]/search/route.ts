@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@gitcrook/db";
+import { computePagePaths, prisma } from "@gitcrook/db";
 import { checkRateLimit } from "@gitcrook/shared/server";
 import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
-import { computePagePath } from "@/lib/tenancy/computePagePath";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
@@ -54,17 +53,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
     LIMIT 10
   `;
 
-  const results = await Promise.all(
-    rows.map(async (row) => {
-      const path = await computePagePath(row.id);
-      return {
-        id: row.id,
-        title: row.title,
-        snippet: row.contentText.slice(0, 140),
-        path: path ?? [],
-      };
-    }),
-  );
+  const paths = await computePagePaths(rows.map((row) => row.id));
+  const results = rows
+    .map((row) => ({ id: row.id, title: row.title, snippet: row.contentText.slice(0, 140), path: paths.get(row.id) ?? [] }))
+    .filter((r) => r.path.length > 0);
 
-  return NextResponse.json({ results: results.filter((r) => r.path.length > 0) });
+  return NextResponse.json({ results });
 }

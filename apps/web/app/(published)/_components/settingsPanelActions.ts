@@ -3,7 +3,7 @@
 import type { ShareLink, CustomDomain, Variant } from "@gitcrook/db";
 import { prisma } from "@gitcrook/db";
 import { canUserDoX } from "@gitcrook/auth";
-import { getEnv } from "@gitcrook/shared/server";
+import { sitePublishedUrl } from "@gitcrook/shared/server";
 import { ThemeConfigSchema, defaultTheme, type ThemeConfig } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
 import type { SectionRow } from "@/app/(dashboard)/dashboard/[orgSlug]/sites/[siteId]/sections/SectionsManager";
@@ -41,9 +41,7 @@ export async function loadSettingsPanel(orgSlug: string, siteId: string, panel: 
   const allowed = await canUserDoX(userId, "site.manageSettings", { type: "site", id: site.id });
   if (!allowed) return { error: "You don't have permission to manage this site's settings." };
 
-  const env = getEnv();
-  const publishedBase =
-    site.customDomain?.status === "ACTIVE" ? `https://${site.customDomain.hostname}` : `${env.ROOT_PROTOCOL}://${env.ROOT_DOMAIN}/${site.slug}`;
+  const publishedBase = sitePublishedUrl(site);
 
   switch (panel) {
     case "theme": {

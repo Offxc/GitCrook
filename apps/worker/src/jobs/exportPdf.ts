@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { prisma } from "@gitcrook/db";
-import { getEnv, writeStoredFile } from "@gitcrook/shared/server";
+import { computePagePath, prisma } from "@gitcrook/db";
+import { joinUrl } from "@gitcrook/shared";
+import { sitePublishedUrl, writeStoredFile } from "@gitcrook/shared/server";
 import { launchBrowser } from "../browser";
-import { computePagePath } from "../computePagePath";
 
 /**
  * Runs one already-claimed ExportJob (status already flipped to PROCESSING
@@ -21,8 +21,7 @@ export async function runExportPdfJob(jobId: string): Promise<void> {
     if (path === null) throw new Error("Page no longer exists or has no resolvable path.");
 
     const site = job.page.site;
-    const baseUrl = site.customDomain?.status === "ACTIVE" ? `https://${site.customDomain.hostname}` : `${getEnv().ROOT_PROTOCOL}://${getEnv().ROOT_DOMAIN}/${site.slug}`;
-    const url = path.length > 0 ? `${baseUrl}/${path.join("/")}` : baseUrl;
+    const url = joinUrl(sitePublishedUrl(site), path);
 
     const browser = await launchBrowser();
     let pdf: Buffer;

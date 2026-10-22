@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@gitcrook/db";
-import { getEnv } from "@gitcrook/shared/server";
+import { computePagePaths, prisma } from "@gitcrook/db";
+import { joinUrl } from "@gitcrook/shared";
+import { sitePublishedUrl } from "@gitcrook/shared/server";
 import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
-import { computePagePath } from "@/lib/tenancy/computePagePath";
 import { extractPlainText } from "@/lib/editor/extractText";
 
 /**
@@ -60,14 +60,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
     return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta);
   });
 
-  const env = getEnv();
-  const baseUrl =
-    site.customDomain?.status === "ACTIVE" ? `https://${site.customDomain.hostname}` : `${env.ROOT_PROTOCOL}://${env.ROOT_DOMAIN}/${site.slug}`;
+  const baseUrl = sitePublishedUrl(site);
 
+  const shown = items.slice(0, 50);
+  const paths = await computePagePaths(shown.map((item) => item.pageId));
   const entries = await Promise.all(
-    items.slice(0, 50).map(async (item) => {
-      const path = await computePagePath(item.pageId);
-      const link = path ? `${baseUrl}/${path.join("/")}` : baseUrl;
+    shown.map(async (item) => {
+      const path = paths.get(item.pageId);
+      const link = path ? joinUrl(baseUrl, path) : baseUrl;
       const pubDate = item.date && !Number.isNaN(Date.parse(item.date)) ? new Date(item.date).toUTCString() : null;
       const categories = item.tags.map((t) => `      <category>${escapeXml(t)}</category>`).join("\n");
       return [

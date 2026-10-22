@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@gitcrook/db";
-import { getEnv } from "@gitcrook/shared/server";
+import { sitePublishedUrl } from "@gitcrook/shared/server";
 import { requireOrgMembership } from "@/lib/dashboard/org";
 import { CreateSiteForm } from "./CreateSiteForm";
 
 export default async function SitesPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
   const { organization } = await requireOrgMembership(orgSlug);
-  const env = getEnv();
 
   const sites = await prisma.site.findMany({
     where: { organizationId: organization.id },
@@ -29,7 +28,7 @@ export default async function SitesPage({ params }: { params: Promise<{ orgSlug:
 
       <div className="mt-8 space-y-3">
         {sites.map((site) => {
-          const publishedUrl = `${env.ROOT_PROTOCOL}://${env.ROOT_DOMAIN}/${site.slug}`;
+          const publishedUrl = sitePublishedUrl(site);
           return (
             <Link
               key={site.id}

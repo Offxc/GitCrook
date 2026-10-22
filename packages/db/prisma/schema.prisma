@@ -366,13 +366,13 @@ model Page {
   exportJobs  ExportJob[]
   analytics   AnalyticsEvent[]
 
-  // NOT a @@unique constraint: Postgres treats NULL as distinct from NULL, so a
-  // unique index on (variantId, parentId, slug) would silently fail to catch
-  // duplicate slugs among ROOT pages (parentId IS NULL) — discovered via
-  // testing (Prisma's findUnique also rejects this shape as a compound key
-  // when one of its fields is nullable). Slug collisions are instead checked
-  // at the application layer with findFirst (see createPage/createSite),
-  // which handles the null case correctly.
+  // Sibling slugs are unique, enforced by two PARTIAL unique indexes the schema language can't
+  // express (migration 20261022170000_page_slug_uniqueness): one on (variantId, slug) WHERE
+  // parentId IS NULL and one on (variantId, parentId, slug) WHERE parentId IS NOT NULL. A single
+  // @@unique can't do both because Postgres treats NULLs as distinct. They are invisible to
+  // `prisma migrate dev`, which will try to drop them — see the searchVector warning above and
+  // delete those statements from any generated migration. Writers should go through
+  // apps/web/lib/pages/withFreeSlug.ts, which retries on the P2002 these indexes raise.
   @@index([variantId, parentId, slug])
   @@index([variantId])
   @@index([siteId])

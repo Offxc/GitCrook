@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { variantSegments } from "@gitcrook/shared";
 import type { VariantOption } from "@/lib/tenancy/resolvePublishedPath";
 
 /**
@@ -28,7 +29,7 @@ export function VariantSwitcher({
       </summary>
       <nav className="absolute right-0 z-10 mt-1 min-w-[10rem] rounded-md border border-site-border bg-site-canvas py-1 shadow-lg">
         {options.map(({ variant, pagePath }) => {
-          const segs = [...pathPrefix, "~v", variant.slug, ...(pagePath ?? [])];
+          const segs = [...pathPrefix, ...variantSegments(variant), ...(pagePath ?? [])];
           const isActive = variant.id === current.id;
           return (
             <Link

@@ -20,7 +20,7 @@ import { extractHeadings } from "@/lib/renderer/extractHeadings";
 import { PrivateSiteMessage } from "@/app/(published)/_components/PrivateSiteMessage";
 import { PageFeedback } from "@/app/(published)/_components/PageFeedback";
 import { ClickTracker } from "@/app/(published)/_components/ClickTracker";
-import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBlock, googleFontsStylesheetUrl, type ThemeConfig } from "@gitcrook/shared";
+import { ThemeConfigSchema, defaultTheme, themeToCssVars, cssVarsToDeclarationBlock, googleFontsStylesheetUrl, variantSegments, type ThemeConfig } from "@gitcrook/shared";
 import { getSessionUserId, resolveVisitorAccess, canUserDoX } from "@gitcrook/auth";
 import { EditableArea } from "@/app/(published)/_components/EditableArea";
 import { EditModeProvider } from "@/app/(published)/_components/EditModeContext";
@@ -75,7 +75,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   const tree = await getPageTree(variant.id);
   // The URL a link must carry to stay in this section/space/variant — the same
   // shape computePagePath builds (default variant omitted, `~v/<slug>` otherwise).
-  const canonicalPrefix = [...pathPrefix, ...(variant.isDefault ? [] : ["~v", variant.slug])];
+  const canonicalPrefix = [...pathPrefix, ...variantSegments(variant)];
   const pathMap = prefixPaths(pathsForTree(tree), canonicalPrefix);
 
   const flat = flattenNavigablePages(tree);
@@ -141,7 +141,6 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
       data-tint={hasTint ? "true" : undefined}
       className={rootClassNames}
     >
-      {/* eslint-disable-next-line @next/next/no-page-custom-font -- per-site dynamic value, can't be a build-time next/font import */}
       {googleFontsHref ? <link rel="stylesheet" href={googleFontsHref} /> : null}
       <style dangerouslySetInnerHTML={{ __html: styleBlock }} />
       <ClickTracker siteId={site.id} />

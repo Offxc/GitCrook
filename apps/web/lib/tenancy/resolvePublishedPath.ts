@@ -1,4 +1,5 @@
 import { prisma, type Section, type Space, type Variant, type Page } from "@gitcrook/db";
+import { matchStructure } from "@gitcrook/shared";
 import type { ResolvedSite } from "./resolveSite";
 
 export interface VariantOption {
@@ -52,38 +53,11 @@ async function loadSiteTree(siteId: string): Promise<SectionWithTree[]> {
  */
 export async function resolvePublishedPath(site: ResolvedSite, segments: string[]): Promise<ResolvedPath | null> {
   const sections = await loadSiteTree(site.id);
-  if (sections.length === 0) return null;
-
-  let remaining = segments;
-  let section = sections[0]!;
-  if (sections.length > 1) {
-    const match = sections.find((s) => s.slug === remaining[0]);
-    if (!match) return null;
-    section = match;
-    remaining = remaining.slice(1);
-  }
-
-  const spaces = section.spaces;
-  if (spaces.length === 0) return null;
-  let space = spaces[0]!;
-  if (spaces.length > 1) {
-    const match = spaces.find((s) => s.slug === remaining[0]);
-    if (!match) return null;
-    space = match;
-    remaining = remaining.slice(1);
-  }
-
-  const pathPrefix = segments.slice(0, segments.length - remaining.length);
-
+  const match = matchStructure(sections, segments);
+  if (!match) return null;
+  const { section, space, variant, prefix: pathPrefix } = match;
   const variants = space.variants;
-  if (variants.length === 0) return null;
-  let variant = variants.find((v) => v.isDefault) ?? variants[0]!;
-  if (remaining[0] === "~v" && remaining[1]) {
-    const match = variants.find((v) => v.slug === remaining[1]);
-    if (!match) return null;
-    variant = match;
-    remaining = remaining.slice(2);
-  }
+  const remaining = match.rest;
 
   const page = await resolvePageBySlugPath(variant.id, remaining);
   if (!page) return null;

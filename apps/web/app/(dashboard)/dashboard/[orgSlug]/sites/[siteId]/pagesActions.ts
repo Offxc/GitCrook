@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@gitcrook/db";
+import { computePagePath, computePagePaths, prisma } from "@gitcrook/db";
 import { canUserDoX } from "@gitcrook/auth";
-import { validateSlug } from "@gitcrook/shared";
+import { freeSlug, slugify } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
-import { computePagePath } from "@/lib/tenancy/computePagePath";
 import { extractPlainText } from "@/lib/editor/extractText";
 import { toJsonSafe } from "@/lib/editor/jsonSafe";
+import { isUniqueViolation, withFreeSlug } from "@/lib/pages/withFreeSlug";
 
 export interface CreatePageState {
   error?: string;
@@ -19,17 +19,6 @@ export interface CreatePageState {
 const CreatePageSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
 });
-
-function slugify(title: string): string {
-  return (
-    title
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 96) || "page"
-  );
-}
 
 export async function createPage(orgSlug: string, siteId: string, _prev: CreatePageState, formData: FormData): Promise<CreatePageState> {
   const { site, userId } = await requireSite(orgSlug, siteId);
@@ -51,27 +40,21 @@ export async function createPage(orgSlug: string, siteId: string, _prev: CreateP
   const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
   if (!variant) return { error: "This site has no default variant to add pages to." };
 
-  const baseSlug = slugify(parsed.data.title);
-  let slug = baseSlug;
-  let suffix = 0;
-  while ((await prisma.page.findFirst({ where: { variantId: variant.id, parentId: null, slug } })) || !validateSlug(slug).ok) {
-    suffix += 1;
-    slug = `${baseSlug}-${suffix}`;
-  }
-
-  const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
-
-  const page = await prisma.page.create({
-    data: {
-      variantId: variant.id,
-      siteId: site.id,
-      title: parsed.data.title,
-      slug,
-      order: (maxOrder._max.order ?? -1) + 1,
-      content: [{ type: "paragraph", content: [] }],
-      contentText: "",
-      publishedAt: new Date(),
-    },
+  const { page, slug } = await withFreeSlug({ variantId: variant.id, parentId: null }, parsed.data.title, async (slug) => {
+    const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
+    const page = await prisma.page.create({
+      data: {
+        variantId: variant.id,
+        siteId: site.id,
+        title: parsed.data.title,
+        slug,
+        order: (maxOrder._max.order ?? -1) + 1,
+        content: [{ type: "paragraph", content: [] }],
+        contentText: "",
+        publishedAt: new Date(),
+      },
+    });
+    return { page, slug };
   });
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
@@ -116,28 +99,22 @@ export async function createPageGroup(orgSlug: string, siteId: string, _prev: Cr
   const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
   if (!variant) return { error: "This site has no default variant to add a group to." };
 
-  const baseSlug = slugify(parsed.data.title);
-  let slug = baseSlug;
-  let suffix = 0;
-  while ((await prisma.page.findFirst({ where: { variantId: variant.id, parentId: null, slug } })) || !validateSlug(slug).ok) {
-    suffix += 1;
-    slug = `${baseSlug}-${suffix}`;
-  }
-
-  const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
-
-  await prisma.page.create({
-    data: {
-      variantId: variant.id,
-      siteId: site.id,
-      title: parsed.data.title,
-      slug,
-      isGroup: true,
-      order: (maxOrder._max.order ?? -1) + 1,
-      content: [],
-      contentText: "",
-      publishedAt: new Date(),
-    },
+  const slug = await withFreeSlug({ variantId: variant.id, parentId: null }, parsed.data.title, async (slug) => {
+    const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
+    await prisma.page.create({
+      data: {
+        variantId: variant.id,
+        siteId: site.id,
+        title: parsed.data.title,
+        slug,
+        isGroup: true,
+        order: (maxOrder._max.order ?? -1) + 1,
+        content: [],
+        contentText: "",
+        publishedAt: new Date(),
+      },
+    });
+    return slug;
   });
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
@@ -212,13 +189,7 @@ export async function importMarkdownPages(orgSlug: string, siteId: string, pages
       return { error: `"${page.title}" is too large to import.` };
     }
 
-    const baseSlug = slugify(page.title);
-    let slug = baseSlug;
-    let suffix = 0;
-    while (taken.has(slug) || !validateSlug(slug).ok) {
-      suffix += 1;
-      slug = `${baseSlug}-${suffix}`;
-    }
+    const slug = freeSlug(slugify(page.title), taken);
     taken.add(slug);
 
     rows.push({ title: page.title, slug, content: content as object, contentText: extractPlainText(content), order: order++ });
@@ -226,22 +197,27 @@ export async function importMarkdownPages(orgSlug: string, siteId: string, pages
 
   // All-or-nothing: a half-finished import would leave the tree in a state
   // the person has to hand-unpick, with no record of which files landed.
-  await prisma.$transaction(
-    rows.map((row) =>
-      prisma.page.create({
-        data: {
-          variantId: variant.id,
-          siteId: site.id,
-          title: row.title,
-          slug: row.slug,
-          order: row.order,
-          content: row.content,
-          contentText: row.contentText,
-          publishedAt: new Date(),
-        },
-      }),
-    ),
-  );
+  try {
+    await prisma.$transaction(
+      rows.map((row) =>
+        prisma.page.create({
+          data: {
+            variantId: variant.id,
+            siteId: site.id,
+            title: row.title,
+            slug: row.slug,
+            order: row.order,
+            content: row.content,
+            contentText: row.contentText,
+            publishedAt: new Date(),
+          },
+        }),
+      ),
+    );
+  } catch (error) {
+    if (isUniqueViolation(error)) return { error: "Another page was added at the same moment and took one of these URLs. Try the import again." };
+    throw error;
+  }
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   return { created: rows.length, firstSlug: rows[0]?.slug };
@@ -316,13 +292,16 @@ export async function reorderPageTree(orgSlug: string, siteId: string, updates: 
     if (u.parentId && isDescendantOf(u.parentId, u.id)) return { error: "Can't move a page inside its own subtree." };
   }
 
-  await prisma.$transaction(parsed.data.map((u) => prisma.page.update({ where: { id: u.id }, data: { parentId: u.parentId, order: u.order } })));
-
-  const newPaths: Record<string, string[]> = {};
-  for (const u of parsed.data) {
-    const path = await computePagePath(u.id);
-    if (path) newPaths[u.id] = path;
+  try {
+    await prisma.$transaction(parsed.data.map((u) => prisma.page.update({ where: { id: u.id }, data: { parentId: u.parentId, order: u.order } })));
+  } catch (error) {
+    // Moving a page under a new parent can land it beside a sibling with the same slug.
+    if (isUniqueViolation(error)) return { error: "A page with the same URL already exists in that spot. Rename one of them first." };
+    throw error;
   }
+
+  const computed = await computePagePaths(parsed.data.map((u) => u.id));
+  const newPaths: Record<string, string[]> = Object.fromEntries(computed);
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   return { ok: true, newPaths };
@@ -362,18 +341,9 @@ export async function renamePage(orgSlug: string, siteId: string, pageId: string
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { error: "You don't have permission to rename this page." };
 
-  const baseSlug = slugify(parsed.data.title);
-  let slug = baseSlug;
-  let suffix = 0;
-  while (
-    slug !== page.slug &&
-    ((await prisma.page.findFirst({ where: { variantId: page.variantId, parentId: page.parentId, slug, id: { not: pageId } } })) || !validateSlug(slug).ok)
-  ) {
-    suffix += 1;
-    slug = `${baseSlug}-${suffix}`;
-  }
-
-  await prisma.page.update({ where: { id: pageId }, data: { title: parsed.data.title, slug } });
+  await withFreeSlug({ variantId: page.variantId, parentId: page.parentId, exceptPageId: pageId }, parsed.data.title, (slug) =>
+    prisma.page.update({ where: { id: pageId }, data: { title: parsed.data.title, slug } }),
+  );
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);
   const newPath = await computePagePath(pageId);
   return { ok: true, newPath: newPath ?? undefined };
