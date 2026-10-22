@@ -18,3 +18,13 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - argon2
+
+# Transitive packages with published advisories whose parents have not bumped them
+# yet (source-map-js via next → postcss; fast-uri via Prisma's dev tooling; vite via
+# vitest). All are patch-level fixes within the same major, so forcing the floor is
+# safe. Remove an entry once its parent ships the fix itself; `pnpm audit` should
+# stay clean.
+overrides:
+  source-map-js: ">=1.2.2"
+  fast-uri: ">=3.1.8"
+  vite: ">=7.3.7"
