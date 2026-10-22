@@ -52,6 +52,16 @@ export async function createSection(orgSlug: string, siteId: string, _prev: Sect
     slug = `${base}-${suffix}`;
   }
 
+  // Addresses made before the site had several sections still work, as redirects into the first one — unless the
+  // new section's slug is already one of that section's top-level pages, which it would take over. Refuse, and
+  // say why, rather than quietly breaking those links.
+  const first = await prisma.section.findFirst({ where: { siteId: site.id }, orderBy: { order: "asc" }, select: { title: true, spaces: { select: { variants: { select: { id: true } } }, orderBy: { order: "asc" }, take: 1 } } });
+  const firstVariantIds = first?.spaces[0]?.variants.map((v) => v.id) ?? [];
+  if (firstVariantIds.length > 0) {
+    const clash = await prisma.page.findFirst({ where: { variantId: { in: firstVariantIds }, parentId: null, slug, deletedAt: null }, select: { title: true } });
+    if (clash) return { error: `A page or group called "${clash.title}" in "${first!.title}" already uses the address /${slug}. Choose a different name, or rename that page first.` };
+  }
+
   const maxOrder = await prisma.section.aggregate({ where: { siteId: site.id }, _max: { order: true } });
 
   // Mirrors createSite's seeding: a section needs a space/variant beneath it

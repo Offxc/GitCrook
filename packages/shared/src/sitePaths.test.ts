@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   basePrefix,
   joinUrl,
+  matchLegacyStructure,
   matchStructure,
   publishedBaseUrl,
   variantPrefix,
@@ -157,5 +158,53 @@ describe("site URLs", () => {
   it("joins segments without a trailing slash", () => {
     expect(joinUrl("https://x.test/s", [])).toBe("https://x.test/s");
     expect(joinUrl("https://x.test/s", ["a", "b"])).toBe("https://x.test/s/a/b");
+  });
+});
+
+describe("matchLegacyStructure", () => {
+  const two = [section("a", "guides"), section("b", "api")];
+
+  it("has nothing to say about a site that has not changed shape", () => {
+    expect(matchLegacyStructure([section("a", "guides")], ["intro"])).toBeNull();
+    expect(matchLegacyStructure([], ["intro"])).toBeNull();
+  });
+
+  it("places an old address inside the first section", () => {
+    const legacy = matchLegacyStructure(two, ["getting-started", "install"]);
+    expect(legacy?.match.section.id).toBe("a");
+    expect(legacy?.match.rest).toEqual(["getting-started", "install"]);
+    expect(legacy?.canonical).toEqual(["guides", "getting-started", "install"]);
+  });
+
+  it("sends the site's old root to the first section's root", () => {
+    expect(matchLegacyStructure(two, [])?.canonical).toEqual(["guides"]);
+  });
+
+  it("keeps an explicit version", () => {
+    const sections = [section("a", "guides", [space("s", "docs", [v("v2", "v2", true), v("v1", "v1")])]), section("b", "api")];
+    expect(matchLegacyStructure(sections, ["~v", "v1", "page"])?.canonical).toEqual(["guides", "~v", "v1", "page"]);
+    expect(matchLegacyStructure(sections, ["~v", "nope", "page"])).toBeNull();
+  });
+
+  it("covers a section that gained a second space", () => {
+    const sections = [section("a", "guides", [space("x", "alpha"), space("y", "beta")])];
+    expect(matchLegacyStructure(sections, ["page"])?.canonical).toEqual(["alpha", "page"]);
+  });
+
+  it("spells out both levels when both have siblings", () => {
+    const sections = [section("a", "guides", [space("x", "alpha"), space("y", "beta")]), section("b", "api")];
+    expect(matchLegacyStructure(sections, ["page"])?.canonical).toEqual(["guides", "alpha", "page"]);
+  });
+
+  it("every canonical address resolves to the same place the legacy one pointed at", () => {
+    const sections = [section("a", "guides", [space("x", "alpha"), space("y", "beta")]), section("b", "api")];
+    for (const path of [[], ["page"], ["a", "b", "c"]]) {
+      const legacy = matchLegacyStructure(sections, path)!;
+      const again = matchStructure(sections, legacy.canonical)!;
+      expect(again.section.id).toBe(legacy.match.section.id);
+      expect(again.space.id).toBe(legacy.match.space.id);
+      expect(again.variant.id).toBe(legacy.match.variant.id);
+      expect(again.rest).toEqual(legacy.match.rest);
+    }
   });
 });

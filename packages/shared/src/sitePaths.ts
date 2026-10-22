@@ -89,6 +89,38 @@ export function matchStructure<Sec extends StructureSection>(
   return { section, space, variant, prefix, explicitVariant, rest };
 }
 
+export interface LegacyMatch<Sec extends StructureSection> {
+  match: StructureMatch<Sec, Sec["spaces"][number], Sec["spaces"][number]["variants"][number]>;
+  /** The URL that now addresses what the old one did: the same page path, with the section/space segments spelled out. */
+  canonical: string[];
+}
+
+/**
+ * The addresses a site had before it grew a second section (or a section a second space): with one child a
+ * level is implicit, so `/{site}/{page}` meant the only section's page. Once there are two, `/{site}/{page}`
+ * names no section and would 404, breaking every link and bookmark made so far.
+ *
+ * This resolves such a path as if the first section and its first space were still the only ones, and says
+ * where the page lives now, so the caller can answer with a permanent redirect. It is only consulted when the
+ * normal match fails, so a real section slug always wins. Returns null when nothing has changed (so there is
+ * no legacy address) or the path does not fit the first section either.
+ */
+export function matchLegacyStructure<Sec extends StructureSection>(sections: Sec[], segments: string[]): LegacyMatch<Sec> | null {
+  const first = sections[0];
+  if (!first || first.spaces.length === 0) return null;
+  if (sections.length <= 1 && first.spaces.length <= 1) return null;
+
+  const view = { ...first, spaces: [first.spaces[0]!] } as Sec;
+  const match = matchStructure([view], segments);
+  if (!match) return null;
+  const canonical = [
+    ...basePrefix({ sections: sections.length, spacesInSection: first.spaces.length }, first, first.spaces[0]!),
+    ...(match.explicitVariant ? [VARIANT_SEGMENT, match.variant.slug] : []),
+    ...match.rest,
+  ];
+  return { match, canonical };
+}
+
 /**
  * The section/space segments in front of a variant's pages — the inverse of the first half of
  * `matchStructure`. A level is only spelled out when it has siblings, hence the counts.

@@ -1,5 +1,5 @@
 import { prisma, type Section, type Space, type Variant, type Page } from "@gitcrook/db";
-import { matchStructure } from "@gitcrook/shared";
+import { matchLegacyStructure, matchStructure } from "@gitcrook/shared";
 import type { ResolvedSite } from "./resolveSite";
 
 export interface VariantOption {
@@ -74,6 +74,18 @@ export async function resolvePublishedPath(site: ResolvedSite, segments: string[
         );
 
   return { section, space, variant, page, variantOptions, pathPrefix, sections };
+}
+
+/**
+ * An address from before the site had a second section (or a section a second space), answered with where that
+ * page lives now — or null if it names no page there either. See `matchLegacyStructure`; the caller redirects
+ * permanently, and only after the normal resolution and the site's redirect rules have found nothing.
+ */
+export async function resolveLegacyPath(site: ResolvedSite, segments: string[]): Promise<string[] | null> {
+  const legacy = matchLegacyStructure(await loadSiteTree(site.id), segments);
+  if (!legacy) return null;
+  const page = await resolvePageBySlugPath(legacy.match.variant.id, legacy.match.rest);
+  return page ? legacy.canonical : null;
 }
 
 /** Walks a page-slug path (e.g. ["getting-started", "install"]) within one variant; empty path resolves to that variant's root page. */

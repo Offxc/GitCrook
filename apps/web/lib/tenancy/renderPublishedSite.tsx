@@ -18,7 +18,7 @@ import {
 import { canUserDoX } from "@gitcrook/auth";
 import { editUrl, hostConfigFromEnv } from "@gitcrook/git-sync";
 import type { ResolvedSite } from "./resolveSite";
-import { resolvePublishedPath } from "./resolvePublishedPath";
+import { resolveLegacyPath, resolvePublishedPath } from "./resolvePublishedPath";
 import { getPageTree } from "./getPageTree";
 import { loadShellStructure } from "./siteStructure";
 import { getViewerId, getVisitorAccess } from "./visitorAccess";
@@ -189,6 +189,10 @@ export async function renderPublishedPage(site: ResolvedSite, path: string[], ba
   if (!resolved) {
     const redirectRule = await prisma.siteRedirect.findUnique({ where: { siteId_fromPath: { siteId: site.id, fromPath: path.join("/") } } });
     if (redirectRule) permanentRedirect(`${baseHref}/${redirectRule.toPath}`);
+
+    // An address from before a second section was added: the page is still there, one level further down.
+    const legacy = await resolveLegacyPath(site, path);
+    if (legacy) permanentRedirect(`${baseHref}/${legacy.join("/")}`);
 
     trackEvent({ siteId: site.id, type: "NOT_FOUND", path: path.join("/"), ...meta });
     notFound();

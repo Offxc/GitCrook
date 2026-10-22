@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "@gitcrook/db";
 import { makeOrg, makePage, makeSite, resetDatabase, type StructureSpec } from "../../../../tests/support/factory";
-import { resolvePublishedPath } from "./resolvePublishedPath";
+import { resolveLegacyPath, resolvePublishedPath } from "./resolvePublishedPath";
 import { getPageTree } from "./getPageTree";
 import type { ResolvedSite } from "./resolveSite";
 
@@ -122,5 +123,56 @@ describe("getPageTree", () => {
     const tree = await getPageTree(variant.id);
     expect(tree.map((n) => n.slug)).toEqual(["first", "g"]);
     expect(tree[1]!.children.map((n) => n.slug)).toEqual(["a", "b"]);
+  });
+});
+
+describe("resolveLegacyPath: addresses from before the site had two sections", () => {
+  const twoSections: StructureSpec = [
+    { slug: "guides", spaces: [{ slug: "docs", variants: [{ slug: "main", isDefault: true }] }] },
+    { slug: "api", spaces: [{ slug: "docs", variants: [{ slug: "main", isDefault: true }] }] },
+  ];
+
+  it("points an old page address at the first section", async () => {
+    const { site, variants, resolved } = await build(twoSections);
+    await makePage({ variantId: variants[0]!.id, siteId: site.id, slug: "install" });
+    expect(await resolvePublishedPath(resolved, ["install"])).toBeNull();
+    expect(await resolveLegacyPath(resolved, ["install"])).toEqual(["guides", "install"]);
+  });
+
+  it("points the site's old root at the first section's root", async () => {
+    const { site, variants, resolved } = await build(twoSections);
+    await makePage({ variantId: variants[0]!.id, siteId: site.id, slug: "welcome" });
+    expect(await resolveLegacyPath(resolved, [])).toEqual(["guides"]);
+  });
+
+  it("follows nested pages and groups", async () => {
+    const { site, variants, resolved } = await build(twoSections);
+    const group = await makePage({ variantId: variants[0]!.id, siteId: site.id, slug: "setup", isGroup: true });
+    await makePage({ variantId: variants[0]!.id, siteId: site.id, slug: "install", parentId: group.id });
+    expect(await resolveLegacyPath(resolved, ["setup", "install"])).toEqual(["guides", "setup", "install"]);
+    expect(await resolveLegacyPath(resolved, ["setup"])).toEqual(["guides", "setup"]);
+  });
+
+  it("does not invent pages: drafts, deleted pages and unknown paths are still not found", async () => {
+    const { site, variants, resolved } = await build(twoSections);
+    await makePage({ variantId: variants[0]!.id, siteId: site.id, slug: "draft", isDraft: true });
+    const gone = await makePage({ variantId: variants[0]!.id, siteId: site.id, slug: "gone" });
+    await prisma.page.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
+    expect(await resolveLegacyPath(resolved, ["draft"])).toBeNull();
+    expect(await resolveLegacyPath(resolved, ["gone"])).toBeNull();
+    expect(await resolveLegacyPath(resolved, ["nope"])).toBeNull();
+  });
+
+  it("does not look in the second section", async () => {
+    const { site, variants, resolved } = await build(twoSections);
+    await makePage({ variantId: variants[1]!.id, siteId: site.id, slug: "reference" });
+    expect(await resolveLegacyPath(resolved, ["reference"])).toBeNull();
+  });
+
+  it("has no legacy addresses on a site with one section", async () => {
+    const { site, variant, resolved } = await build();
+    await makePage({ variantId: variant.id, siteId: site.id, slug: "install" });
+    expect(await resolveLegacyPath(resolved, ["install"])).toBeNull();
+    expect(await resolveLegacyPath(resolved, ["nope"])).toBeNull();
   });
 });

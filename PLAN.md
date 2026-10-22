@@ -113,10 +113,13 @@ the format in `docs/git-sync/FORMAT.md`.
 | GS-21 | The fake-GitHub harness above |
 | GS-22 | `docs/git-sync/README.md`, root README, `.env.example` |
 
+**A7 is done:** a path that names no section is resolved inside the first one and answered with a `308` to its
+new address (the site's old root included); adding a section whose address is already a top-level page of the
+first section is refused with an explanation. Covered by unit, integration and end-to-end tests.
+
 **Open:** GS-18 (GitHub App login; `GITHUB_APP_INSTALLATION` credentials are rejected for now), GS-19
 (`gitcrook-docs check`), GS-20's `/<page>.md` and `llms.txt` endpoints, the dry-run preview in the dashboard
-(the engine supports it: `runSync(..., { dryRun: true })`), A7 (308 redirects from legacy URLs when a second
-section is added), A8 (group renames do not create redirects), the editor surface does not yet show tab
+(the engine supports it: `runSync(..., { dryRun: true })`), A8 (group renames do not create redirects), the editor surface does not yet show tab
 content as tabs (`GS-210`), and the remaining S13–S19 hardening items.
 
 **Deploying Git Sync:** three new migrations (`20261022190000_git_sync`, `…200000_git_sync_page_meta`,
@@ -277,7 +280,7 @@ markers survive and the sidebar offset never moves except when the active item l
 | **A4** | **P0** | S | **"Previous" on the first page of every group links to the page itself.** `flattenPageTree` includes group nodes; a group's URL resolves to its first child. On `G2 Page 1` the Previous link is "← Group 2" → `/long-docs/group-2` → renders `G2 Page 1` | `[measured]` rendered HTML | Build prev/next from navigable (non-group) nodes only, in display order, so Previous of a group's first page is the last page of the previous group — **Done (Phase 0).** |
 | A5 | P1 | M | Mobile menu is an in-page `<details>` that closes on every navigation | `[read]` `MobileNav` | Drawer in the persistent shell; scroll the active item into view when opened |
 | A6 | P1 | S | Edit mode starts `false` and flips in an effect, so each navigation renders the read-only list, then the tree | `[read]`; consequences in §2 #3 | Cookie-initialised state (§2 step 1.3); gone entirely with A2 |
-| A7 | P1 | M | Adding a second section silently changes every existing URL: with one section its slug is implicit, with two it becomes required, so all old links 404 with no redirect. The UI gives no warning | `[read]` `resolvePublishedPath`, `SectionsManager` | **Decided (§6): redirect.** Resolve legacy implicit paths inside the first section and answer `308` with the canonical URL; refuse to add a section whose slug equals a top-level page or group slug of the first section |
+| A7 ✓ | P1 | M | Adding a second section silently changes every existing URL: with one section its slug is implicit, with two it becomes required, so all old links 404 with no redirect. The UI gives no warning | `[read]` `resolvePublishedPath`, `SectionsManager` | **Decided (§6): redirect.** Resolve legacy implicit paths inside the first section and answer `308` with the canonical URL; refuse to add a section whose slug equals a top-level page or group slug of the first section |
 | A8 | P2 | S | Renaming a page or group rewrites its slug (and every child's URL for a group) with no redirect | `[read]` `renamePage` | Stable slug by default, an editable slug field, and an automatic `SiteRedirect` whenever a slug changes |
 | A9 | P2 | M | `pageLink` block is a free-text path field; breaks on rename | `[read]` | Page picker storing a stable page id, resolved at render (GitBook's `content-ref`) |
 
@@ -856,7 +859,7 @@ Pages are stored as BlockNote JSON. Two converters exist and neither can carry a
 | 3 | Deleted files | Recommended | Soft delete with a 14-day grace |
 | 4 | SVG in assets | **Decided** | **Allow, sanitised.** Strip scripts, event handlers and external references with an allow-list (svgo + a strict profile) on import and on upload; serve with `Content-Security-Policy: sandbox; default-src 'none'` and `nosniff`; render only through `<img>`. Do not rasterise untrusted SVG with sharp (its SVG renderer has a published advisory) |
 | 5 | First auth path | Recommended | Public repo + fine-grained token first, GitHub App second (Phase 3 task order) |
-| 6 | Adding a second section | **Decided** | **Redirect legacy URLs** (A7). A path whose first segment is not a section is resolved inside the first section and answered with a `308` to the canonical URL. Adding a section whose slug equals a top-level page or group slug of the first section is refused with an explanation |
+| 6 | Adding a second section | **Done** | **Redirect legacy URLs** (A7). A path whose first segment is not a section is resolved inside the first section and answered with a `308` to the canonical URL. Adding a section whose slug equals a top-level page or group slug of the first section is refused with an explanation |
 | 7 | Keep the dashboard editor (C9)? | Recommended | Remove; one editor |
 | 8 | Mixed ownership inside one tree | Recommended | Not in v1 |
 | 9 | Sign-up policy default | **Decided** | **Closed by default.** The first sign-in on an empty database becomes the owner; after that only allow-listed Discord IDs and people holding an email invitation can create an account; `SIGNUP_MODE=open` opts in. Invitations are what keep "add a member" working with sign-up closed |
