@@ -6,6 +6,7 @@ import { prisma } from "@gitcrook/db";
 import { canUserDoX } from "@gitcrook/auth";
 import { defaultTheme, validateSlug } from "@gitcrook/shared";
 import { requireOrgMembership } from "@/lib/dashboard/org";
+import { deleteStoredFile } from "@/lib/storage/localFs";
 
 const CreateSiteSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -108,9 +109,10 @@ export interface DeleteSiteResult {
  * ShareLink/SiteRedirect/*Permission/AnalyticsEvent/PageRating/Comment/...)
  * is onDelete: Cascade back to Site in schema.prisma, so a single delete
  * here is a complete, atomic cleanup — no manual multi-table teardown needed.
- * Asset.siteId is the one exception (onDelete: SetNull, deliberately —
- * uploaded files outlive the site as unrestricted-access assets rather than
- * being force-deleted).
+ * Asset.siteId is the one exception (onDelete: SetNull), and it must not be
+ * left to do that here: /api/files serves an asset with no site to anyone, so
+ * detaching a private site's images, fonts and exported PDFs would have made
+ * them public the moment the site was deleted. They are deleted with the site.
  */
 export async function deleteSite(orgSlug: string, siteId: string, confirmSlug: string): Promise<DeleteSiteResult> {
   const { organization, userId } = await requireOrgMembership(orgSlug);
@@ -119,7 +121,9 @@ export async function deleteSite(orgSlug: string, siteId: string, confirmSlug: s
   if (!site || site.organizationId !== organization.id) return { ok: false, error: "Site not found." };
   if (confirmSlug !== site.slug) return { ok: false, error: "That doesn't match the site's slug." };
 
-  const allowed = await canUserDoX(userId, "content.manageSpaces", { type: "org", id: organization.id });
+  // Deleting a site is more destructive than anything in its settings, so it needs the
+  // settings role (admin), not just permission to create content containers.
+  const allowed = await canUserDoX(userId, "site.manageSettings", { type: "site", id: siteId });
   if (!allowed) return { ok: false, error: "You don't have permission to delete this site." };
 
   // Logged before the delete, not after — nothing to attach targetId to
@@ -128,7 +132,15 @@ export async function deleteSite(orgSlug: string, siteId: string, confirmSlug: s
   await prisma.auditLog.create({
     data: { organizationId: organization.id, actorId: userId, action: "site.delete", targetType: "Site", targetId: siteId, metadata: { name: site.name, slug: site.slug } },
   });
-  await prisma.site.delete({ where: { id: siteId } });
+  const assets = await prisma.asset.findMany({ where: { siteId }, select: { storageKey: true } });
+  await prisma.$transaction([prisma.asset.deleteMany({ where: { siteId } }), prisma.site.delete({ where: { id: siteId } })]);
+
+  // Files after the rows, so a failure here leaves an unreferenced file rather than a
+  // row pointing at nothing. Keys are content-addressed: only remove a file once no
+  // other asset (another site's, or org-wide) still uses it.
+  for (const storageKey of new Set(assets.map((a) => a.storageKey))) {
+    if ((await prisma.asset.count({ where: { storageKey } })) === 0) await deleteStoredFile(storageKey).catch(() => undefined);
+  }
 
   revalidatePath(`/dashboard/${orgSlug}/sites`);
   return { ok: true, redirectTo: `/dashboard/${orgSlug}/sites` };

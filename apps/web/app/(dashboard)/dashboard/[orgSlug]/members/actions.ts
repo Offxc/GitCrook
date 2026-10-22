@@ -75,7 +75,17 @@ export async function removeMember(orgSlug: string, membershipId: string): Promi
     if (membership.role === "ADMIN" && adminCount <= 1) return { error: "You're the only admin — promote someone else before leaving." };
   }
 
-  await prisma.membership.delete({ where: { id: membershipId } });
+  // Per-resource role overrides are consulted before org membership and don't require
+  // it, so removing only the membership would leave whatever site, section, space or
+  // page access this person had been granted. Remove them with it.
+  const orgSites = { site: { organizationId: ctx.organization.id } };
+  await prisma.$transaction([
+    prisma.membership.delete({ where: { id: membershipId } }),
+    prisma.sitePermission.deleteMany({ where: { userId: membership.userId, ...orgSites } }),
+    prisma.sectionPermission.deleteMany({ where: { userId: membership.userId, section: orgSites } }),
+    prisma.spacePermission.deleteMany({ where: { userId: membership.userId, space: { section: orgSites } } }),
+    prisma.pagePermission.deleteMany({ where: { userId: membership.userId, page: orgSites } }),
+  ]);
   await prisma.auditLog.create({
     data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "member.remove", targetType: "User", targetId: membership.userId },
   });

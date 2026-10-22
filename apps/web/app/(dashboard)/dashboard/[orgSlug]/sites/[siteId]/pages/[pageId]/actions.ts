@@ -151,12 +151,24 @@ export async function deletePage(orgSlug: string, siteId: string, pageId: string
   const userId = await getSessionUserId();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
-  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, title: true, slug: true, isGroup: true, site: { select: { organizationId: true } } } });
   if (!page || page.siteId !== siteId) return { ok: false, error: "Page not found." };
 
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { ok: false, error: "You don't have permission to delete this page." };
 
+  // Logged first: the delete cascades to the page's subpages, history and comments, so
+  // this is the only record of what was removed and by whom.
+  await prisma.auditLog.create({
+    data: {
+      organizationId: page.site.organizationId,
+      actorId: userId,
+      action: page.isGroup ? "pageGroup.delete" : "page.delete",
+      targetType: "Page",
+      targetId: pageId,
+      metadata: { title: page.title, slug: page.slug },
+    },
+  });
   await prisma.page.delete({ where: { id: pageId } });
 
   revalidatePath(`/dashboard/${orgSlug}/sites/${siteId}`);

@@ -43,3 +43,8 @@ export async function writeStoredFile(storageKey: string, data: Buffer): Promise
 export async function readStoredFile(storageKey: string): Promise<Buffer> {
   return fs.readFile(storagePathFor(storageKey));
 }
+
+/** Removes a stored file; a file that is already gone is not an error. Callers must first make sure no Asset row still points at the key (keys are content-addressed, so two rows can share one file). */
+export async function deleteStoredFile(storageKey: string): Promise<void> {
+  await fs.rm(storagePathFor(storageKey), { force: true });
+}
