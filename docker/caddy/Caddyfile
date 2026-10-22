@@ -8,6 +8,21 @@
 # The platform's own root domain is known upfront — strong HSTS is safe here
 # because this platform permanently controls it.
 {$ROOT_DOMAIN}, www.{$ROOT_DOMAIN} {
+	# The certificate-check endpoint is for Caddy alone: Caddy calls it directly at web:3000
+	# and never through these site blocks, so nothing from the internet needs it.
+	respond /api/internal/* 404
+
+	# Body-size caps at the edge, before a request reaches the app. Uploads may be up to
+	# 100MB (plus multipart framing); nothing else posts more than a few MB.
+	@upload path /api/upload
+	request_body @upload {
+		max_size 101MB
+	}
+	@notupload not path /api/upload
+	request_body @notupload {
+		max_size 5MB
+	}
+
 	encode zstd gzip
 	reverse_proxy web:3000
 	header {
@@ -32,6 +47,21 @@ dev.voidsmp.com {
 	tls {
 		on_demand
 	}
+	# The certificate-check endpoint is for Caddy alone: Caddy calls it directly at web:3000
+	# and never through these site blocks, so nothing from the internet needs it.
+	respond /api/internal/* 404
+
+	# Body-size caps at the edge, before a request reaches the app. Uploads may be up to
+	# 100MB (plus multipart framing); nothing else posts more than a few MB.
+	@upload path /api/upload
+	request_body @upload {
+		max_size 101MB
+	}
+	@notupload not path /api/upload
+	request_body @notupload {
+		max_size 5MB
+	}
+
 	encode zstd gzip
 	reverse_proxy web:3000
 	header {

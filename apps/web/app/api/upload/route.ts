@@ -4,6 +4,7 @@ import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
 import { prisma, type AssetKind } from "@gitcrook/db";
 import { getSessionUserId, canUserDoX } from "@gitcrook/auth";
+import { checkRateLimit } from "@gitcrook/shared/server";
 import { writeStoredFile } from "@/lib/storage/localFs";
 
 /**
@@ -22,15 +23,29 @@ const FILE_TYPES = new Set(["application/pdf", "application/zip", "text/plain", 
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
+/** Multipart framing around the file itself (boundaries, field headers, the other fields). */
+const MULTIPART_OVERHEAD_BYTES = 256 * 1024;
 
 export async function POST(req: NextRequest) {
   const userId = await getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const contentLength = Number(req.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_FILE_BYTES) {
+  // A request with no Content-Length (chunked) used to read as 0 and sail past the size
+  // check, and the whole body is then buffered in memory. Require a declared length and
+  // enforce it; the reverse proxy caps the body independently.
+  const declaredLength = req.headers.get("content-length");
+  if (!declaredLength) return NextResponse.json({ error: "Content-Length required" }, { status: 411 });
+  const contentLength = Number(declaredLength);
+  if (!Number.isFinite(contentLength) || contentLength <= 0) return NextResponse.json({ error: "Invalid Content-Length" }, { status: 400 });
+  if (contentLength > MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES) {
     return NextResponse.json({ error: "File too large" }, { status: 413 });
   }
+
+  // Each upload is parsed, sniffed and (for images) re-encoded in this process, so it is
+  // the costliest thing an editor can ask for. A generous per-user ceiling stops a script
+  // or a stuck client from monopolising it.
+  const rl = checkRateLimit(`upload:${userId}`, 60, 60_000);
+  if (!rl.allowed) return NextResponse.json({ error: "Too many uploads — try again in a minute" }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
   const form = await req.formData();
   const file = form.get("file");
@@ -41,19 +56,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing file or organizationId" }, { status: 400 });
   }
 
-  const allowed = await canUserDoX(userId, "content.edit", { type: "org", id: organizationId });
-  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  // Trust content.edit on the org for the upload itself, but never let the
-  // client's siteId claim tag an asset with a site outside that org — an
-  // IDOR-shaped mistake would otherwise let an upload silently point
-  // /api/files' access check at a site the uploader has no real tie to.
+  // A site is validated against the organization first, so the client can't tag an asset
+  // with a site outside it (an IDOR that would point /api/files' access check at a site
+  // the uploader has no tie to). Then authorise on the narrowest thing being written to:
+  // the site, so an editor granted access to just this site can upload, and the org
+  // otherwise.
   if (siteId) {
     const site = await prisma.site.findUnique({ where: { id: siteId }, select: { organizationId: true } });
     if (!site || site.organizationId !== organizationId) {
       return NextResponse.json({ error: "siteId does not belong to this organization" }, { status: 400 });
     }
   }
+  const allowed = await canUserDoX(userId, "content.edit", siteId ? { type: "site", id: siteId } : { type: "org", id: organizationId });
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const inputBuffer = Buffer.from(await file.arrayBuffer());
   const sniffed = await fileTypeFromBuffer(inputBuffer);

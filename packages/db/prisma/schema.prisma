@@ -183,7 +183,12 @@ model Site {
 model CustomDomain {
   id                  String       @id @default(cuid())
   siteId              String       @unique
-  hostname            String       @unique // punycode-normalized, lowercase
+  hostname            String // punycode-normalized, lowercase. NOT globally unique: any number of sites may
+  // *claim* a hostname (PENDING); only one may hold it (ACTIVE). That rule is a partial unique
+  // index in the migration (CustomDomain_active_hostname_key) because Prisma can't express it —
+  // `prisma migrate dev` will want to drop it, so delete that statement from the generated SQL,
+  // as with Page.searchVector below. A globally unique hostname let anyone add a name they didn't
+  // own and block its real owner from ever adding it.
   status              DomainStatus @default(PENDING)
   verificationToken   String
   verifiedAt          DateTime?
@@ -194,6 +199,7 @@ model CustomDomain {
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
   @@index([status])
+  @@index([hostname])
 }
 
 model SitePassword {

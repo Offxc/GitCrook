@@ -35,8 +35,11 @@ export async function addDomain(orgSlug: string, siteId: string, _prev: DomainAc
     return { error: "Can't use the platform's own root domain as a custom domain." };
   }
 
-  const taken = await prisma.customDomain.findUnique({ where: { hostname } });
-  if (taken) return { error: "That domain is already in use." };
+  // Only a *verified* claim blocks others. An unverified one proves nothing, and treating
+  // it as ownership let anyone add a hostname they didn't control and lock its real owner
+  // out: whoever can publish the DNS record is who gets it.
+  const taken = await prisma.customDomain.findFirst({ where: { hostname, status: "ACTIVE" } });
+  if (taken) return { error: "That domain is already verified for another site." };
 
   const verificationToken = randomBytes(16).toString("hex");
   await prisma.customDomain.create({
@@ -77,10 +80,16 @@ export async function verifyDomain(orgSlug: string, siteId: string): Promise<Dom
     return { error: `TXT record not found yet at ${recordName}. DNS changes can take a few minutes to propagate.` };
   }
 
-  await prisma.customDomain.update({
-    where: { siteId: ctx.site.id },
-    data: { status: "ACTIVE", verifiedAt: new Date(), lastCheckedAt: new Date(), consecutiveFailures: 0 },
-  });
+  try {
+    await prisma.customDomain.update({
+      where: { siteId: ctx.site.id },
+      data: { status: "ACTIVE", verifiedAt: new Date(), lastCheckedAt: new Date(), consecutiveFailures: 0 },
+    });
+  } catch (error) {
+    // The partial unique index: another site verified this hostname first.
+    if ((error as { code?: string }).code === "P2002") return { error: "That domain is already verified for another site." };
+    throw error;
+  }
 
   await prisma.auditLog.create({
     data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "domain.verify", targetType: "Site", targetId: ctx.site.id, metadata: { hostname: domain.hostname } },

@@ -26,7 +26,15 @@ export default function proxy(req: NextRequest) {
   const host = (req.headers.get("host") ?? "").toLowerCase();
   const isRootDomain = host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}`;
 
-  if (!isRootDomain) {
+  // /api/* is the platform's own API surface, not site content, and it has to answer on
+  // every host: a published page links its images as /api/files/<id> and its search
+  // box calls /api/sites/<id>/search, both relative to whatever host the reader is on,
+  // and Caddy's certificate check (/api/internal/certs/ask) arrives with Host: web:3000.
+  // Rewriting those into the custom-domain page route made them all 404 — so a verified
+  // domain showed no images and no search, and could never be issued a certificate.
+  const isApi = req.nextUrl.pathname.startsWith("/api/");
+
+  if (!isRootDomain && !isApi) {
     // Any other Host is a candidate tenant custom domain — rewrite into the
     // dedicated route, which resolves it against verified CustomDomain rows
     // (an unrecognized hostname just 404s there; the Caddy `ask` endpoint is

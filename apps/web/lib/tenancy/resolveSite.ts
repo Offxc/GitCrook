@@ -12,7 +12,8 @@ export const resolveSiteBySlug = cache(async (slug: string) => {
 });
 
 export const resolveSiteByHostname = cache(async (hostname: string) => {
-  const domain = await prisma.customDomain.findUnique({
+  // Only a verified (ACTIVE) claim serves a site; at most one exists per hostname.
+  const domain = await prisma.customDomain.findFirst({
     where: { hostname, status: "ACTIVE" },
     include: { site: true },
   });
