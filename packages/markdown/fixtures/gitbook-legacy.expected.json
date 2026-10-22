@@ -1,0 +1,288 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {}
+  },
+  "title": null,
+  "blocks": [
+    {
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Migrating from GitBook",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "warning"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Check your ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "links",
+          "styles": {
+            "bold": true
+          }
+        },
+        {
+          "type": "text",
+          "text": " after importing.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "hint",
+      "props": {
+        "hintStyle": "success"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Nested content works too:",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "one",
+              "styles": {}
+            }
+          ],
+          "children": []
+        },
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "two",
+              "styles": {}
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "toggleListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "npm",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "codeBlock",
+          "props": {
+            "language": "bash"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "npm install",
+              "styles": {}
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "toggleListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "pnpm",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "codeBlock",
+          "props": {
+            "language": "bash"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "pnpm install",
+              "styles": {}
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "codeBlock",
+      "props": {
+        "language": "typescript",
+        "title": "config.ts"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "export const mode = \"git\";",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "stepper",
+      "props": {},
+      "children": [
+        {
+          "type": "step",
+          "props": {
+            "index": 1
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Connect the repository",
+              "styles": {}
+            }
+          ],
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Paste the URL.",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "props": {
+            "index": 2
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Choose a branch",
+              "styles": {}
+            }
+          ],
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Usually ",
+                  "styles": {}
+                },
+                {
+                  "type": "text",
+                  "text": "main",
+                  "styles": {
+                    "code": true
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": ".",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "props": {
+        "url": "files/export.zip",
+        "name": "",
+        "caption": ""
+      },
+      "children": []
+    },
+    {
+      "type": "embed",
+      "props": {
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      },
+      "children": []
+    },
+    {
+      "type": "pageLink",
+      "props": {
+        "href": "concepts.md",
+        "title": "Concepts",
+        "description": ""
+      },
+      "children": []
+    },
+    {
+      "type": "paragraph",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Text after the unknown tag.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "GS-210",
+      "line": 14
+    },
+    {
+      "code": "GS-203",
+      "line": 53
+    }
+  ],
+  "references": [
+    {
+      "kind": "file",
+      "target": "files/export.zip"
+    },
+    {
+      "kind": "page-link",
+      "target": "concepts.md"
+    }
+  ]
+}

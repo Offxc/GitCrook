@@ -19,6 +19,7 @@ export default defineConfig({
       { find: /^@gitcrook\/shared\/server$/, replacement: pkg("shared/src/server.ts") },
       { find: /^@gitcrook\/shared$/, replacement: pkg("shared/src/index.ts") },
       { find: /^@gitcrook\/db$/, replacement: pkg("db/src/index.ts") },
+      { find: /^@gitcrook\/markdown$/, replacement: pkg("markdown/src/index.ts") },
       { find: /^@gitcrook\/auth$/, replacement: pkg("auth/src/index.ts") },
       { find: /^@\//, replacement: `${webRoot}/` },
     ],

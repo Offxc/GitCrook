@@ -9,6 +9,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/db/package.json packages/db/package.json
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY packages/markdown/package.json packages/markdown/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"

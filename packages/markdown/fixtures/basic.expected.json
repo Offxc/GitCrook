@@ -1,0 +1,330 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {},
+    "title": "Getting started",
+    "description": "Install GitCrook and publish your first page.",
+    "icon": "rocket",
+    "order": 1
+  },
+  "title": "Getting started",
+  "blocks": [
+    {
+      "type": "heading",
+      "props": {
+        "level": 1
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Getting started",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "paragraph",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Welcome to ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "GitCrook",
+          "styles": {
+            "bold": true
+          }
+        },
+        {
+          "type": "text",
+          "text": ". This page covers ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "installing",
+          "styles": {
+            "italic": true
+          }
+        },
+        {
+          "type": "text",
+          "text": ", ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "guessing",
+          "styles": {
+            "strike": true
+          }
+        },
+        {
+          "type": "text",
+          "text": " configuring and ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "running",
+          "styles": {
+            "code": true
+          }
+        },
+        {
+          "type": "text",
+          "text": " it. Read the ",
+          "styles": {}
+        },
+        {
+          "type": "link",
+          "href": "./quickstart.md",
+          "content": [
+            {
+              "type": "text",
+              "text": "quickstart",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": " or the ",
+          "styles": {}
+        },
+        {
+          "type": "link",
+          "href": "https://docs.gitcrook.example",
+          "content": [
+            {
+              "type": "text",
+              "text": "docs",
+              "styles": {}
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": " next.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Install",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "numberedListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Clone the repository",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "numberedListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Run ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "pnpm install",
+          "styles": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "numberedListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Start it with ",
+          "styles": {}
+        },
+        {
+          "type": "text",
+          "text": "pnpm dev",
+          "styles": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "heading",
+      "props": {
+        "level": 3
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Requirements",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "bulletListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "Node 22 or newer",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "bulletListItem",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "PostgreSQL",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "bulletListItem",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "version 15 or newer",
+              "styles": {}
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "checkListItem",
+      "props": {
+        "checked": true
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Docker (optional)",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "checkListItem",
+      "props": {
+        "checked": false
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "A domain name",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "paragraph",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "A line with a hard break\nand the next line.",
+          "styles": {}
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "divider",
+      "props": {},
+      "children": []
+    },
+    {
+      "type": "quote",
+      "props": {},
+      "content": [
+        {
+          "type": "text",
+          "text": "A plain quote.",
+          "styles": {}
+        }
+      ],
+      "children": [
+        {
+          "type": "paragraph",
+          "props": {},
+          "content": [
+            {
+              "type": "text",
+              "text": "Over two paragraphs.",
+              "styles": {}
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "props": {
+        "url": "./images/dashboard.png",
+        "caption": "The dashboard after sign-in",
+        "name": "The dashboard"
+      },
+      "children": []
+    }
+  ],
+  "diagnostics": [],
+  "references": [
+    {
+      "kind": "link",
+      "target": "./quickstart.md"
+    },
+    {
+      "kind": "link",
+      "target": "https://docs.gitcrook.example"
+    },
+    {
+      "kind": "image",
+      "target": "./images/dashboard.png"
+    }
+  ]
+}

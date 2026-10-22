@@ -1,0 +1,292 @@
+{
+  "frontMatter": {
+    "draft": false,
+    "hidden": false,
+    "redirect_from": [],
+    "extra": {}
+  },
+  "title": null,
+  "blocks": [
+    {
+      "type": "columnList",
+      "props": {},
+      "children": [
+        {
+          "type": "column",
+          "props": {
+            "width": 2
+          },
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The wide column holds the main text.",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "column",
+          "props": {
+            "width": 1
+          },
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A narrow side column.",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cardGroup",
+      "props": {
+        "size": "large"
+      },
+      "children": [
+        {
+          "type": "card",
+          "props": {
+            "title": "Quickstart",
+            "description": "Up and running in five minutes",
+            "href": "./quickstart.md",
+            "imageUrl": "https://example.com/cover.png"
+          },
+          "children": []
+        },
+        {
+          "type": "card",
+          "props": {
+            "title": "Concepts",
+            "description": "",
+            "href": "./concepts.md",
+            "imageUrl": ""
+          },
+          "children": []
+        }
+      ]
+    },
+    {
+      "type": "stepper",
+      "props": {},
+      "children": [
+        {
+          "type": "step",
+          "props": {
+            "index": 1
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Create a site",
+              "styles": {}
+            }
+          ],
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Open the dashboard and choose ",
+                  "styles": {}
+                },
+                {
+                  "type": "text",
+                  "text": "New site",
+                  "styles": {
+                    "bold": true
+                  }
+                },
+                {
+                  "type": "text",
+                  "text": ".",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "step",
+          "props": {
+            "index": 2
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Add a page",
+              "styles": {}
+            }
+          ],
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Pages live in the sidebar.",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "updates",
+      "props": {},
+      "children": [
+        {
+          "type": "update",
+          "props": {
+            "date": "2026-10-01",
+            "tags": "new"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Git Sync",
+              "styles": {}
+            }
+          ],
+          "children": [
+            {
+              "type": "paragraph",
+              "props": {},
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Pages can now be kept in a repository.",
+                  "styles": {}
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "props": {
+        "label": "Get started",
+        "href": "./quickstart.md",
+        "style": "primary"
+      },
+      "children": []
+    },
+    {
+      "type": "button",
+      "props": {
+        "label": "Source",
+        "href": "https://github.com/example/repo",
+        "style": "secondary"
+      },
+      "children": []
+    },
+    {
+      "type": "embed",
+      "props": {
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      },
+      "children": []
+    },
+    {
+      "type": "video",
+      "props": {
+        "url": "./media/demo.mp4",
+        "caption": "A short demo",
+        "name": "",
+        "previewWidth": 480
+      },
+      "children": []
+    },
+    {
+      "type": "audio",
+      "props": {
+        "url": "./media/theme.mp3",
+        "caption": "",
+        "name": ""
+      },
+      "children": []
+    },
+    {
+      "type": "file",
+      "props": {
+        "url": "./files/spec.pdf",
+        "name": "Specification",
+        "caption": ""
+      },
+      "children": []
+    },
+    {
+      "type": "pageLink",
+      "props": {
+        "href": "./concepts.md",
+        "title": "Concepts",
+        "description": "How the pieces fit"
+      },
+      "children": []
+    }
+  ],
+  "diagnostics": [],
+  "references": [
+    {
+      "kind": "card-link",
+      "target": "./quickstart.md"
+    },
+    {
+      "kind": "card-image",
+      "target": "https://example.com/cover.png"
+    },
+    {
+      "kind": "card-link",
+      "target": "./concepts.md"
+    },
+    {
+      "kind": "button",
+      "target": "./quickstart.md"
+    },
+    {
+      "kind": "button",
+      "target": "https://github.com/example/repo"
+    },
+    {
+      "kind": "video",
+      "target": "./media/demo.mp4"
+    },
+    {
+      "kind": "audio",
+      "target": "./media/theme.mp3"
+    },
+    {
+      "kind": "file",
+      "target": "./files/spec.pdf"
+    },
+    {
+      "kind": "page-link",
+      "target": "./concepts.md"
+    }
+  ]
+}

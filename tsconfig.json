@@ -10,6 +10,7 @@
       "@gitcrook/shared/server": ["packages/shared/src/server.ts"],
       "@gitcrook/shared": ["packages/shared/src/index.ts"],
       "@gitcrook/db": ["packages/db/src/index.ts"],
+      "@gitcrook/markdown": ["packages/markdown/src/index.ts"],
       "@gitcrook/auth": ["packages/auth/src/index.ts"],
       "@/*": ["apps/web/*"]
     }
