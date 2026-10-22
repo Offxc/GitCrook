@@ -18,10 +18,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pag
 
   const page = await prisma.page.findUnique({
     where: { id: pageId },
-    select: { title: true, content: true, isDraft: true, isGroup: true, site: true },
+    select: { title: true, content: true, isDraft: true, isGroup: true, deletedAt: true, site: true },
   });
   // The same answer for "no such page" and "not yours": nothing to learn from the difference.
-  if (!page || page.isDraft || page.isGroup) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!page || page.isDraft || page.deletedAt || page.isGroup) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const access = await getVisitorAccess(page.site);
   if (access.status !== "allow") return NextResponse.json({ error: "Not found" }, { status: 404 });

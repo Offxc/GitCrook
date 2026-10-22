@@ -27,7 +27,7 @@ export async function withFreeSlug<T>(
 ): Promise<T> {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const siblings = await prisma.page.findMany({
-      where: { variantId: scope.variantId, parentId: scope.parentId, ...(scope.exceptPageId ? { id: { not: scope.exceptPageId } } : {}) },
+      where: { variantId: scope.variantId, parentId: scope.parentId, deletedAt: null, ...(scope.exceptPageId ? { id: { not: scope.exceptPageId } } : {}) },
       select: { slug: true },
     });
     const slug = freeSlug(slugify(title), new Set(siblings.map((s) => s.slug)));

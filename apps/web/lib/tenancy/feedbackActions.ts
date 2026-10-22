@@ -28,7 +28,7 @@ export async function submitPageFeedback(_prev: FeedbackState, formData: FormDat
   if (!parsed.success) return { error: "Something went wrong — try again." };
 
   const page = await prisma.page.findUnique({ where: { id: parsed.data.pageId }, include: { site: true } });
-  if (!page || page.isDraft) return { error: "Page not found." };
+  if (!page || page.isDraft || page.deletedAt) return { error: "Page not found." };
 
   // A rating is a write against a page, so it needs the same access as reading it:
   // knowing a page id (it appears in the page's HTML) must not be enough to rate a

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
   if (access.status !== "allow") return new NextResponse("Not found", { status: 404 });
 
   const pages = await prisma.page.findMany({
-    where: { siteId, isDraft: false },
+    where: { siteId, isDraft: false, deletedAt: null },
     select: { id: true, content: true },
   });
 

@@ -110,6 +110,7 @@ export function Sidebar({
   sidebarStyle,
   showPoweredByBadge,
   canManageContent,
+  managedVariantIds = [],
   orgSlug,
   nonce,
   belowSectionTabs = false,
@@ -117,6 +118,8 @@ export function Sidebar({
   sidebarStyle: ThemeConfig["sidebarStyle"];
   showPoweredByBadge: boolean;
   canManageContent: boolean;
+  /** Versions a Git repository fills: their pages are changed there, so no editing controls are shown for them. */
+  managedVariantIds?: string[];
   orgSlug: string | null;
   /** CSP nonce for the pre-hydration scroll-restore script. */
   nonce?: string;
@@ -128,7 +131,7 @@ export function Sidebar({
 
   const { location, paths, baseHref, siteId } = nav;
   const activeId = location.activeNode?.id ?? null;
-  const editable = canManageContent && orgSlug !== null;
+  const editable = canManageContent && orgSlug !== null && !managedVariantIds.includes(location.variant.id);
   // "filled" is GitBook's own sidebar-background option, and it's what makes
   // the column read as an inset card (the look in the reference screenshot)
   // rather than a plain column divided off by a rule.

@@ -43,6 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
     FROM "Page"
     WHERE "siteId" = ${siteId}
       AND "isDraft" = false
+      AND "deletedAt" IS NULL
       AND "searchVector" @@ websearch_to_tsquery('english', ${q})
     ORDER BY ts_rank("searchVector", websearch_to_tsquery('english', ${q})) DESC
     LIMIT 10

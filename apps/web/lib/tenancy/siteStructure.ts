@@ -35,7 +35,8 @@ export const loadShellStructure = cache(async (siteId: string): Promise<ShellSec
       include: { spaces: { orderBy: { order: "asc" }, include: { variants: { orderBy: { order: "asc" } } } } },
     }),
     prisma.page.findMany({
-      where: { siteId, isDraft: false },
+      // Hidden pages are published but not in the navigation; pages whose file left a repository are gone.
+      where: { siteId, isDraft: false, deletedAt: null, isHidden: false },
       orderBy: { order: "asc" },
       select: { id: true, variantId: true, parentId: true, title: true, slug: true, icon: true, isGroup: true },
     }),

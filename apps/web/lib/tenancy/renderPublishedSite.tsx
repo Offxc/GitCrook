@@ -16,6 +16,7 @@ import {
   type ThemeConfig,
 } from "@gitcrook/shared";
 import { canUserDoX } from "@gitcrook/auth";
+import { editUrl, hostConfigFromEnv } from "@gitcrook/git-sync";
 import type { ResolvedSite } from "./resolveSite";
 import { resolvePublishedPath } from "./resolvePublishedPath";
 import { getPageTree } from "./getPageTree";
@@ -121,9 +122,11 @@ export async function renderPublishedShell(site: ResolvedSite, baseHref: string,
   // Same permission the create actions themselves check — this just decides
   // whether to show the "Add new" control at all, never trusted on its own.
   const canManageContent = theme.showToolbarForMembers && userId !== null && (await canUserDoX(userId, "content.edit", { type: "site", id: site.id }));
-  const [sections, orgSlugForSidebar] = await Promise.all([
+  const [sections, orgSlugForSidebar, managedVariantIds] = await Promise.all([
     loadShellStructure(site.id),
     canManageContent ? prisma.organization.findUnique({ where: { id: site.organizationId }, select: { slug: true } }).then((o) => o?.slug ?? null) : null,
+    // A version a Git repository fills is changed in the repository, so its edit controls are not offered.
+    canManageContent ? prisma.gitSource.findMany({ where: { siteId: site.id }, select: { variantId: true } }).then((rows) => rows.map((r) => r.variantId)) : [],
   ]);
   // Edit mode is a cookie so the very first render is already the right one (see editModeCookie.ts).
   const initialEditing = canManageContent && jar.get(editModeCookieName(site.id))?.value === "1";
@@ -150,6 +153,7 @@ export async function renderPublishedShell(site: ResolvedSite, baseHref: string,
             sidebarStyle={theme.sidebarStyle}
             showPoweredByBadge={theme.showPoweredByBadge}
             canManageContent={canManageContent}
+            managedVariantIds={managedVariantIds}
             orgSlug={orgSlugForSidebar}
             nonce={nonce}
             belowSectionTabs={sections.length > 1}
@@ -216,7 +220,17 @@ export async function renderPublishedPage(site: ResolvedSite, path: string[], ba
   // Gated by both a real permission check (never trust theme config for
   // access control) and the site owner's own toggle for whether they want
   // this affordance visible to members at all.
-  const canEdit = theme.showToolbarForMembers && userId !== null && !page.isGroup && (await canUserDoX(userId, "content.edit", { type: "page", id: page.id }));
+  const canEdit =
+    theme.showToolbarForMembers && userId !== null && !page.isGroup && page.managedBy !== "GIT" && (await canUserDoX(userId, "content.edit", { type: "page", id: page.id }));
+
+  // A page that comes from a repository links to its file. A repository that needs a token is private, and its
+  // name is not for the public to read, so only signed-in editors are shown the link for those.
+  let editOnGit: string | null = null;
+  if (page.sourceId && page.sourcePath && !/^(dir|group):/.test(page.sourcePath)) {
+    const source = await prisma.gitSource.findUnique({ where: { id: page.sourceId }, select: { owner: true, repo: true, branch: true, rootDir: true, credentialId: true } });
+    const isEditor = userId !== null && (await canUserDoX(userId, "content.edit", { type: "page", id: page.id }));
+    if (source && (source.credentialId === null || isEditor)) editOnGit = editUrl(hostConfigFromEnv().webBase, source, page.sourcePath);
+  }
 
   return (
     <>
@@ -263,6 +277,11 @@ export async function renderPublishedPage(site: ResolvedSite, path: string[], ba
             <p className="mr-auto">
               Last updated <time dateTime={page.updatedAt.toISOString()}>{formatRelativeTime(page.updatedAt)}</time>
             </p>
+            {editOnGit ? (
+              <a href={editOnGit} target="_blank" rel="noreferrer" className="transition hover:text-site-ink">
+                Edit on GitHub <span aria-hidden>↗</span>
+              </a>
+            ) : null}
           </div>
 
           {theme.pagination.enabled ? (

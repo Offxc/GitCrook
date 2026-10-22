@@ -84,7 +84,7 @@ async function resolvePageBySlugPath(variantId: string, slugPath: string[]): Pro
     // scan forward to the next top-level item instead of 404ing the whole
     // site root over one empty group.
     const topLevel = await prisma.page.findMany({
-      where: { variantId, parentId: null, isDraft: false },
+      where: { variantId, parentId: null, isDraft: false, deletedAt: null },
       orderBy: { order: "asc" },
     });
     for (const candidate of topLevel) {
@@ -96,7 +96,7 @@ async function resolvePageBySlugPath(variantId: string, slugPath: string[]): Pro
   let parentId: string | null = null;
   let page: Page | null = null;
   for (const seg of slugPath) {
-    const match: Page | null = await prisma.page.findFirst({ where: { variantId, parentId, slug: seg, isDraft: false } });
+    const match: Page | null = await prisma.page.findFirst({ where: { variantId, parentId, slug: seg, isDraft: false, deletedAt: null } });
     if (!match) return null;
     page = match;
     parentId = match.id;
@@ -108,7 +108,7 @@ async function resolvePageBySlugPath(variantId: string, slugPath: string[]): Pro
 async function resolveThroughGroup(page: Page | null): Promise<Page | null> {
   if (!page?.isGroup) return page;
   return prisma.page.findFirst({
-    where: { variantId: page.variantId, parentId: page.id, isDraft: false },
+    where: { variantId: page.variantId, parentId: page.id, isDraft: false, deletedAt: null },
     orderBy: { order: "asc" },
   });
 }

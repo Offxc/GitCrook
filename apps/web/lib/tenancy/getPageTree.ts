@@ -13,10 +13,14 @@ export {
   type PageTreeNode,
 } from "@gitcrook/shared";
 
-/** Full page tree for a variant's sidebar — small per site, fetched flat and nested in memory. */
+/**
+ * Full page tree for a variant's sidebar — small per site, fetched flat and nested in memory. Pages marked hidden
+ * (front matter `hidden: true`) are left out, and so is everything below them: they are published, and reachable by
+ * their URL, but not part of the navigation or of previous/next.
+ */
 export async function getPageTree(variantId: string): Promise<PageTreeNode[]> {
   const pages = await prisma.page.findMany({
-    where: { variantId, isDraft: false },
+    where: { variantId, isDraft: false, deletedAt: null, isHidden: false },
     orderBy: { order: "asc" },
     select: { id: true, parentId: true, title: true, slug: true, icon: true, isGroup: true },
   });
