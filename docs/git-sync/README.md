@@ -14,6 +14,7 @@ The sync is **one way**: repository → site. GitCrook never writes to your repo
 - [Reading the docs back](#reading-the-docs-back)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
+- [Moving an existing site to Git Sync](#moving-an-existing-site-to-git-sync)
 - [Moving from GitBook](#moving-from-gitbook)
 - [Security](#security)
 - [Limits](#limits)
@@ -256,6 +257,35 @@ does. If it carries `draft: true` it is deliberately not published.
 **The source says "Needs attention".** The message under the heading is the last run's error. Fix the cause and press
 **Sync now**. A source in this state is retried automatically, every 15 minutes (or the poll interval, if longer),
 and goes back to normal on the first run that succeeds.
+
+## Moving an existing site to Git Sync
+
+Git Sync fills a version of a site from a repository, one way. A site that was written in the editor has no repository
+yet, so the first step is to make one from the site as it is. `scripts/export-site.py` does that from the published site:
+
+```bash
+python3 scripts/export-site.py https://your-domain/your-site-slug ./site-export
+```
+
+It reads the site's `llms.txt` and each page's `.md`, and writes a folder of Markdown files at the paths that give the
+pages the addresses they have now, with `order:` and `description:` in front matter and a `gitcrook.yaml` that keeps the
+sidebar's order and group titles. Drafts and hidden pages are not included (a visitor cannot see them). A site with
+several sections or spaces is exported one at a time, by giving the address of each. What it cannot carry over: icons,
+and anything Markdown has no word for. Images keep pointing at the files already uploaded to the site, so
+`gitcrook-docs check` reports them as links to files that are not in the repository; that is expected, and they keep
+working while those uploads stay on the server.
+
+With `gitcrook.yaml` present, a file that is not listed in it is not published. Delete the file if you would rather add
+pages by dropping files into folders; the sidebar then follows the folders and the `order:` of each page, and groups are
+sorted by name.
+
+Then put the folder in a repository and connect it:
+
+1. **Back up the database.** Connecting a version that already has pages replaces them, and that cannot be undone from the
+   dashboard: `docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > backup.sql.gz`.
+2. **Try it on a new, empty site first.** Create a site, connect the repository to its version, and compare the two.
+3. **Then connect the live site.** On its Git Sync page choose the version, enter the repository, and tick the box that
+   replaces the existing pages. Addresses stay the same, so links and bookmarks keep working.
 
 ## Moving from GitBook
 
