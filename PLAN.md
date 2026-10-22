@@ -97,9 +97,10 @@ All changes are in `app/(published)/_components/`.
    cookie (`gc-edit-<siteId>`) read on the server and passed as a prop, and write the cookie in
    `setEditing`. The first render is then already the right component: no list→tree swap, no
    clamped restore. (Fixes #3.)
-4. **Hard loads** (#5): until the persistent shell lands, the restore cannot run before hydration.
-   Mitigate by rendering a tiny inline script right after the sidebar `<div>` (nonce from the
-   `x-nonce` header) that applies the stored offset synchronously during parse. Remove it in step 2.
+4. **Hard loads** (#5): the restore cannot run before hydration, and the browser only restores the
+   window's scroll, never an inner container's. Render a tiny inline script right after the sidebar
+   `<div>` (nonce from the `x-nonce` header) that applies the stored offset and open groups
+   synchronously during parse. This stays after step 2: a persistent shell does not help a hard load.
 
 **Acceptance.** The harness in [§7](#7-appendix-reproduction-harness) passes scenarios 1–6 within
 ±2 px and records no console errors.
@@ -129,8 +130,9 @@ most of C-track's `window.location.href` workarounds).
   shell stays put.
 - Structure edits already call `router.refresh()` / `revalidatePath(..., "layout")`; both refresh
   layouts, so the tree updates without a remount.
-- Delete the `sessionStorage` offset hack and the inline script from step 1. Keep the
-  "scroll the active item into view" behaviour, driven by an effect on the active id.
+- Delete the per-navigation `sessionStorage` restore from step 1 (the shell no longer remounts).
+  Keep the inline script for hard loads and the "scroll the active item into view" behaviour,
+  driven by an effect on the active id.
 - The sidebar becomes a client component that receives trees as props. Do **not** let it import the
   icon table (see E1): resolve each node's icon path on the server and pass the path string down.
 
@@ -158,7 +160,7 @@ markers survive and the sidebar offset never moves except when the active item l
 | **A4** | **P0** | S | **"Previous" on the first page of every group links to the page itself.** `flattenPageTree` includes group nodes; a group's URL resolves to its first child. On `G2 Page 1` the Previous link is "← Group 2" → `/long-docs/group-2` → renders `G2 Page 1` | `[measured]` rendered HTML | Build prev/next from navigable (non-group) nodes only, in display order, so Previous of a group's first page is the last page of the previous group |
 | A5 | P1 | M | Mobile menu is an in-page `<details>` that closes on every navigation | `[read]` `MobileNav` | Drawer in the persistent shell; scroll the active item into view when opened |
 | A6 | P1 | S | Edit mode starts `false` and flips in an effect, so each navigation renders the read-only list, then the tree | `[read]`; consequences in §2 #3 | Cookie-initialised state (§2 step 1.3); gone entirely with A2 |
-| A7 | P1 | M | Adding a second section silently changes every existing URL: with one section its slug is implicit, with two it becomes required, so all old links 404 with no redirect. The UI gives no warning | `[read]` `resolvePublishedPath`, `SectionsManager` | Resolve legacy implicit paths and `308` to the canonical URL, or always put the section in the URL (decision, §6). Warn in the "Add section" form either way |
+| A7 | P1 | M | Adding a second section silently changes every existing URL: with one section its slug is implicit, with two it becomes required, so all old links 404 with no redirect. The UI gives no warning | `[read]` `resolvePublishedPath`, `SectionsManager` | **Decided (§6): redirect.** Resolve legacy implicit paths inside the first section and answer `308` with the canonical URL; refuse to add a section whose slug equals a top-level page or group slug of the first section |
 | A8 | P2 | S | Renaming a page or group rewrites its slug (and every child's URL for a group) with no redirect | `[read]` `renamePage` | Stable slug by default, an editable slug field, and an automatic `SiteRedirect` whenever a slug changes |
 | A9 | P2 | M | `pageLink` block is a free-text path field; breaks on rename | `[read]` | Page picker storing a stable page id, resolved at render (GitBook's `content-ref`) |
 
@@ -728,18 +730,20 @@ Pages are stored as BlockNote JSON. Two converters exist and neither can carry a
 
 ## 6. Decisions needed
 
-| # | Decision | Recommendation |
-| --- | --- | --- |
-| 1 | Sync-target granularity | One **variant** per source (§4.11) |
-| 2 | Block syntax | GitHub alerts + `<details>` + `:::` directives (§4.6), GitBook tags parse-only |
-| 3 | Deleted files | Soft delete with a 14-day grace |
-| 4 | SVG in assets | Allow behind a strict sanitiser (svgo + allow-list), or document that it is unsupported |
-| 5 | First auth path | Public repo + fine-grained token first, GitHub App second (Phase 3 task order) |
-| 6 | Adding a second section | Redirect legacy URLs (A7) rather than always showing the section slug |
-| 7 | Keep the dashboard editor (C9)? | Remove; one editor |
-| 8 | Mixed ownership inside one tree | Not in v1 |
-| 9 | Sign-up policy default | Allow-list or invite by default; open sign-up opt-in (see private notes) |
-| 10 | External images (B4) | Import at save/sync time; keep the CSP strict |
+**Decided** rows are settled; the rest are recommendations awaiting a call.
+
+| # | Decision | Status | Outcome / recommendation |
+| --- | --- | --- | --- |
+| 1 | Sync-target granularity | Recommended | One **variant** per source (§4.11) |
+| 2 | Block syntax | Recommended | GitHub alerts + `<details>` + `:::` directives (§4.6), GitBook tags parse-only |
+| 3 | Deleted files | Recommended | Soft delete with a 14-day grace |
+| 4 | SVG in assets | **Decided** | **Allow, sanitised.** Strip scripts, event handlers and external references with an allow-list (svgo + a strict profile) on import and on upload; serve with `Content-Security-Policy: sandbox; default-src 'none'` and `nosniff`; render only through `<img>`. Do not rasterise untrusted SVG with sharp (its SVG renderer has a published advisory) |
+| 5 | First auth path | Recommended | Public repo + fine-grained token first, GitHub App second (Phase 3 task order) |
+| 6 | Adding a second section | **Decided** | **Redirect legacy URLs** (A7). A path whose first segment is not a section is resolved inside the first section and answered with a `308` to the canonical URL. Adding a section whose slug equals a top-level page or group slug of the first section is refused with an explanation |
+| 7 | Keep the dashboard editor (C9)? | Recommended | Remove; one editor |
+| 8 | Mixed ownership inside one tree | Recommended | Not in v1 |
+| 9 | Sign-up policy default | **Decided** | **Closed by default.** The first sign-in on an empty database becomes the owner; after that only allow-listed Discord IDs and people holding an email invitation can create an account; `SIGNUP_MODE=open` opts in. Invitations are what keep "add a member" working with sign-up closed |
+| 10 | External images (B4) | Recommended | Import at save/sync time; keep the CSP strict |
 
 ---
 
