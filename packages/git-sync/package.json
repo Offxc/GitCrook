@@ -16,5 +16,9 @@
     "fast-check": "4.3.0",
     "sharp": "0.35.5",
     "typescript": "^5.7.3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./pure": "./src/pure.ts"
   }
 }

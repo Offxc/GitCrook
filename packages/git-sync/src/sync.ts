@@ -12,7 +12,6 @@ import {
   type NavFile,
   type NavNode,
   type ParseResult,
-  type RepoConfig,
 } from "@gitcrook/markdown";
 import { extractPlainText, variantPrefix, type StructureSection } from "@gitcrook/shared";
 import type { SecretBox } from "@gitcrook/shared/server";
@@ -24,7 +23,8 @@ import { DEFAULT_LIMITS, type SyncLimits } from "./limits";
 import { metaFrom, navFileFrom, readMeta, type SourceMeta } from "./meta";
 import { matchMovesById, planChanges, type KnownFile, type Plan } from "./plan";
 import { relativeUrl, rewriteBlocks, type Target } from "./rewrite";
-import { listFiles } from "./tree";
+import { decodeRepoText } from "./text";
+import { CONFIG_FILE_NAMES, isConfigPath, listFiles } from "./tree";
 
 // -------------------------------------------------------------------------------------------------
 // Public types
@@ -94,8 +94,6 @@ export interface SyncOutcome {
 }
 
 const MAX_RECORDED_DIAGNOSTICS = 500;
-const CONFIG_FILE_NAMES = new Set(["gitcrook.yaml", "gitcrook.yml", ".gitbook.yaml", ".gitbook.yml"]);
-const LFS_POINTER = /^version https:\/\/git-lfs\.github\.com\/spec\/v1\b/;
 
 class RunTimeoutError extends Error {
   constructor() {
@@ -129,9 +127,12 @@ class Run {
     this.diagnostics.push(...items);
   }
 
+  /** The docs directory in effect: the source's, else the one the repository's own configuration names. */
+  docsDir = "";
+
   /** A path as the repository shows it: the docs directory is part of it. */
   where(path: string): string {
-    return this.source.rootDir ? `${this.source.rootDir}/${path}` : path;
+    return this.docsDir ? `${this.docsDir}/${path}` : path;
   }
 
   checkTime() {
@@ -264,6 +265,7 @@ async function synchronise(run: Run, client: GitHubClient, branch: BranchInfo): 
   const configDiags = { gitcrook: new Diagnostics("gitcrook.yaml"), gitbook: new Diagnostics(".gitbook.yaml") };
   let config = readRepoConfig(found, configDiags);
   const rootDir = cleanRepoPath(source.rootDir) ?? config.root;
+  run.docsDir = rootDir;
 
   run.checkTime();
   const listing = await listFiles(client, { owner, repo, branch: source.branch, repoTreeSha: branch.treeSha, rootDir, summaryPath: config.summaryPath, limits });
@@ -507,7 +509,12 @@ async function importAssets(run: Run, client: GitHubClient, paths: string[], fil
       urls.set(path, `/api/files/${row.id}`);
       return;
     }
-    if (run.options.dryRun || !deps.assets) return;
+    // A preview reads no file bodies, but a file that is in the repository is not a missing one.
+    if (run.options.dryRun) {
+      urls.set(path, "pending");
+      return;
+    }
+    if (!deps.assets) return;
     run.checkTime();
     if (file.size > limits.maxAssetBytes) {
       run.add(diagnostic("GS-150", `"${run.where(path)}" is ${file.size} bytes; the limit for a file is ${limits.maxAssetBytes}. It was skipped.`, { path: run.where(path) }));
@@ -529,11 +536,6 @@ async function importAssets(run: Run, client: GitHubClient, paths: string[], fil
   });
 }
 
-const isConfigPath = (path: string, config: RepoConfig): boolean => {
-  const name = path.split("/").pop()!.toLowerCase();
-  return CONFIG_FILE_NAMES.has(name) || path.toLowerCase() === config.summaryPath.toLowerCase() || path.toLowerCase().endsWith(`/${config.summaryPath.toLowerCase()}`);
-};
-
 /** Runs `fn` over `items` with at most `limit` in flight, stopping at the first failure. */
 async function mapLimit<T>(items: readonly T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
   let next = 0;
@@ -549,16 +551,12 @@ async function mapLimit<T>(items: readonly T[], limit: number, fn: (item: T) => 
 /** A text file from the repository, or null (with a diagnostic) if it is binary, an LFS pointer, or unreadable. */
 async function readText(run: Run, client: GitHubClient, sha: string, maxBytes: number, shownPath: string): Promise<string | null> {
   const bytes = await client.getBlob(run.source.owner, run.source.repo, sha, { maxBytes });
-  if (bytes.includes(0)) {
-    run.add(diagnostic("GS-140", `"${shownPath}" is not a text file; it was skipped.`, { path: shownPath }));
+  const decoded = decodeRepoText(bytes, shownPath);
+  if ("diagnostic" in decoded) {
+    run.add(decoded.diagnostic);
     return null;
   }
-  const text = new TextDecoder("utf-8").decode(bytes);
-  if (bytes.length < 1024 && LFS_POINTER.test(text)) {
-    run.add(diagnostic("GS-160", `"${shownPath}" is a Git LFS pointer, not the file itself; it was skipped.`, { path: shownPath }));
-    return null;
-  }
-  return text;
+  return decoded.text;
 }
 
 async function loadSections(siteId: string): Promise<StructureSection[]> {

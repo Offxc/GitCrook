@@ -7,6 +7,8 @@ export * from "./meta";
 export * from "./plan";
 export * from "./rewrite";
 export * from "./sync";
+export * from "./analyze";
+export * from "./text";
 export * from "./tree";
 export * from "./queue";
 export * from "./webhook";

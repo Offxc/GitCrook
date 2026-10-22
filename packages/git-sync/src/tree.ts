@@ -1,4 +1,4 @@
-import { diagnostic, type Diagnostic } from "@gitcrook/markdown";
+import { diagnostic, type Diagnostic, type RepoConfig } from "@gitcrook/markdown";
 import { GitHostError } from "./github/errors";
 import type { GitHubClient, TreeEntry } from "./github/client";
 import { DEFAULT_LIMITS, type SyncLimits } from "./limits";
@@ -27,11 +27,18 @@ export interface Listing {
 const MARKDOWN = /\.(md|markdown|mdx)$/i;
 /** Files a page can embed or link to. Others are ignored, not imported: this is documentation, not a file host. */
 const ASSET = /\.(png|jpe?g|gif|webp|avif|svg|ico|bmp|mp4|webm|mov|mp3|wav|ogg|m4a|pdf|zip|txt|csv|json)$/i;
-const CONFIG_NAMES = new Set(["gitcrook.yaml", "gitcrook.yml", ".gitbook.yaml", ".gitbook.yml"]);
+/** The files a repository can configure itself with. */
+export const CONFIG_FILE_NAMES = new Set(["gitcrook.yaml", "gitcrook.yml", ".gitbook.yaml", ".gitbook.yml"]);
+
+/** Whether a path is one of the configuration files (including the summary), which are read for settings rather than as pages. */
+export const isConfigPath = (path: string, config: Pick<RepoConfig, "summaryPath">): boolean => {
+  const name = path.split("/").pop()!.toLowerCase();
+  return CONFIG_FILE_NAMES.has(name) || path.toLowerCase() === config.summaryPath.toLowerCase() || path.toLowerCase().endsWith(`/${config.summaryPath.toLowerCase()}`);
+};
 
 export function classify(path: string, summaryPath = "SUMMARY.md"): FileKind | null {
   const name = path.slice(path.lastIndexOf("/") + 1);
-  if (CONFIG_NAMES.has(name.toLowerCase())) return "config";
+  if (CONFIG_FILE_NAMES.has(name.toLowerCase())) return "config";
   if (path.toLowerCase() === summaryPath.toLowerCase()) return "config";
   if (MARKDOWN.test(name)) return "markdown";
   if (ASSET.test(name)) return "asset";
@@ -79,20 +86,13 @@ export interface ListOptions {
   limits?: SyncLimits;
 }
 
-/** Every importable file under the docs directory, with the reasons for anything left out. */
-export async function listFiles(client: GitHubClient, options: ListOptions): Promise<Listing> {
+/**
+ * Decides what each entry of a listing is to Git Sync: a page source, an asset, a configuration file, or something
+ * to leave out (with the reason). Pure, so the same rules apply to a repository on the host and to a folder on disk.
+ * Throws `GitHostError` (`GS-151`) when there are more importable files than the limit.
+ */
+export function classifyEntries(entries: readonly TreeEntry[], options: { rootDir?: string; summaryPath?: string; limits?: SyncLimits }): Pick<Listing, "files" | "diagnostics"> {
   const limits = options.limits ?? DEFAULT_LIMITS;
-  const { owner, repo } = options;
-  const treeSha = options.rootDir ? await findRootTree(client, owner, repo, options.repoTreeSha, options.rootDir, options.branch) : options.repoTreeSha;
-
-  const tree = await client.getTree(owner, repo, treeSha, { recursive: true });
-  let entries = tree.entries;
-  let walked = false;
-  if (tree.truncated) {
-    entries = await walk(client, owner, repo, treeSha, limits);
-    walked = true;
-  }
-
   const files: RepoFile[] = [];
   const diagnostics: Diagnostic[] = [];
   const ignored = new Map<string, number>();
@@ -134,5 +134,22 @@ export async function listFiles(client: GitHubClient, options: ListOptions): Pro
   }
 
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { files, diagnostics, treeSha, walked };
+  return { files, diagnostics };
+}
+
+/** Every importable file under the docs directory, with the reasons for anything left out. */
+export async function listFiles(client: GitHubClient, options: ListOptions): Promise<Listing> {
+  const limits = options.limits ?? DEFAULT_LIMITS;
+  const { owner, repo } = options;
+  const treeSha = options.rootDir ? await findRootTree(client, owner, repo, options.repoTreeSha, options.rootDir, options.branch) : options.repoTreeSha;
+
+  const tree = await client.getTree(owner, repo, treeSha, { recursive: true });
+  let entries = tree.entries;
+  let walked = false;
+  if (tree.truncated) {
+    entries = await walk(client, owner, repo, treeSha, limits);
+    walked = true;
+  }
+
+  return { ...classifyEntries(entries, options), treeSha, walked };
 }
