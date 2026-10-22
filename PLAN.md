@@ -84,6 +84,41 @@ password-protected sites enter the password once more. Sign-up is now **closed**
 old behaviour. After deploying, review assets whose site was deleted earlier (the query is in the private
 file).
 
+**Phase 1 is done** (CI runs lint, typecheck, unit, integration against Postgres and Chromium end-to-end
+tests, and a clean-clone install under pnpm 11).
+
+| Item | Result |
+| --- | --- |
+| G3 / G4 / G5 | ESLint, Vitest in three projects (unit, integration, e2e), CI jobs, CodeQL, Dependabot, `SECURITY.md`, `CONTRIBUTING.md`, a guard script for the Postgres partial indexes Prisma cannot express |
+| D2 / D7 | One definition of a page's URL (`packages/shared`: site paths, page tree, slugs, anchors, share links). Sibling slugs are unique per parent in the database; the migration renames existing duplicates first |
+| B4 | Renderer parity: a test fails if the editor has a block the published renderer does not draw. External images stay allowed (`img-src https:`) rather than being imported; the strict part of the CSP is scripts, frames and forms |
+| B5 | Anchors are readable (`#install`, not the block id), unique per page, and shared by the headings, the table of contents and the link a heading copies |
+| A2 / A5 / A6 | **Persistent shell.** The layout no longer re-renders on navigation: the sidebar, header and section tabs are built once and the active page is derived from the URL in the browser (`resolveTreePath`, tested against the server's resolver). There is deliberately no `loading.tsx`: streaming would turn a real 404 into a 200 and a redirect into a client-side one |
+| B3 | Share links: the token is exchanged for a cookie by the proxy and validated on every request, so it never lingers in a URL |
+| E1 / E8 | A page's payload is its content plus a compact tree, not every page's content |
+| S13 | `safeFetch` pins the address it validated (checked inside the socket's own DNS lookup), refuses every reserved range for IPv4 and IPv6 including IPv4-in-IPv6, follows redirects by hand and caps the body while streaming |
+
+**Git Sync is under way.** `packages/markdown` (GS-01 … GS-06, GS-20 in part) is written and tested:
+parser, serializer, front matter and diagnostics. See `docs/git-sync/FORMAT.md` and
+`packages/markdown/fixtures`. "Copy as Markdown" already uses the serializer.
+
+How the format differs from the first sketch in §4.6, and why:
+
+- **Headings 1–6 are all kept.** The editor allows them; clamping to 3 would change documents for nothing.
+- **Callouts can hold blocks** (lists, code), as GitHub alerts can. The published renderer now draws a
+  callout's children.
+- **Titles of steps, updates and tabs are attributes** (`:::step{title="Install"}`), not directive labels.
+  The Markdown toolchain does not escape inside labels reliably, and a title is plain text anyway; a
+  title with formatting is reported as lossy. A step with no title takes it from a leading heading
+  (GitBook's shape); `title=""` means none, which keeps that case round-tripping.
+- **`[!IMPORTANT]`** reads as a note and says so (`GS-206`); it cannot be written back.
+- **Tabs** read as expandable sections until the editor has a tabs block (`GS-210`).
+- **Raw HTML is an allow-list** (§4.10); `<script>`, `<style>`, `<iframe>`, forms, SVG and every attribute
+  except `href`/`src`/`alt`/`title`/`colspan`/`rowspan`/`align` are removed.
+- **Block ids** are a position hash (`stableId(path, index, type)`), so a page parsed twice has identical ids.
+- **The round trip is property-tested**: random documents of every block type are written, read back and
+  compared (thousands of runs; `FC_RUNS=20000 pnpm test packages/markdown` for a long soak).
+
 ---
 
 ## 2. The sidebar scroll bug
@@ -784,7 +819,7 @@ Pages are stored as BlockNote JSON. Two converters exist and neither can carry a
 | 7 | Keep the dashboard editor (C9)? | Recommended | Remove; one editor |
 | 8 | Mixed ownership inside one tree | Recommended | Not in v1 |
 | 9 | Sign-up policy default | **Decided** | **Closed by default.** The first sign-in on an empty database becomes the owner; after that only allow-listed Discord IDs and people holding an email invitation can create an account; `SIGNUP_MODE=open` opts in. Invitations are what keep "add a member" working with sign-up closed |
-| 10 | External images (B4) | Recommended | Import at save/sync time; keep the CSP strict |
+| 10 | External images (B4) | **Decided** | **Allow `https:` images and media** (`img-src https:`, `media-src https:`); no import step at save time. Git Sync still imports *relative* images as assets, because those must exist on the site |
 
 ---
 
