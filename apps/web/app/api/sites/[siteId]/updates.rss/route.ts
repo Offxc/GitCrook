@@ -98,7 +98,9 @@ ${entries.join("\n")}
   return new NextResponse(xml, {
     headers: {
       "Content-Type": "application/rss+xml; charset=utf-8",
-      "Cache-Control": "public, max-age=300",
+      // Only a public site's feed may sit in a shared cache; for anything gated the
+      // response depends on who asked, so a CDN or proxy must not keep or reuse it.
+      "Cache-Control": site.audienceMode === "PUBLIC" ? "public, max-age=300" : "private, no-store",
     },
   });
 }

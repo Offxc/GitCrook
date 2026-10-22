@@ -2,7 +2,30 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "../src/client";
 import { defaultTheme } from "@gitcrook/shared";
 
+/**
+ * The seed creates an ADMIN user and a 30-day session for it, and prints the
+ * cookie. Against a real deployment that is a standing back door, so it only runs
+ * against a local database, or when explicitly told it is safe.
+ */
+function assertSafeToSeed() {
+  let host = "";
+  try {
+    host = new URL(process.env.DATABASE_URL ?? "").hostname;
+  } catch {
+    // an unparsable URL is treated as non-local below
+  }
+  const isLocal = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host);
+  if (process.env.NODE_ENV === "production" || (!isLocal && process.env.GITCROOK_ALLOW_SEED !== "1")) {
+    throw new Error(
+      "Refusing to seed: this creates an admin user with a valid session and is for local development only. " +
+        "DATABASE_URL must point at localhost and NODE_ENV must not be production " +
+        "(set GITCROOK_ALLOW_SEED=1 to override for a throwaway database).",
+    );
+  }
+}
+
 async function main() {
+  assertSafeToSeed();
   const user = await prisma.user.upsert({
     where: { email: "demo@voidsmp.com" },
     update: {},

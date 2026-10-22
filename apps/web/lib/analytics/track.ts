@@ -1,20 +1,24 @@
 import { after } from "next/server";
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { getEnv } from "@gitcrook/shared/server";
 import { prisma, type AnalyticsEventType } from "@gitcrook/db";
 
 /**
- * Rotates daily so a visitorHash can't be correlated across days (no
- * persistent cross-session tracking), while same-day pageviews from one
- * visitor still collapse into one "unique visitor" for that day — matches
- * the schema's own comment: sha256(dailySalt + siteId + ip + userAgent).
+ * Rotates daily so a visitorHash can't be correlated across days (no persistent
+ * cross-session tracking), while same-day pageviews from one visitor still collapse
+ * into one "unique visitor" for that day.
+ *
+ * Keyed with a server secret, not just salted with the date: a date is public, and
+ * with a known salt anyone who can read the table could hash every IPv4 address (2^32
+ * candidates) and recover who visited. With the key, a leaked table is not reversible.
  */
-function dailySalt(): string {
-  const day = new Date().toISOString().slice(0, 10);
-  return `gitcrook-analytics-salt:${day}`;
+function visitorHashKey(): Buffer {
+  return createHmac("sha256", getEnv().AUTH_SECRET).update("gitcrook-analytics-visitor-hash").digest();
 }
 
 export function computeVisitorHash(siteId: string, ip: string, userAgent: string): string {
-  return createHash("sha256").update(`${dailySalt()}:${siteId}:${ip}:${userAgent}`).digest("hex");
+  const day = new Date().toISOString().slice(0, 10);
+  return createHmac("sha256", visitorHashKey()).update(`${day}:${siteId}:${ip}:${userAgent}`).digest("hex");
 }
 
 function parseDevice(userAgent: string): string {
