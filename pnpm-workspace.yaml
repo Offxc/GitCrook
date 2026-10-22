@@ -31,6 +31,11 @@ onlyBuiltDependencies:
 # of the root package at a patched version, and an override that restates a direct
 # dependency's range makes pnpm 11 reject `install --frozen-lockfile` (CI) because the
 # lockfile and manifest specifiers then disagree.
+#
+# katex: micromark-extension-math pins ^0.16, which has a published advisory. Only its HTML
+# renderer uses katex, and packages/markdown never calls that (it uses the math syntax and the
+# mdast extension), so the web app's patched katex stands in for it.
 overrides:
   source-map-js: ">=1.2.2"
   fast-uri: ">=3.1.8"
+  "micromark-extension-math>katex": "0.18.7"

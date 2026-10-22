@@ -61,6 +61,14 @@ describe("front matter", () => {
     expect(result.blocks.map((b) => b.type)).toEqual(["paragraph"]);
   });
 
+  it("survives front matter nested far deeper than any real file", () => {
+    const depth = 200_000;
+    for (const nest of [`${"[".repeat(depth)}${"]".repeat(depth)}`, `${"{a: ".repeat(depth)}1${"}".repeat(depth)}`]) {
+      const result = parse(`---\ntitle: T\ndeep: ${nest}\n---\n\nStill readable.\n`, { extractTitle: false });
+      expect(result.blocks.map((b) => b.type)).toEqual(["paragraph"]);
+    }
+  });
+
   it("is not triggered by a file that merely opens with a divider", () => {
     const result = parse("---\n\nText\n", { extractTitle: false });
     expect(result.frontMatter).toMatchObject({ draft: false, hidden: false });
