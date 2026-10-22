@@ -9,6 +9,8 @@ const pkg = (path: string) => fileURLToPath(new URL(`./packages/${path}`, import
 //   pnpm test               unit tests — no database, no network
 //   pnpm test:integration   needs TEST_DATABASE_URL (see tests/support/globalSetup.ts)
 export default defineConfig({
+  // tsconfig says jsx: "preserve" for Next; tests need it compiled.
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: [
       // Workspace packages by source, so tests under tests/ (which have no node_modules link to them)

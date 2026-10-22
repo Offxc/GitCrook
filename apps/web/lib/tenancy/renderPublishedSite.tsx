@@ -28,7 +28,6 @@ import { editModeCookieName } from "@/app/(published)/_components/editModeCookie
 import { EditModeToggle } from "@/app/(published)/_components/EditModeToggle";
 import { PageIcon } from "@/app/(published)/_components/PageIcon";
 import { PageActions } from "@/app/(published)/_components/PageActions";
-import { blocksToMarkdown } from "@/lib/renderer/toMarkdown";
 import { formatRelativeTime } from "@/lib/renderer/relativeTime";
 import { trackEvent } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
@@ -98,7 +97,6 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   const preferredMode = isSiteMode(storedMode) ? storedMode : theme.darkMode.default;
   const effectiveMode = theme.darkMode.enabled ? preferredMode : "light";
   const showPageActions = theme.pageActions.copyAsMarkdown || theme.pageActions.viewAsMarkdown;
-  const pageMarkdown = showPageActions ? blocksToMarkdown(page.content) : "";
   // Gated by both a real permission check (never trust theme config for
   // access control) and the site owner's own toggle for whether they want
   // this affordance visible to members at all.
@@ -183,7 +181,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
               <header className="mb-6 space-y-3 after:clear-both after:block">
                 {showPageActions ? (
                   <div className="float-right -mt-1 ml-4">
-                    <PageActions markdown={pageMarkdown} allowCopy={theme.pageActions.copyAsMarkdown} allowView={theme.pageActions.viewAsMarkdown} />
+                    <PageActions pageId={page.id} allowCopy={theme.pageActions.copyAsMarkdown} allowView={theme.pageActions.viewAsMarkdown} />
                   </div>
                 ) : null}
                 {breadcrumbs.length > 0 ? (
@@ -211,7 +209,7 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
                 pageId={page.id}
                 organizationId={site.organizationId}
                 siteId={site.id}
-                initialContent={page.content}
+                initialContent={canEdit ? page.content : null}
                 initialVersion={page.contentVersion}
               >
                 <BlockNoteRenderer content={page.content} codeTheme={{ light: theme.codeTheme.light, dark: theme.codeTheme.dark }} />

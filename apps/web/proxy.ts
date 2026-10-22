@@ -75,7 +75,13 @@ function applySecurityHeaders(res: NextResponse, nonce: string) {
     // host is for Phase 4 theming's curated-font <link> (only ever the two
     // fixed Google Fonts hosts, never an arbitrary site-supplied URL).
     `style-src 'self' 'unsafe-inline' ${GOOGLE_FONTS_CSS_HOST}`,
-    "img-src 'self' data: blob:",
+    // Any https: image and media source. Docs routinely embed badges, screenshots and diagrams hosted
+    // elsewhere (and Markdown pulled from a repository does so constantly); blocking them left broken
+    // images that only the browser console explained. The trade-off is that a reader's browser contacts
+    // the host the author chose, which authors — members of the organisation — already control. Scripts,
+    // styles, frames and connections stay locked down.
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
     `font-src 'self' data: ${GOOGLE_FONTS_STATIC_HOST}`,
     "connect-src 'self'",
     // Without this, `default-src 'self'` silently blocks the Embed block's

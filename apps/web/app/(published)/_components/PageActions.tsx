@@ -3,29 +3,65 @@
 import { useState } from "react";
 
 /**
- * The "Copy ▾" control GitBook puts at the top-right of every page. The
- * markdown is serialised server-side and passed in (see toMarkdown.ts), so
- * copying is a clipboard write with no round trip, and "view" just reveals
- * the same string — no extra route to secure, and nothing here that a
- * visitor without access to the page could reach anyway.
+ * The "Copy ▾" control GitBook puts at the top-right of every page. The markdown is fetched when
+ * it is asked for (see /api/pages/[pageId]/markdown) rather than embedded in every page's HTML,
+ * where nearly every reader would download it and never use it.
  */
-export function PageActions({ markdown, allowCopy, allowView }: { markdown: string; allowCopy: boolean; allowView: boolean }) {
+export function PageActions({ pageId, allowCopy, allowView }: { pageId: string; allowCopy: boolean; allowView: boolean }) {
   const [open, setOpen] = useState(false);
+  const [markdown, setMarkdown] = useState<string | null>(null);
   const [viewing, setViewing] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "copied" | "failed">("idle");
 
   if (!allowCopy && !allowView) return null;
 
+  async function fetchMarkdown(): Promise<string> {
+    const res = await fetch(`/api/pages/${pageId}/markdown${window.location.search.includes("token=") ? window.location.search : ""}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    setMarkdown(text);
+    return text;
+  }
+
   async function copy() {
     setOpen(false);
+    setStatus("loading");
     try {
-      await navigator.clipboard.writeText(markdown);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      // Safari only allows a clipboard write inside the click that asked for it, and the fetch below
+      // outlives that click. Handing the clipboard a promise keeps the write attached to the gesture.
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        const blob = fetchMarkdown().then((text) => new Blob([text], { type: "text/plain" }));
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
+      } else {
+        await navigator.clipboard.writeText(markdown ?? (await fetchMarkdown()));
+      }
+      setStatus("copied");
+      setTimeout(() => setStatus("idle"), 1600);
     } catch {
-      // Clipboard is permission-gated in some contexts — fall back to showing
-      // the markdown so there's still a way to get it out.
-      setViewing(true);
+      // Clipboard is permission-gated in some contexts — fall back to showing the markdown so
+      // there's still a way to get it out (or an honest failure if it couldn't be fetched at all).
+      try {
+        if (markdown === null) await fetchMarkdown();
+        setViewing(true);
+        setStatus("idle");
+      } catch {
+        setStatus("failed");
+        setTimeout(() => setStatus("idle"), 2400);
+      }
+    }
+  }
+
+  async function view() {
+    setOpen(false);
+    setViewing(true);
+    if (markdown === null) {
+      try {
+        await fetchMarkdown();
+      } catch {
+        setViewing(false);
+        setStatus("failed");
+        setTimeout(() => setStatus("idle"), 2400);
+      }
     }
   }
 
@@ -35,7 +71,7 @@ export function PageActions({ markdown, allowCopy, allowView }: { markdown: stri
         {allowCopy ? (
           <button type="button" onClick={copy} className="flex items-center gap-1.5 rounded-l-lg px-2.5 py-1.5 text-site-ink-muted transition hover:bg-site-surface hover:text-site-ink">
             <CopyIcon />
-            {copied ? "Copied" : "Copy"}
+            {status === "copied" ? "Copied" : status === "loading" ? "Copying…" : status === "failed" ? "Couldn’t copy" : "Copy"}
           </button>
         ) : null}
         <button
@@ -58,14 +94,7 @@ export function PageActions({ markdown, allowCopy, allowView }: { markdown: stri
                 </button>
               ) : null}
               {allowView ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    setViewing(true);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-site-ink transition hover:bg-site-surface"
-                >
+                <button type="button" onClick={view} className="block w-full px-3 py-2 text-left text-site-ink transition hover:bg-site-surface">
                   View as Markdown
                 </button>
               ) : null}
@@ -84,7 +113,7 @@ export function PageActions({ markdown, allowCopy, allowView }: { markdown: stri
               </button>
             </div>
             <pre className="overflow-auto px-4 py-3 text-xs leading-6 text-site-ink" style={{ fontFamily: "var(--site-font-mono)" }}>
-              {markdown}
+              {markdown ?? "Loading…"}
             </pre>
           </div>
         </div>

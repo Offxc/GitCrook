@@ -15,3 +15,5 @@ export * from "./blocks/embed";
 export * from "./sitePaths";
 export * from "./pageTree";
 export * from "./slugs";
+export * from "./anchors";
+export * from "./urls";
