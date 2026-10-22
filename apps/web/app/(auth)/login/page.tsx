@@ -23,7 +23,7 @@ export default async function LoginPage({
         <div className="rounded-xl border border-border bg-canvas p-6 shadow-sm">
           {error === "AccessDenied" ? (
             <p className="mb-4 text-sm text-danger">
-              Access is currently allowlisted while GitCrook is being set up.
+              This instance isn&apos;t open to new accounts. Ask an owner to invite you, then sign in with Discord using the email address they invited.
             </p>
           ) : null}
           <form

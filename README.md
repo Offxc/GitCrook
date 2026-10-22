@@ -92,7 +92,9 @@ keeps the published site up to date. The one external integration is the Git hos
 - Seven roles (Guest → Admin) cascading across org → site → section → space → page, most specific
   wins, deny by default
 - Visitor access: public, members-only, password-protected (Argon2id), or revocable share links
-- Optional sign-in allowlist by Discord user ID
+- Sign-up is closed by default: the first sign-in on an empty instance becomes the owner, then only
+  allow-listed Discord IDs and people with an email invitation can create an account
+  (`SIGNUP_MODE=open` opts in to open sign-up)
 
 **Analytics**
 - Pageviews and unique visitors by country, device, browser and referrer
@@ -253,7 +255,8 @@ service has no restart policy of its own.
 | `POSTGRES_PASSWORD` | Compose only | The `postgres` service's password. |
 | `POSTGRES_USER` | Compose only | Defaults to `gitcrook`. Postgres applies this only when it initialises an empty data directory, so an existing volume keeps the role it was created with — set this to match one. |
 | `POSTGRES_DB` | Compose only | Defaults to `gitcrook`. Same caveat as `POSTGRES_USER`. |
-| `ALLOWED_DISCORD_IDS` | no | Comma-separated Discord user IDs. Set it and sign-in is allowlisted; leave it unset and anyone with a Discord account gets their own organization. |
+| `SIGNUP_MODE` | no | `closed` (default) or `open`. Closed admits only allow-listed Discord IDs, people holding an email invitation (their Discord email must be verified) and, on an empty database, the first sign-in, who becomes the owner. People who already have an account can always sign in. `open` lets any Discord account create its own organization — and publish under your domain. |
+| `ALLOWED_DISCORD_IDS` | no | Comma-separated Discord user IDs that may create an account. Setting it also turns off *first sign-in becomes the owner*, so list your own ID before exposing a new deployment (or sign in yourself the moment it comes up). |
 | `STORAGE_DIR` | no | Upload directory. Compose points this at the shared volume. |
 | `CHROMIUM_EXECUTABLE_PATH` | no | Local-only; the worker image bakes its own Chromium. |
 

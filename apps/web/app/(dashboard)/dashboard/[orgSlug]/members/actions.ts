@@ -8,7 +8,11 @@ import { requireOrgMembership } from "@/lib/dashboard/org";
 
 export interface MemberActionState {
   error?: string;
+  /** A success message worth showing (e.g. "invited") for a result that isn't just "done". */
+  notice?: string;
 }
+
+const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 async function assertCanManage(orgSlug: string) {
   const ctx = await requireOrgMembership(orgSlug);
@@ -28,7 +32,22 @@ export async function addMember(orgSlug: string, _prev: MemberActionState, formD
 
   const user = await prisma.user.findUnique({ where: { email: email.data } });
   if (!user) {
-    return { error: `No account found for ${email.data} yet — they need to sign in with Discord once first, then you can add them.` };
+    // Sign-up is closed by default, so "sign in once first" is no longer something an
+    // outsider can do. An invitation is what lets them create an account: when they
+    // sign in with a verified Discord email matching this one, they join with this role.
+    const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
+    await prisma.invitation.upsert({
+      where: { organizationId_email: { organizationId: ctx.organization.id, email: email.data } },
+      create: { organizationId: ctx.organization.id, email: email.data, role: role.data as Role, invitedById: ctx.userId, expiresAt },
+      update: { role: role.data as Role, invitedById: ctx.userId, expiresAt },
+    });
+    await prisma.auditLog.create({
+      data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "member.invite", targetType: "Invitation", targetId: email.data, metadata: { role: role.data } },
+    });
+    revalidatePath(`/dashboard/${orgSlug}/members`);
+    return {
+      notice: `Invited ${email.data}. They can sign in with Discord using a verified email address of ${email.data} and will join as ${role.data}. The invitation expires in 14 days.`,
+    };
   }
 
   const existing = await prisma.membership.findUnique({ where: { organizationId_userId: { organizationId: ctx.organization.id, userId: user.id } } });
@@ -88,6 +107,20 @@ export async function removeMember(orgSlug: string, membershipId: string): Promi
   ]);
   await prisma.auditLog.create({
     data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "member.remove", targetType: "User", targetId: membership.userId },
+  });
+
+  revalidatePath(`/dashboard/${orgSlug}/members`);
+  return {};
+}
+
+export async function revokeInvitation(orgSlug: string, invitationId: string): Promise<MemberActionState> {
+  const ctx = await assertCanManage(orgSlug);
+  const invitation = await prisma.invitation.findUnique({ where: { id: invitationId } });
+  if (!invitation || invitation.organizationId !== ctx.organization.id) return { error: "Invitation not found." };
+
+  await prisma.invitation.delete({ where: { id: invitationId } });
+  await prisma.auditLog.create({
+    data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "member.revokeInvitation", targetType: "Invitation", targetId: invitation.email },
   });
 
   revalidatePath(`/dashboard/${orgSlug}/members`);

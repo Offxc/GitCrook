@@ -21,12 +21,17 @@ const EnvSchema = z.object({
   AUTH_DISCORD_ID: z.string().optional().transform((v) => (v ? v : undefined)),
   AUTH_DISCORD_SECRET: z.string().optional().transform((v) => (v ? v : undefined)),
 
-  // Comma-separated Discord user IDs (snowflakes). When set, sign-in is
-  // rejected for any Discord account not in this list — a temporary gate
-  // for pre-launch, since sign-up is otherwise open to anyone with a
-  // Discord account (see packages/auth/src/auth.ts's createUser event,
-  // which gives every new sign-up its own organization immediately). Unset
-  // or empty means no restriction.
+  // Who may create a NEW account. "closed" (the default) admits only: a Discord ID in
+  // ALLOWED_DISCORD_IDS, someone holding a pending email invitation (their Discord email
+  // must be verified), and the very first sign-in on an empty database, which becomes the
+  // instance owner. "open" lets any Discord account create its own organization — only
+  // choose that on a deployment you are happy to host strangers' content on. People who
+  // already have an account can always sign in, whatever this is set to.
+  SIGNUP_MODE: z.enum(["closed", "open"]).default("closed"),
+
+  // Comma-separated Discord user IDs (snowflakes) that may create an account in "closed"
+  // mode. When this is set the first-sign-in-becomes-owner rule is switched off: the owner
+  // is whoever you listed, so a stranger can't win a race to a freshly deployed instance.
   ALLOWED_DISCORD_IDS: z.string().optional().transform((v) => (v ? v : undefined)),
 
   // The platform's own root domain, e.g. "docs.voidsmp.com". Requests for any other

@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
-import type { DefaultSession } from "next-auth";
+import type { DefaultSession, User } from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@gitcrook/db";
-import { getEnv } from "@gitcrook/shared/server";
+import { decideSignIn, redeemInvitations } from "./signup";
 
 // trustHost (below) covers most of Auth.js's own host inference, but that
 // inference isn't reliably applied to every internal code path in this
@@ -29,6 +29,11 @@ declare module "next-auth" {
     } & DefaultSession["user"];
   }
 }
+
+// The provider's own mapping (name, avatar) plus Discord's `verified` flag for the
+// email, stored as User.emailVerified. Invitations are redeemed only by a verified
+// email, so the flag has to reach the user row.
+const defaultDiscordProfile = Discord({}).profile as (profile: unknown) => Record<string, unknown>;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Safe here specifically because `web` has no published port (see
@@ -57,6 +62,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // shallow-merged over the provider's defaults, and this only affects
       // which value `as.issuer` resolves to for that one check.
       issuer: "https://discord.com",
+      profile: (profile: { verified?: boolean }) =>
+        ({
+          ...defaultDiscordProfile(profile),
+          emailVerified: profile.verified ? new Date() : null,
+        }) as unknown as User,
       // We only need identity, not ongoing Discord API access — the adapter would
       // otherwise persist the access/refresh token on the Account row. Returning
       // only these three fields means nothing sensitive is ever stored (OWASP A02).
@@ -77,21 +87,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.id = user.id;
       return session;
     },
-    // Temporary pre-launch gate — see ALLOWED_DISCORD_IDS's doc comment in
-    // packages/shared/src/env.ts. Denying here (rather than in an
-    // afterwards check) means a non-allowlisted account never gets a User
-    // row created for it at all.
-    signIn({ account }) {
-      const allowed = getEnv().ALLOWED_DISCORD_IDS;
-      if (!allowed) return true;
-      const ids = allowed.split(",").map((id) => id.trim());
-      return account?.provider === "discord" && ids.includes(account.providerAccountId ?? "");
+    // Who may create an account is decided in ./signup (sign-up is closed by default);
+    // denying here, before the adapter runs, means a refused identity never gets a User row.
+    async signIn({ account, profile }) {
+      if (account?.provider !== "discord") return false;
+      const raw = (profile ?? {}) as { email?: string | null; verified?: boolean };
+      const decision = await decideSignIn({ discordId: account.providerAccountId, email: raw.email, emailVerified: raw.verified === true });
+      return decision !== "denied";
     },
   },
   events: {
     /** Fires exactly once, right after the adapter inserts a brand-new User row. */
     async createUser({ user }) {
       if (!user.id) return;
+      // An invited person joins the organization that invited them rather than getting
+      // an organization of their own.
+      const { emailVerified } = user as User & { emailVerified?: Date | null };
+      if ((await redeemInvitations({ id: user.id, email: user.email, emailVerified })) > 0) return;
       const baseName = (user.name ?? "My").trim() || "My";
       const slug = await generateUniqueOrgSlug(`${baseName}s-docs`);
       await prisma.organization.create({

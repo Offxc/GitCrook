@@ -35,6 +35,7 @@ export function AddMemberForm({ orgSlug }: { orgSlug: string }) {
         {pending ? "Adding..." : "Add member"}
       </button>
       {state.error ? <p className="text-sm text-danger sm:basis-full">{state.error}</p> : null}
+      {state.notice ? <p className="text-sm text-ink-muted sm:basis-full">{state.notice}</p> : null}
     </form>
   );
 }

@@ -30,6 +30,7 @@ model User {
   shareLinks         ShareLink[]
   pageVersions       PageVersion[]
   exportJobs         ExportJob[]
+  invitationsSent    Invitation[]        @relation("InvitationsSent")
 }
 
 model Account {
@@ -96,6 +97,27 @@ model Organization {
   assets         Asset[]
   auditLogs      AuditLog[]
   reusableBlocks ReusableBlock[]
+  invitations    Invitation[]
+}
+
+// Someone invited by email who has no account yet. Sign-up is closed by default, so an
+// invitation is what lets a collaborator create an account at all: when a new user signs
+// in with a *verified* Discord email that matches a pending, unexpired invitation, they
+// join the organization with this role instead of getting an organization of their own.
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String // lowercased
+  role           Role     @default(READER)
+  invitedById    String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@index([email])
 }
 
 model Membership {
