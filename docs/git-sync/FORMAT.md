@@ -53,6 +53,9 @@ A block of YAML between `---` lines at the very top of the file. Every key is op
 | `id` | string | An identity that survives renames and moves. |
 | `nav_title` | string | Sidebar label when it should differ from the title. |
 
+Front matter longer than 32,000 characters is ignored with `GS-101` rather than parsed: a real header is a few
+lines, and the time it takes to read hostile YAML grows with its size.
+
 A key with the wrong type is ignored with `GS-103`; the other keys still apply. An unknown key is kept and
 ignored (`GS-102`, informational). Invalid YAML is `GS-101` with the line number, and the page is still read
 without its front matter. YAML aliases are limited so a small file cannot expand into a huge one.

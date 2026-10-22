@@ -43,9 +43,16 @@ export function emptyFrontMatter(): FrontMatter {
  * `yamlText` is the text between the `---` fences. `firstLine` is the line of the opening fence, so that a
  * YAML error can be reported against the real file rather than against the fragment.
  */
+/** A page's front matter is a few lines. Anything this long is not one, and parsing hostile YAML costs time in proportion to its size. */
+export const MAX_FRONT_MATTER_CHARS = 32_000;
+
 export function parseFrontMatter(yamlText: string | null, diags: Diagnostics, firstLine = 1): FrontMatter {
   const result = emptyFrontMatter();
   if (yamlText === null || yamlText.trim() === "") return result;
+  if (yamlText.length > MAX_FRONT_MATTER_CHARS) {
+    diags.add("GS-101", `Front matter is longer than ${MAX_FRONT_MATTER_CHARS} characters; it was ignored.`, { start: { line: firstLine } });
+    return result;
+  }
 
   const doc = YAML.parseDocument(yamlText, { prettyErrors: false, uniqueKeys: true });
   if (doc.errors.length > 0) {
