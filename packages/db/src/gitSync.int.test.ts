@@ -113,10 +113,21 @@ describe("runs", () => {
     expect(isUnique(error)).toBe(true);
   });
 
-  it("allow any number without a delivery id", async () => {
+  it("allow any number of finished runs without a delivery id", async () => {
     const { source } = await fixture();
-    for (let i = 0; i < 3; i++) await prisma.gitSyncRun.create({ data: { sourceId: source.id, trigger: "POLL", toSha: `sha${i}` } });
+    for (let i = 0; i < 3; i++) await prisma.gitSyncRun.create({ data: { sourceId: source.id, trigger: "POLL", toSha: `sha${i}`, status: "SUCCEEDED" } });
     expect(await prisma.gitSyncRun.count()).toBe(3);
+  });
+
+  it("allow only one waiting run per source, and one for each of two sources", async () => {
+    const a = await fixture();
+    await prisma.gitSyncRun.create({ data: { sourceId: a.source.id, trigger: "POLL", toSha: "" } });
+    const error = await prisma.gitSyncRun.create({ data: { sourceId: a.source.id, trigger: "POLL", toSha: "" } }).catch((e) => e);
+    expect(isUnique(error)).toBe(true);
+    // A run that is already going does not count as waiting.
+    await prisma.gitSyncRun.updateMany({ data: { status: "RUNNING" } });
+    await prisma.gitSyncRun.create({ data: { sourceId: a.source.id, trigger: "POLL", toSha: "" } });
+    expect(await prisma.gitSyncRun.count()).toBe(2);
   });
 
   it("start pending", async () => {

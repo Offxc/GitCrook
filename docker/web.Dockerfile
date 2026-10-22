@@ -12,6 +12,7 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/markdown/package.json packages/markdown/package.json
 COPY packages/git-sync/package.json packages/git-sync/package.json
+COPY packages/assets/package.json packages/assets/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 # apps/worker's own manifest has to be present too — pnpm's lockfile encodes

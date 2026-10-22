@@ -26,10 +26,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ asse
   // never meant to be downloaded standalone (Phase 4 theming's custom font upload).
   const isInlineable = asset.kind === "IMAGE" || asset.kind === "FONT" || asset.mimeType.startsWith("video/") || asset.mimeType.startsWith("audio/");
 
+  // An SVG is a document, not just pixels: opened directly in a tab it could run script if anything slipped past
+  // the sanitiser. `sandbox` with nothing allowed, and no source for anything, makes it inert even then; a page
+  // only ever shows it through <img>, which does not run script either.
+  const isSvg = asset.mimeType === "image/svg+xml";
+
   return new NextResponse(new Uint8Array(data), {
     headers: {
       "Content-Type": asset.mimeType,
       "Content-Disposition": isInlineable ? "inline" : "attachment",
+      "X-Content-Type-Options": "nosniff",
+      ...(isSvg ? { "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:" } : {}),
       // A restricted asset's bytes never change, but WHO may fetch them can
       // (private -> public, a password rotated) — caching that as if it
       // can't change would let a revoked visitor's browser/CDN keep serving

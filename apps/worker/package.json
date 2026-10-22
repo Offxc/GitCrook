@@ -7,7 +7,9 @@
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts"
   },
   "dependencies": {
+    "@gitcrook/assets": "workspace:*",
     "@gitcrook/db": "workspace:*",
+    "@gitcrook/git-sync": "workspace:*",
     "@gitcrook/shared": "workspace:*",
     "playwright-core": "1.56.1"
   },

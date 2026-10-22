@@ -21,6 +21,7 @@ export default defineConfig({
       { find: /^@gitcrook\/db$/, replacement: pkg("db/src/index.ts") },
       { find: /^@gitcrook\/markdown$/, replacement: pkg("markdown/src/index.ts") },
       { find: /^@gitcrook\/git-sync$/, replacement: pkg("git-sync/src/index.ts") },
+      { find: /^@gitcrook\/assets$/, replacement: pkg("assets/src/index.ts") },
       { find: /^@gitcrook\/auth$/, replacement: pkg("auth/src/index.ts") },
       { find: /^@\//, replacement: `${webRoot}/` },
     ],
