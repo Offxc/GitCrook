@@ -182,8 +182,30 @@ describe("text blocks", () => {
     expect(blocksOf("See [missing][nope].\n")[0]!.content).toEqual([text("See [missing][nope].")]);
   });
 
-  it("turns an image inside a sentence into its alt text", () => {
-    expect(blocksOf("Click ![the icon](./i.png) now\n")[0]!.content).toEqual([text("Click the icon now")]);
+  it("moves an image in the middle of a paragraph onto its own line, keeping the text on both sides", () => {
+    const blocks = blocksOf("Click ![the icon](./i.png) now\n");
+    expect(blocks.map((b) => b.type)).toEqual(["paragraph", "image", "paragraph"]);
+    expect(blocks[0]!.content).toEqual([text("Click")]);
+    expect(blocks[1]!.props).toMatchObject({ url: "./i.png", name: "the icon" });
+    expect(blocks[2]!.content).toEqual([text("now")]);
+    expect(codes("Click ![the icon](./i.png) now\n")).toEqual(["GS-206"]);
+  });
+
+  it("splits around several images and keeps formatting in the text between them", () => {
+    const blocks = blocksOf("**Bold** ![a](./a.png) and *italic* ![b](./b.png)\n");
+    expect(blocks.map((b) => b.type)).toEqual(["paragraph", "image", "paragraph", "image"]);
+    expect(blocks[2]!.content).toEqual([text("and "), text("italic", { italic: true })]);
+  });
+
+  it("adds no block for an image that has nothing around it, and says nothing", () => {
+    expect(blocksOf("![only](./a.png)\n").map((b) => b.type)).toEqual(["image"]);
+    expect(codes("![only](./a.png)\n")).toEqual([]);
+  });
+
+  it("replaces an image inside a link (a badge) with its description, and says so", () => {
+    const src = "[![Build](./badge.svg)](https://ci.example.com)\n";
+    expect(blocksOf(src)[0]!.content).toEqual([{ type: "link", href: "https://ci.example.com", content: [text("Build")] }]);
+    expect(codes(src)).toEqual(["GS-206"]);
   });
 
   it("reads GitHub-style autolinks", () => {

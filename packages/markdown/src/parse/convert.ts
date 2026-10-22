@@ -162,14 +162,60 @@ function convertParagraph(node: Paragraph, ctx: ConvertContext, place: Place, in
     return out;
   }
 
-  const inline = phrasingToInline(node.children as PhrasingContent[], inlineCtx(ctx));
-  if (inline.length === 0) return out;
-  const block = make("paragraph", {}, inline);
-  if (block) {
-    out.push(block);
-    collectLinkReferences(inline, block.id, ctx, node.position?.start.line);
+  // An image in the middle of a sentence cannot stay in it (the editor's images are blocks): the paragraph is split
+  // around it, so the text before, the image and the text after all survive, in order.
+  const pieces = splitAtImages(node.children as PhrasingContent[]);
+  if (pieces.length > 1) ctx.diags.add("GS-206", "An image in the middle of a paragraph was moved onto its own line.", node.position);
+  for (const piece of pieces) {
+    if ("image" in piece) {
+      const block = make("image", { url: piece.image.url, caption: piece.image.title ?? "", name: piece.image.alt });
+      if (block) {
+        out.push(block);
+        ctx.references.push({ kind: "image", target: piece.image.url, blockId: block.id, line: node.position?.start.line });
+      }
+      continue;
+    }
+    const inline = phrasingToInline(piece.text, inlineCtx(ctx));
+    if (inline.length === 0) continue;
+    const block = make("paragraph", {}, inline);
+    if (block) {
+      out.push(block);
+      collectLinkReferences(inline, block.id, ctx, node.position?.start.line);
+    }
   }
   return out;
+}
+
+type Piece = { text: PhrasingContent[] } | { image: { url: string; alt: string; title: string | null } };
+
+/**
+ * A paragraph's children cut at each image that is a direct child. Text on either side stays text, with the space
+ * that only separated it from the image trimmed off; a paragraph without images comes back whole.
+ */
+function splitAtImages(children: PhrasingContent[]): Piece[] {
+  const pieces: Piece[] = [];
+  let run: PhrasingContent[] = [];
+  const flush = () => {
+    const trimmed = run.slice();
+    const first = trimmed[0];
+    if (first?.type === "text") trimmed[0] = { ...first, value: first.value.trimStart() };
+    const last = trimmed[trimmed.length - 1];
+    if (last?.type === "text") trimmed[trimmed.length - 1] = { ...last, value: last.value.trimEnd() };
+    const meaningful = trimmed.filter((n) => !(n.type === "text" && n.value === ""));
+    if (meaningful.length > 0) pieces.push({ text: meaningful });
+    run = [];
+  };
+  for (const child of children) {
+    if (child.type === "image") {
+      flush();
+      pieces.push({ image: { url: child.url, alt: child.alt ?? "", title: child.title ?? null } });
+    } else {
+      run.push(child);
+    }
+  }
+  if (pieces.length === 0) return [{ text: children }];
+  flush();
+  return pieces;
 }
 
 /** Notes every link in some inline content so relative ones can be resolved to pages later. */

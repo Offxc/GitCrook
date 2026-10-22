@@ -144,6 +144,10 @@ pipe table, which cannot hold merged cells or cell colours; those are reported a
 A relative path is resolved against the file and imported as an asset when the page is synced.
 `src` must be an `https:` URL, a relative path or a site-root path.
 
+Images are blocks, so an image in the middle of a paragraph is moved onto its own line, with the text before and
+after it kept as paragraphs (`GS-206`). An image inside a link or inside styled text — a badge, `[![CI](ci.svg)](…)` —
+cannot be one: the link keeps the image's description as its text, and `GS-206` says so.
+
 ## Expandable sections
 
 ```md

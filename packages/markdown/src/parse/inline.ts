@@ -104,8 +104,8 @@ export interface ImageRef {
 }
 
 /**
- * Phrasing content → inline runs. An image inside a sentence becomes its alt text (an image that is the
- * whole paragraph is handled earlier, as a block).
+ * Phrasing content → inline runs. An image inside a link or styled text becomes its alt text (an image directly in a
+ * paragraph is made a block of its own before this is called).
  */
 export function phrasingToInline(nodes: PhrasingContent[], ctx: InlineContext): Inline[] {
   const out: Inline[] = [];
@@ -163,6 +163,8 @@ export function phrasingToInline(nodes: PhrasingContent[], ctx: InlineContext): 
         return;
       }
       case "image":
+        // Only reached for an image inside a link or emphasis (one that is a direct child of a paragraph is a block).
+        ctx.diags.add("GS-206", `An image inside a link or styled text was replaced by its description${node.alt ? "" : " (it has none, so nothing remains)"}.`, node.position);
         if (node.alt) emit(sink, node.alt, styles);
         return;
       case "html": {
