@@ -380,6 +380,7 @@ changed or skipped) and `info`.
 | `GS-132` | warning | Link with an unsafe or unsupported URL |
 | `GS-140` | info | File type is not imported |
 | `GS-150` | error | File is too large |
+| `GS-151` | error | The repository has too many files to import |
 | `GS-160` | warning | Symlink, submodule or LFS pointer skipped |
 | `GS-170` | error | Path leaves the repository |
 | `GS-201` | info | Formatting the editor cannot represent was simplified |
@@ -392,6 +393,9 @@ changed or skipped) and `info`.
 | `GS-301` | warning | Rate limited, retrying |
 | `GS-302` | error | Branch or repository is not reachable |
 | `GS-303` | error | Authentication failed |
+| `GS-304` | error | The target has pages this source does not manage |
+| `GS-305` | info | The branch is not protected |
+| `GS-306` | error | The run took too long and was stopped |
 
 ## What does not round-trip
 

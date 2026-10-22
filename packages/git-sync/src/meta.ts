@@ -1,4 +1,4 @@
-import { emptyFrontMatter, type FrontMatter } from "@gitcrook/markdown";
+import { emptyFrontMatter, type Diagnostic, type FrontMatter } from "@gitcrook/markdown";
 import type { NavFile } from "@gitcrook/markdown";
 
 /**
@@ -16,12 +16,16 @@ export interface SourceMeta {
   pageLinks: string[];
   /** Repository paths of files this one embeds. */
   assets: string[];
+  /** What the parser had to say about this file, kept so a problem stays visible on every sync until it is fixed. */
+  diagnostics: Diagnostic[];
 }
 
-export function metaFrom(idSeed: string, frontMatter: FrontMatter, title: string | null, pageLinks: string[], assets: string[]): SourceMeta {
+const MAX_KEPT_DIAGNOSTICS = 20;
+
+export function metaFrom(idSeed: string, frontMatter: FrontMatter, title: string | null, pageLinks: string[], assets: string[], diagnostics: Diagnostic[] = []): SourceMeta {
   const { extra: _extra, ...kept } = frontMatter;
   void _extra;
-  return { v: 1, idSeed, frontMatter: kept, title, pageLinks, assets };
+  return { v: 1, idSeed, frontMatter: kept, title, pageLinks, assets, diagnostics: diagnostics.slice(0, MAX_KEPT_DIAGNOSTICS) };
 }
 
 /** Reads stored metadata back, tolerating anything a database could hold. Null if it is not usable. */
@@ -37,6 +41,7 @@ export function readMeta(value: unknown): SourceMeta | null {
     title: typeof m.title === "string" ? m.title : null,
     pageLinks: strings(m.pageLinks),
     assets: strings(m.assets),
+    diagnostics: Array.isArray(m.diagnostics) ? m.diagnostics.filter((d): d is Diagnostic => typeof d === "object" && d !== null && typeof d.code === "string" && typeof d.message === "string") : [],
   };
 }
 

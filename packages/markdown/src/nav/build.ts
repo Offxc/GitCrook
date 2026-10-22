@@ -96,6 +96,11 @@ export function buildNavigation(options: BuildNavigationOptions): NavigationResu
       continue;
     }
     if (!isMarkdownPath(path) || path.toLowerCase() === summaryPath) continue;
+    // `dir:` and `group:` are how nodes without a file are named; a file must not be able to take one of those names.
+    if (/^(dir|group):/i.test(path)) {
+      report("GS-170", `"${file.path}" starts with a name Git Sync uses for itself; it was skipped.`, { path: file.path });
+      continue;
+    }
     // Dot-directories (.github), underscore names (_drafts, _partials) and dependencies are not documentation.
     if (path.split("/").some((s) => s.startsWith(".") || s.startsWith("_") || s === "node_modules")) continue;
     if (!files.has(path)) files.set(path, { ...file, path });

@@ -134,6 +134,12 @@ describe("the folder layout", () => {
     expect(r.diagnostics.every((d) => d.severity === "error")).toBe(true);
   });
 
+  it("will not let a file take the name of a generated node", () => {
+    const r = nav(["dir:guides.md", "group:x.md", "ok.md", "sub/dir:fine.md"]);
+    expect(codes(r)).toEqual(["GS-170", "GS-170"]);
+    expect(flattenPageTree(r.nodes).filter((n) => n.sourcePath !== null).map((n) => n.sourcePath).sort()).toEqual(["ok.md", "sub/dir:fine.md"]);
+  });
+
   it("gives a file the title it has, else a readable one made from its name", () => {
     const r = nav([file("a.md", { title: "From YAML" }, "From heading"), file("b.md", {}, "From heading"), file("getting-started.md"), file("c.md", { nav_title: "Short" }, "Long title")]);
     const byKey = Object.fromEntries(r.nodes.map((n) => [n.key, n]));

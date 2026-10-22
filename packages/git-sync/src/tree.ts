@@ -85,7 +85,7 @@ export async function listFiles(client: GitHubClient, options: ListOptions): Pro
   const { owner, repo } = options;
   const treeSha = options.rootDir ? await rootTree(client, owner, repo, options.repoTreeSha, options.rootDir, options.branch) : options.repoTreeSha;
 
-  let tree = await client.getTree(owner, repo, treeSha, { recursive: true });
+  const tree = await client.getTree(owner, repo, treeSha, { recursive: true });
   let entries = tree.entries;
   let walked = false;
   if (tree.truncated) {

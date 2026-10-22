@@ -30,6 +30,9 @@ export const CATALOGUE = {
   "GS-301": { severity: "warning", summary: "Rate limited, retrying" },
   "GS-302": { severity: "error", summary: "Branch or repository is not reachable" },
   "GS-303": { severity: "error", summary: "Authentication failed" },
+  "GS-304": { severity: "error", summary: "The target has pages this source does not manage" },
+  "GS-305": { severity: "info", summary: "The branch is not protected" },
+  "GS-306": { severity: "error", summary: "The run took too long and was stopped" },
 } as const satisfies Record<string, { severity: Severity; summary: string }>;
 
 export type DiagnosticCode = keyof typeof CATALOGUE;
