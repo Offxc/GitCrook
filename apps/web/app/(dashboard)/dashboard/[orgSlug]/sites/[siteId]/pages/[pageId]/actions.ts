@@ -7,6 +7,7 @@ import { canUserDoX, getSessionUserId } from "@gitcrook/auth";
 import { extractPlainText } from "@/lib/editor/extractText";
 import { toJsonSafe } from "@/lib/editor/jsonSafe";
 import { commitPageContent } from "@/lib/pages/commitPageContent";
+import { MANAGED_PAGE_ERROR } from "@/lib/pages/managed";
 
 export interface SaveResult {
   ok: boolean;
@@ -22,8 +23,9 @@ export async function savePageContent(pageId: string, expectedVersion: number, c
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { ok: false, error: "You don't have permission to edit this page." };
 
-  const current = await prisma.page.findUnique({ where: { id: pageId }, select: { contentVersion: true } });
+  const current = await prisma.page.findUnique({ where: { id: pageId }, select: { contentVersion: true, managedBy: true } });
   if (!current) notFound();
+  if (current.managedBy === "GIT") return { ok: false, error: MANAGED_PAGE_ERROR };
 
   const conflict = (contentVersion: number): SaveResult => ({
     ok: false,
@@ -75,6 +77,9 @@ export async function restorePageVersion(pageId: string, versionId: string): Pro
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { ok: false, error: "You don't have permission to edit this page." };
 
+  const target = await prisma.page.findUnique({ where: { id: pageId }, select: { managedBy: true } });
+  if (target?.managedBy === "GIT") return { ok: false, error: MANAGED_PAGE_ERROR };
+
   const version = await prisma.pageVersion.findUnique({ where: { id: versionId } });
   if (!version || version.pageId !== pageId) return { ok: false, error: "Version not found." };
 
@@ -100,8 +105,9 @@ export async function updatePageIcon(orgSlug: string, siteId: string, pageId: st
   const userId = await getSessionUserId();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
-  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true } });
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, managedBy: true } });
   if (!page || page.siteId !== siteId) return { ok: false, error: "Page not found." };
+  if (page.managedBy === "GIT") return { ok: false, error: MANAGED_PAGE_ERROR };
 
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { ok: false, error: "You don't have permission to edit this page." };
@@ -151,8 +157,9 @@ export async function deletePage(orgSlug: string, siteId: string, pageId: string
   const userId = await getSessionUserId();
   if (!userId) return { ok: false, error: "Unauthorized" };
 
-  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, title: true, slug: true, isGroup: true, site: { select: { organizationId: true } } } });
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, title: true, slug: true, isGroup: true, managedBy: true, site: { select: { organizationId: true } } } });
   if (!page || page.siteId !== siteId) return { ok: false, error: "Page not found." };
+  if (page.managedBy === "GIT") return { ok: false, error: MANAGED_PAGE_ERROR };
 
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { ok: false, error: "You don't have permission to delete this page." };

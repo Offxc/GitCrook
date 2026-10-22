@@ -8,6 +8,7 @@ import { freeSlug, slugify } from "@gitcrook/shared";
 import { requireSite } from "@/lib/dashboard/site";
 import { extractPlainText } from "@/lib/editor/extractText";
 import { toJsonSafe } from "@/lib/editor/jsonSafe";
+import { anyPageIsManaged, MANAGED_PAGE_ERROR, MANAGED_VARIANT_ERROR, variantIsManaged } from "@/lib/pages/managed";
 import { isUniqueViolation, withFreeSlug } from "@/lib/pages/withFreeSlug";
 
 export interface CreatePageState {
@@ -39,6 +40,7 @@ export async function createPage(orgSlug: string, siteId: string, _prev: CreateP
   if (!space) return { error: "This site has no space to add pages to." };
   const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
   if (!variant) return { error: "This site has no default variant to add pages to." };
+  if (await variantIsManaged(variant.id)) return { error: MANAGED_VARIANT_ERROR };
 
   const { page, slug } = await withFreeSlug({ variantId: variant.id, parentId: null }, parsed.data.title, async (slug) => {
     const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
@@ -98,6 +100,7 @@ export async function createPageGroup(orgSlug: string, siteId: string, _prev: Cr
   if (!space) return { error: "This site has no space to add a group to." };
   const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
   if (!variant) return { error: "This site has no default variant to add a group to." };
+  if (await variantIsManaged(variant.id)) return { error: MANAGED_VARIANT_ERROR };
 
   const slug = await withFreeSlug({ variantId: variant.id, parentId: null }, parsed.data.title, async (slug) => {
     const maxOrder = await prisma.page.aggregate({ where: { variantId: variant.id, parentId: null }, _max: { order: true } });
@@ -172,6 +175,7 @@ export async function importMarkdownPages(orgSlug: string, siteId: string, pages
   if (!space) return { error: "This site has no space to add pages to." };
   const variant = await prisma.variant.findFirst({ where: { spaceId: space.id, isDefault: true } });
   if (!variant) return { error: "This site has no default variant to add pages to." };
+  if (await variantIsManaged(variant.id)) return { error: MANAGED_VARIANT_ERROR };
 
   // Load the existing root-level slugs once and dedupe in memory: a
   // per-candidate query (fine for createPage's single page) would also miss
@@ -268,6 +272,10 @@ export async function reorderPageTree(orgSlug: string, siteId: string, updates: 
     return { error: "One of these pages no longer exists." };
   }
 
+  // Neither a managed page nor a place inside one can be moved: the next sync would put things back.
+  const parentIds = parsed.data.map((u) => u.parentId).filter((id): id is string => id !== null);
+  if (await anyPageIsManaged([...ids, ...parentIds])) return { error: MANAGED_PAGE_ERROR };
+
   // Overlay the proposed moves onto the site's current parent graph, then
   // confirm the result is still a tree (no page ends up as its own
   // ancestor) before touching the database.
@@ -335,8 +343,9 @@ export async function renamePage(orgSlug: string, siteId: string, pageId: string
   const parsed = RenamePageSchema.safeParse({ title });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, variantId: true, parentId: true, slug: true } });
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { siteId: true, variantId: true, parentId: true, slug: true, managedBy: true } });
   if (!page || page.siteId !== site.id) return { error: "Page not found." };
+  if (page.managedBy === "GIT") return { error: MANAGED_PAGE_ERROR };
 
   const allowed = await canUserDoX(userId, "content.edit", { type: "page", id: pageId });
   if (!allowed) return { error: "You don't have permission to rename this page." };
