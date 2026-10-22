@@ -290,6 +290,66 @@ Tags inside code fences are left alone. A tag that is never closed is closed for
 tag with no opener is removed (`GS-204`); a tag GitCrook does not know is removed (`GS-203`). Line numbers in
 diagnostics still point at the original file.
 
+## Navigation
+
+Which pages exist, in what order and under what URL comes from the repository, in this order of precedence:
+**`gitcrook.yaml`'s `nav`**, then **`SUMMARY.md`**, then **the folder layout**. The same files always give the
+same tree, whatever order they are listed in.
+
+### Folder layout
+
+- A folder's `index.md` (else `README.md`) is that folder's own page; the rest of the folder nests under it.
+  Names are matched without regard to case, and `.md`, `.markdown` and `.mdx` are all read.
+- A **top-level** folder with no index becomes a *group*: a header in the sidebar, with no page of its own.
+- A folder with no index **deeper than that** becomes a generated page that lists its children as cards.
+- The repository's home page (`README.md` or `index.md` at the root, or the file `.gitbook.yaml` names) comes
+  first unless its front matter sets an `order`.
+- If a folder has both `index.md` and `README.md`, `index.md` is the folder's page and the other is an ordinary
+  page (`GS-206`).
+- Ignored: anything inside a folder whose name starts with `.` or `_`, `node_modules`, and files that are not
+  Markdown.
+- Pages sort by front-matter `order`, then by file name, with numbers compared as numbers (`page-2` before
+  `page-10`).
+
+### URL segments
+
+A page's segment is its front-matter `slug`, else its file name (a folder's page takes the folder's name; the
+home page takes its title). Siblings never share one: when two pages want the same segment, pages that asked for
+it in front matter are served first, then the rest in path order, and the loser gets `-1`, `-2` … (`GS-110`).
+Which page keeps a contested URL depends only on the paths, so re-ordering pages never moves it.
+
+### `SUMMARY.md`
+
+GitBook's format. `##` headings are groups, nested list items are child pages, `---` is ignored, and the text
+of a link (or its quoted title, `[Page](page.md "Label")`) is the sidebar label. Links are relative to the
+summary file. Entries it cannot use (no link, an external URL) are skipped with `GS-206`, and the pages under
+them are kept.
+
+### `gitcrook.yaml`
+
+```yaml
+version: 1
+root: docs                 # where the documentation lives; default: the repository root
+nav:                       # optional; without it SUMMARY.md or the folders decide
+  - README.md
+  - group: Guides
+    pages:
+      - guides/install.md
+      - page: guides/configure.md
+        title: Configuring GitCrook      # sidebar label
+        pages: [guides/advanced.md]      # nested under it
+redirects:
+  old/path: guides/install
+```
+
+`.gitbook.yaml` is read too (`root`, `structure.readme`, `structure.summary`, `redirects`); where both files set
+something, `gitcrook.yaml` wins.
+
+With an explicit navigation, **a file that is not listed is not published** and is reported (`GS-120`). A listed
+file that does not exist is `GS-121` (an error), one listed twice keeps its first entry (`GS-122`), and a path
+that leaves the repository is `GS-170` (an error). Groups exist only at the top level; one written anywhere else
+is flattened into its parent (`GS-206`).
+
 ## Limits
 
 A page of more than 5,000 blocks, or nested more than 20 levels deep, is cut off at the limit with `GS-207`.
