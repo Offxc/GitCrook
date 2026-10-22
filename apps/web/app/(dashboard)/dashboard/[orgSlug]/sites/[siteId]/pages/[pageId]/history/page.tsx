@@ -15,6 +15,8 @@ export default async function PageHistoryPage({ params }: { params: Promise<{ or
 
   const canEdit = await canUserDoX(userId, "content.edit", { type: "page", id: page.id });
   if (!canEdit) notFound();
+  // A page a repository manages is changed there; its history is a record, not something to roll back from here.
+  const managed = page.managedBy === "GIT";
 
   const versions = await prisma.pageVersion.findMany({
     where: { pageId },
@@ -31,7 +33,9 @@ export default async function PageHistoryPage({ params }: { params: Promise<{ or
       </p>
       <h1 className="mt-2 text-2xl font-semibold text-ink">Page history</h1>
       <p className="mt-1 text-sm text-ink-muted">
-        A checkpoint is saved roughly every 5 minutes of active editing. Restoring saves the current content as a new checkpoint first, so it&apos;s never a dead end.
+        {managed
+          ? "Each sync that changed this page is recorded here, with the commit it came from. The page is managed by a Git repository, so it can't be restored from here."
+          : "A checkpoint is saved roughly every 5 minutes of active editing. Restoring saves the current content as a new checkpoint first, so it's never a dead end."}
       </p>
 
       <div className="mt-6 space-y-3">
@@ -42,7 +46,7 @@ export default async function PageHistoryPage({ params }: { params: Promise<{ or
 
         {versions.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-ink-muted">
-            No checkpoints yet — keep editing for a few minutes and one will appear here.
+            {managed ? "No syncs have changed this page yet." : "No checkpoints yet — keep editing for a few minutes and one will appear here."}
           </p>
         ) : (
           versions.map((v) => (
@@ -50,9 +54,9 @@ export default async function PageHistoryPage({ params }: { params: Promise<{ or
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-ink">{v.createdAt.toLocaleString()}</p>
-                  <p className="text-xs text-ink-muted">{v.createdBy?.name ?? v.createdBy?.email ?? "Unknown"}</p>
+                  <p className="text-xs text-ink-muted">{v.origin === "GIT" ? `Synced from Git${v.commitSha ? ` · commit ${v.commitSha.slice(0, 7)}` : ""}` : (v.createdBy?.name ?? v.createdBy?.email ?? "Unknown")}</p>
                 </div>
-                <RestoreButton orgSlug={orgSlug} siteId={siteId} pageId={pageId} versionId={v.id} />
+                {managed ? null : <RestoreButton orgSlug={orgSlug} siteId={siteId} pageId={pageId} versionId={v.id} />}
               </div>
               <p className="mt-2 line-clamp-2 text-xs text-ink-muted">{extractPlainText(v.content).slice(0, 200) || "(empty)"}</p>
             </div>

@@ -10,7 +10,7 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
   const publishedBase = publishedUrlFor(site);
 
   const [pageCount, sectionCount] = await Promise.all([
-    prisma.page.count({ where: { siteId: site.id, isGroup: false } }),
+    prisma.page.count({ where: { siteId: site.id, isGroup: false, deletedAt: null } }),
     prisma.section.count({ where: { siteId: site.id } }),
   ]);
 

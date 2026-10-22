@@ -6,6 +6,7 @@ const SECTIONS = [
   { key: "access", label: "Visitor access", hint: "Who can read it" },
   { key: "domain", label: "Custom domain", hint: "Your own hostname" },
   { key: "variants", label: "Variants", hint: "Parallel versions" },
+  { key: "git", label: "Git Sync", hint: "Pages from a repository" },
   { key: "analytics", label: "Analytics", hint: "Traffic and feedback" },
 ] as const;
 
