@@ -122,3 +122,12 @@ export async function pruneRuns(sourceId: string, keep = 200): Promise<number> {
   if (old.length === 0) return 0;
   return (await prisma.gitSyncRun.deleteMany({ where: { id: { in: old.map((r) => r.id) } } })).count;
 }
+
+/**
+ * Access tokens belong to a source. When the source goes — disconnected, or its site or version deleted — a token
+ * that nothing uses must not stay in the database. The grace period covers the moment between a token being saved
+ * and the source that will use it being created.
+ */
+export async function pruneOrphanCredentials(now: Date = new Date(), graceMs = 60 * 60_000): Promise<number> {
+  return (await prisma.gitCredential.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - graceMs) }, sources: { none: {} } } })).count;
+}

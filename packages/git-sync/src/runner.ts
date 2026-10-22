@@ -1,4 +1,4 @@
-import { claimNextRun, enqueueDueSources, pruneRuns, reapStuckRuns } from "./queue";
+import { claimNextRun, enqueueDueSources, pruneOrphanCredentials, pruneRuns, reapStuckRuns } from "./queue";
 import { runSync, type SyncDeps } from "./sync";
 import { prisma } from "@gitcrook/db";
 
@@ -32,6 +32,8 @@ export function createGitSyncRunner(deps: SyncDeps, options: RunnerOptions = {})
     if (reaped > 0) log(`[git-sync] ended ${reaped} run${reaped === 1 ? "" : "s"} whose worker had stopped`);
     const queued = await enqueueDueSources(now());
     if (queued > 0) log(`[git-sync] queued ${queued} poll${queued === 1 ? "" : "s"}`);
+    const orphans = await pruneOrphanCredentials(now());
+    if (orphans > 0) log(`[git-sync] removed ${orphans} saved access token${orphans === 1 ? "" : "s"} that no repository uses`);
   }
 
   return {

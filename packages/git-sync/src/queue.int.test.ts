@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@gitcrook/db";
 import { makeOrg, makeSite, resetDatabase } from "../../../tests/support/factory";
-import { claimNextRun, enqueueDueSources, enqueueRun, pruneRuns, reapStuckRuns } from "./queue";
+import { claimNextRun, enqueueDueSources, enqueueRun, pruneOrphanCredentials, pruneRuns, reapStuckRuns } from "./queue";
 
 beforeEach(resetDatabase);
 
@@ -179,5 +179,31 @@ describe("pruneRuns", () => {
     expect(await pruneRuns(s.id, 3)).toBe(5);
     expect((await prisma.gitSyncRun.findMany({ where: { status: "SUCCEEDED" }, orderBy: { createdAt: "desc" } })).map((r) => r.toSha)).toEqual(["s7", "s6", "s5"]);
     expect(await pending(s.id)).toHaveLength(1);
+  });
+});
+
+describe("pruneOrphanCredentials", () => {
+  const credential = (organizationId: string, createdAt: Date) => prisma.gitCredential.create({ data: { organizationId, kind: "TOKEN", keyId: "k1", secretCiphertext: new Uint8Array([1, 2, 3]), createdAt } });
+
+  it("removes a token no source uses once it is old enough, and keeps one that is in use or new", async () => {
+    const used = await source();
+    const mine = await credential(used.organizationId, new Date(Date.now() - 3 * 3_600_000));
+    await prisma.gitSource.update({ where: { id: used.id }, data: { credentialId: mine.id } });
+    const orphan = await credential(used.organizationId, new Date(Date.now() - 3 * 3_600_000));
+    const fresh = await credential(used.organizationId, new Date());
+
+    expect(await pruneOrphanCredentials()).toBe(1);
+    const left = (await prisma.gitCredential.findMany({ select: { id: true } })).map((c) => c.id).sort();
+    expect(left).toEqual([mine.id, fresh.id].sort());
+    expect(left).not.toContain(orphan.id);
+  });
+
+  it("is what happens to a token when its source's site is deleted", async () => {
+    const s = await source();
+    const c = await credential(s.organizationId, new Date(Date.now() - 2 * 3_600_000));
+    await prisma.gitSource.update({ where: { id: s.id }, data: { credentialId: c.id } });
+    await prisma.site.delete({ where: { id: s.siteId } });
+    expect(await pruneOrphanCredentials()).toBe(1);
+    expect(await prisma.gitCredential.count()).toBe(0);
   });
 });
