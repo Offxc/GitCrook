@@ -166,6 +166,8 @@ jobs:
       ROOT_DOMAIN: localhost:3000
       ROOT_PROTOCOL: http
       E2E_BASE_URL: http://localhost:3000
+      # Read by the app (webhook route) and by the tests that sign requests to it. Not a secret.
+      GITHUB_WEBHOOK_SECRET: e2e-webhook-secret-0123456789abcdef0123456789abcdef
 
     steps:
       - uses: actions/checkout@v5

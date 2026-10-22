@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { parsePushEvent, verifyGitHubSignature } from "./webhook";
+import { parsePushEvent, verifyGitHubSignature, webhookSecretFor, webhookSecretIsUsable } from "./webhook";
 
 const sign = (secret: string, body: string) => `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 const bytes = (s: string) => new TextEncoder().encode(s);
@@ -62,5 +62,30 @@ describe("parsePushEvent", () => {
 
   it.each([null, undefined, "x", 4, [], {}, push({ ref: "refs/tags/v1" }), push({ ref: 5 }), push({ repository: null }), push({ repository: { name: "docs" } }), push({ repository: { owner: { login: "acme" } } })])("returns null for %j", (value) => {
     expect(parsePushEvent(value)).toBeNull();
+  });
+});
+
+describe("webhookSecretFor", () => {
+  const master = "m".repeat(40);
+
+  it("is stable, and different for every source and every master secret", () => {
+    expect(webhookSecretFor(master, "src1")).toBe(webhookSecretFor(master, "src1"));
+    expect(webhookSecretFor(master, "src1")).not.toBe(webhookSecretFor(master, "src2"));
+    expect(webhookSecretFor(master, "src1")).not.toBe(webhookSecretFor("n".repeat(40), "src1"));
+  });
+
+  it("is 64 hex characters and does not contain the master secret", () => {
+    const secret = webhookSecretFor(master, "src1");
+    expect(secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(secret).not.toContain(master);
+  });
+});
+
+describe("webhookSecretIsUsable", () => {
+  it("wants at least 32 characters", () => {
+    expect(webhookSecretIsUsable("x".repeat(32))).toBe(true);
+    expect(webhookSecretIsUsable("x".repeat(31))).toBe(false);
+    expect(webhookSecretIsUsable("")).toBe(false);
+    expect(webhookSecretIsUsable(undefined)).toBe(false);
   });
 });

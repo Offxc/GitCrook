@@ -1,7 +1,7 @@
 import { prisma } from "@gitcrook/db";
 import { canUserDoX } from "@gitcrook/auth";
 import { requireSite, publishedUrlFor } from "@/lib/dashboard/site";
-import { gitSyncEnv } from "@/lib/gitSyncEnv";
+import { gitSyncEnv, webhookFor } from "@/lib/gitSyncEnv";
 import { SettingsShell } from "../SettingsShell";
 import { ConnectForm } from "./ConnectForm";
 import { SourceActions } from "./SourceActions";
@@ -45,7 +45,17 @@ export default async function GitSyncPage({ params }: { params: Promise<{ orgSlu
   const { orgSlug, siteId } = await params;
   const { site, userId } = await requireSite(orgSlug, siteId);
   const canManage = await canUserDoX(userId, "site.manageSettings", { type: "site", id: site.id });
+  // Which repository feeds the site, and what its syncs found in it (file names included), is for the people who work on it.
+  const canSee = canManage || (await canUserDoX(userId, "content.edit", { type: "site", id: site.id }));
   const env = gitSyncEnv();
+
+  if (!canSee) {
+    return (
+      <SettingsShell orgSlug={orgSlug} siteId={siteId} siteName={site.name} publishedUrl={publishedUrlFor(site)} active="git" title="Git Sync" description="Keep a version of this site in a Git repository.">
+        <p className="rounded-lg border border-border bg-surface p-4 text-sm text-ink-muted">Git Sync is shown to the people who edit this site. Ask one of them if you want to know where its pages come from.</p>
+      </SettingsShell>
+    );
+  }
 
   const variants = await prisma.variant.findMany({
     where: { space: { section: { siteId: site.id } } },
@@ -72,7 +82,6 @@ export default async function GitSyncPage({ params }: { params: Promise<{ orgSlu
     (await prisma.gitCredential.findMany({ where: { id: { in: sources.flatMap((s) => (s.source.credentialId ? [s.source.credentialId] : [])) } }, select: { id: true } })).map((c) => c.id),
   );
 
-  const webhookUrl = `${process.env.ROOT_PROTOCOL ?? "http"}://${process.env.ROOT_DOMAIN ?? "localhost:3000"}/api/webhooks/github`;
   const webHost = new URL(env.host.webBase).hostname;
 
   return (
@@ -157,6 +166,8 @@ export default async function GitSyncPage({ params }: { params: Promise<{ orgSlu
                 </div>
               ) : null}
 
+              {canManage && env.webhookConfigured ? <WebhookDetails hook={webhookFor(source.id)} /> : null}
+
               <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-ink-muted">Recent syncs</h3>
               {sourceRuns.length === 0 ? (
                 <p className="text-sm text-ink-muted">None yet.</p>
@@ -238,35 +249,47 @@ export default async function GitSyncPage({ params }: { params: Promise<{ orgSlu
         <section className="rounded-xl border border-border bg-surface p-5 text-sm">
           <h2 className="font-medium text-ink">Updating the site when you push</h2>
           {env.webhookConfigured ? (
-            <>
-              <p className="mt-1 text-ink-muted">Add a webhook to the repository (Settings → Webhooks → Add webhook) so a push updates the site within seconds instead of at the next check:</p>
-              <dl className="mt-3 space-y-1 font-mono text-xs">
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-ink-muted">Payload URL</dt>
-                  <dd className="break-all text-ink">{webhookUrl}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-ink-muted">Content type</dt>
-                  <dd className="text-ink">application/json</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-ink-muted">Secret</dt>
-                  <dd className="text-ink">the value of GITHUB_WEBHOOK_SECRET on this server</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-ink-muted">Events</dt>
-                  <dd className="text-ink">Just the push event</dd>
-                </div>
-              </dl>
-            </>
+            <p className="mt-1 text-ink-muted">Each connected repository has its own webhook address and secret, shown on its card. Add it to the repository (Settings → Webhooks → Add webhook) so a push updates the site within seconds instead of at the next check.</p>
           ) : (
             <p className="mt-1 text-ink-muted">
-              Webhooks are not set up on this server, so each repository is checked on a timer instead (every few minutes by default). To get pushes picked up immediately, whoever runs the server sets
-              <code className="mx-1 text-ink">GITHUB_WEBHOOK_SECRET</code>and adds a webhook pointing at <code className="text-ink">{webhookUrl}</code>.
+              {env.webhookProblem ?? "Webhooks are not set up on this server, so each repository is checked on a timer instead (every few minutes by default)."} To get pushes picked up immediately, whoever runs the server sets
+              <code className="mx-1 text-ink">GITHUB_WEBHOOK_SECRET</code>to a random string of at least 32 characters; each repository then gets its own webhook address and secret here.
             </p>
           )}
         </section>
       </div>
     </SettingsShell>
+  );
+}
+
+/** The address and secret to give GitHub for one repository. The secret is derived for this repository alone: it signs nothing else. */
+function WebhookDetails({ hook }: { hook: { url: string; secret: string } | null }) {
+  if (!hook) return null;
+  return (
+    <details className="mt-4 rounded-lg border border-border">
+      <summary className="cursor-pointer px-3 py-2 text-sm text-ink hover:bg-surface">Update the site on every push (webhook)</summary>
+      <div className="space-y-3 border-t border-border bg-surface px-3 py-3 text-sm">
+        <p className="text-ink-muted">In the repository: Settings → Webhooks → Add webhook, then enter:</p>
+        <dl className="space-y-1 font-mono text-xs">
+          <div className="flex gap-2">
+            <dt className="w-28 shrink-0 text-ink-muted">Payload URL</dt>
+            <dd className="break-all text-ink">{hook.url}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-28 shrink-0 text-ink-muted">Content type</dt>
+            <dd className="text-ink">application/json</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-28 shrink-0 text-ink-muted">Secret</dt>
+            <dd className="break-all text-ink">{hook.secret}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-28 shrink-0 text-ink-muted">Events</dt>
+            <dd className="text-ink">Just the push event</dd>
+          </div>
+        </dl>
+        <p className="text-xs text-ink-muted">This secret is for this repository only. Keep it to the people who manage the repository.</p>
+      </div>
+    </details>
   );
 }

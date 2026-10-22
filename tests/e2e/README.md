@@ -14,6 +14,9 @@ DATABASE_URL=... AUTH_SECRET=... ROOT_DOMAIN=localhost:3000 PORT=3000 HOSTNAME=1
 DATABASE_URL=... E2E_BASE_URL=http://localhost:3000 pnpm test:e2e
 ```
 
+The webhook tests sign requests with the app's `GITHUB_WEBHOOK_SECRET` (at least 32 characters), so give the app
+and the test process the same value.
+
 The tests create their own organisations, users and sites in that database (and delete them afterwards),
 so point it at a scratch database, not one with data you care about.
 
