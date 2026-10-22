@@ -43,6 +43,47 @@ A3 canonical page paths · B4 renderer parity · B5 deterministic anchors · D2 
 indexes · D7 shared path/URL helpers · G4 test harness · the hardened outbound fetch (GS-10) · the
 S track items that touch webhooks and secrets.
 
+### Progress
+
+**Phase 0 is done** except the leftovers listed below. Everything was verified by running the app: a
+production build for the sidebar work, a scratch database for the sign-up logic, and a clean clone
+installed with **pnpm 11 under a frozen lockfile** (what CI does) with typecheck, build, all migrations
+on an empty database and the seed.
+
+| Item | Result |
+| --- | --- |
+| A1 sidebar scroll | Six failure modes fixed; regression suite passes on the production build (`3719 → 3719`, `1700 → 1700`, `3600 → 3600`, active item in view on a deep link, hard-load frames at the top `11 → 2`) |
+| A3 / A4 links | Sidebar and prev/next carry section, space and `~v` prefixes; prev/next skips groups |
+| B1 dark mode | Cookie, rendered on the server; `theme.darkMode` honoured |
+| D1 autosave | Compare-and-set: 1 of 20 racing saves wins |
+| G1 / G2 | `pnpm install` works on a fresh clone without `.env`; invalid `start` script removed |
+| G6 dependencies | `pnpm audit` is clean (production and dev). Dependabot and an audit step in CI are still to do (G5) |
+| S track | Done: metadata access, password-session invalidation, sign-up closed by default with invitations, asset cleanup on site deletion, feed caching, rating access, visitor-hash keying, seed guard, domain claims, upload limits, authorisation clean-ups. Open items are listed in the private file |
+
+**Found while fixing, and fixed**
+
+- **Custom domains were broken** (not in the original audit). `proxy.ts` rewrote *every* path on a
+  custom host into the page route, `/api/*` included. On a custom domain, search, every uploaded
+  image, the feed and the click beacon returned 404, and Caddy's certificate check (`Host: web:3000`)
+  did too — so a verified domain could never be issued a certificate. `/api/*` is no longer rewritten.
+- **Any upload over 10 MB failed with a 500.** The proxy layer buffers request bodies and stops at
+  10 MB by default, so the 20 MB image and 100 MB file limits were unreachable.
+  `proxyClientMaxBodySize` is raised, and Caddy caps every other route at 5 MB.
+- **Three upload files were committed** under `apps/web/.data/` (an image and two page PDF exports).
+  Now untracked and ignored; **they are still in earlier history** (see decision below).
+- **A `vite` override broke `pnpm install --frozen-lockfile` under pnpm 11.** Found only by installing a
+  clean clone with pnpm 11; add that install to CI (G5) so it cannot recur.
+
+**Still open from Phase 0:** the persistent shell (A2, Phase 1); the hardening items S13–S19 in the
+private file; removing the maintainer-specific `dev.voidsmp.com` block from the shipped Caddyfile (G8) —
+deliberately not done because the maintainer's own deployment proxies that panel through it.
+
+**Deploying this:** four new migrations run automatically through the `migrate` service. Visitors of
+password-protected sites enter the password once more. Sign-up is now **closed** by default: set
+`ALLOWED_DISCORD_IDS` to your own ID if you have not already, and `SIGNUP_MODE=open` only if you want the
+old behaviour. After deploying, review assets whose site was deleted earlier (the query is in the private
+file).
+
 ---
 
 ## 2. The sidebar scroll bug
@@ -154,10 +195,10 @@ markers survive and the sidebar offset never moves except when the active item l
 
 | ID | Pri | Size | Finding | Evidence | Fix |
 | --- | --- | --- | --- | --- | --- |
-| A1 | P0 | M | Sidebar scroll bug | §2 | §2 step 1 |
+| A1 | P0 | M | Sidebar scroll bug | §2 | §2 step 1 — **done (Phase 0)**; step 2 (A2) pending |
 | A2 | P1 | L | Shell remounts on every navigation | §2 | §2 step 2 |
-| **A3** | **P0** | S | **Sidebar, prev/next and the variant-aware links drop the section / space / `~v` prefix.** On a two-section site every sidebar link is `/multi-docs/page-1` and 404s (correct: `/multi-docs/guides/page-1`). On `/demo-docs/~v/v2/introduction` the sidebar points at `/demo-docs/introduction`, so one click silently leaves v2 | `[measured]` curl: `/multi-docs/page-1` → 404, `/multi-docs/guides/page-1` → 200; the v2 page's links | `pathsForTree()` returns slug-only paths; `ResolvedPath.pathPrefix` is only passed to `VariantSwitcher`. Build every href from one helper `pagePathFor(node, ctx)` (prefix + `~v` + slugs); `computePagePath` already does this correctly for search and RSS — share it between web and worker (D7) and use it everywhere |
-| **A4** | **P0** | S | **"Previous" on the first page of every group links to the page itself.** `flattenPageTree` includes group nodes; a group's URL resolves to its first child. On `G2 Page 1` the Previous link is "← Group 2" → `/long-docs/group-2` → renders `G2 Page 1` | `[measured]` rendered HTML | Build prev/next from navigable (non-group) nodes only, in display order, so Previous of a group's first page is the last page of the previous group |
+| **A3** | **P0** | S | **Sidebar, prev/next and the variant-aware links drop the section / space / `~v` prefix.** On a two-section site every sidebar link is `/multi-docs/page-1` and 404s (correct: `/multi-docs/guides/page-1`). On `/demo-docs/~v/v2/introduction` the sidebar points at `/demo-docs/introduction`, so one click silently leaves v2 | `[measured]` curl: `/multi-docs/page-1` → 404, `/multi-docs/guides/page-1` → 200; the v2 page's links | `pathsForTree()` returns slug-only paths; `ResolvedPath.pathPrefix` is only passed to `VariantSwitcher`. Build every href from one helper `pagePathFor(node, ctx)` (prefix + `~v` + slugs); `computePagePath` already does this correctly for search and RSS — share it between web and worker (D7) and use it everywhere — **Done (Phase 0).** |
+| **A4** | **P0** | S | **"Previous" on the first page of every group links to the page itself.** `flattenPageTree` includes group nodes; a group's URL resolves to its first child. On `G2 Page 1` the Previous link is "← Group 2" → `/long-docs/group-2` → renders `G2 Page 1` | `[measured]` rendered HTML | Build prev/next from navigable (non-group) nodes only, in display order, so Previous of a group's first page is the last page of the previous group — **Done (Phase 0).** |
 | A5 | P1 | M | Mobile menu is an in-page `<details>` that closes on every navigation | `[read]` `MobileNav` | Drawer in the persistent shell; scroll the active item into view when opened |
 | A6 | P1 | S | Edit mode starts `false` and flips in an effect, so each navigation renders the read-only list, then the tree | `[read]`; consequences in §2 #3 | Cookie-initialised state (§2 step 1.3); gone entirely with A2 |
 | A7 | P1 | M | Adding a second section silently changes every existing URL: with one section its slug is implicit, with two it becomes required, so all old links 404 with no redirect. The UI gives no warning | `[read]` `resolvePublishedPath`, `SectionsManager` | **Decided (§6): redirect.** Resolve legacy implicit paths inside the first section and answer `308` with the canonical URL; refuse to add a section whose slug equals a top-level page or group slug of the first section |
@@ -168,7 +209,7 @@ markers survive and the sidebar offset never moves except when the active item l
 
 | ID | Pri | Size | Finding | Evidence | Fix |
 | --- | --- | --- | --- | --- | --- |
-| **B1** | **P0** | S | **Dark/light choice is not applied.** The toggle stores the choice in `localStorage` but only writes `data-site-mode` when you click. After a soft navigation or a reload the attribute is `null` while the toggle still shows "Dark" pressed — the UI says dark, the page is not | `[measured]` attr after click `dark`, after navigation `null`, after reload `null`; `stored: "dark"` | Persist in a cookie, render the attribute server-side in the layout (no flash, no inline script needed). Honour the unused `theme.darkMode.enabled/default`; hide the toggle when disabled |
+| **B1** | **P0** | S | **Dark/light choice is not applied.** The toggle stores the choice in `localStorage` but only writes `data-site-mode` when you click. After a soft navigation or a reload the attribute is `null` while the toggle still shows "Dark" pressed — the UI says dark, the page is not | `[measured]` attr after click `dark`, after navigation `null`, after reload `null`; `stored: "dark"` | Persist in a cookie, render the attribute server-side in the layout (no flash, no inline script needed). Honour the unused `theme.darkMode.enabled/default`; hide the toggle when disabled — **Done (Phase 0).** |
 | B2 | P1 | L | **Search.** Whole-word stems only: `Bod` → 0 results, `Body` → 10 `[measured]`. Snippet is the start of the page, not the match; no loading state, so "No results" flashes while typing; out-of-order responses can show stale results; capped at 10; searches every variant of the site; no dialog semantics or focus trap; text inside cards, callout titles, buttons, step titles, page-link cards is not indexed (`extractPlainText` ignores props); the `english` config is hard-coded | `[measured]` / `[read]` | Prefix queries (`:*`) and `pg_trgm` for typo tolerance; `ts_headline` snippets; `AbortController` + request id; scope to the current variant (toggle for "whole site"); per-block text extractors; site locale → text-search config; ARIA dialog + `aria-activedescendant`; paginate; compute result paths from the preloaded tree instead of N+1 `computePagePath` calls |
 | B3 | P1 | M | **Share links work for exactly one page.** The token is read only from the query string of the first request; sidebar links, in-page images (`/api/files/…`), search and RSS all lose it | `[measured]` first page 200, `/private-docs/secret-two` → private | On first valid token, set a signed `HttpOnly` cookie scoped to the site, redirect to the URL without `?token=`, and accept the cookie in `resolveVisitorAccess`, the files route, search and RSS. Also stops the token leaking through `Referer` |
 | **B4** | **P0** | L | **Published renderer does not match the editor.** `quote` renders as a plain paragraph; `video` and `audio` render nothing; table `headerRows` is ignored (no `<th>` anywhere); hard line breaks (`\n`) collapse; text colour, background colour and alignment set in the editor vanish; external image URLs are blocked by the CSP (`img-src 'self' data: blob:`) | `[measured]` kitchen-sink page: `blockquote:false, video:false, audio:false, th:0`, `white-space: normal`, CSP console error | Add the missing cases to `blockRenderer.tsx`; honour inline `textColor`/`backgroundColor` and block `textAlignment`; `white-space: pre-line` on inline text; `<thead>` / `<th scope>` from `headerRows`/`headerCols`; decide the external-image policy (import on save, or allow `https:` images). Add a **parity test**: every block in `gitCrookSchema` must have a renderer case and a markdown serializer case, and each has a golden HTML snapshot |
@@ -206,7 +247,7 @@ markers survive and the sidebar offset never moves except when the active item l
 
 | ID | Pri | Size | Finding | Fix |
 | --- | --- | --- | --- | --- |
-| D1 | P0 | S | `savePageContent` version check is a read followed by an update (C6) | Conditional `updateMany` |
+| D1 | P0 | S | `savePageContent` version check is a read followed by an update (C6) | Conditional `updateMany` — **Done (Phase 0).** |
 | D2 | P1 | S | Page slug uniqueness among siblings is checked only in application code (`parentId` is nullable, so a unique index cannot express it) → races produce duplicates; `createSite` has the same race | Two partial unique indexes (`WHERE "parentId" IS NULL` and `IS NOT NULL`); catch `P2002` |
 | D3 | P1 | S | Several server actions `throw` on permission failure (`assertCanManage` in access, domain, members) → a generic production error page instead of a message | Return typed errors |
 | D4 | P2 | M | Export jobs claimed as `PROCESSING` are never reclaimed if the worker dies; no timeout, retry or retention; no rate limit | `startedAt`, a reaper, `attempts`, a per-user cap |
