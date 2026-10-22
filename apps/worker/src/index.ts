@@ -1,6 +1,6 @@
 import { createAssetImporter } from "@gitcrook/assets";
 import { prisma } from "@gitcrook/db";
-import { createGitSyncRunner } from "@gitcrook/git-sync";
+import { createGitSyncRunner, hostConfigFromEnv } from "@gitcrook/git-sync";
 import { SecretBox } from "@gitcrook/shared/server";
 import { runExportPdfJob } from "./jobs/exportPdf";
 
@@ -17,10 +17,9 @@ function startGitSync() {
   } catch (error) {
     console.error(`[git-sync] ${error instanceof Error ? error.message : String(error)} Sources that need a credential will not sync.`);
   }
-  const apiBase = process.env.GITHUB_API_URL?.trim() || "https://api.github.com";
-  const allowedHosts = (process.env.GIT_SYNC_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim()).filter(Boolean);
+  const { apiBase, allowedHosts } = hostConfigFromEnv();
   return createGitSyncRunner(
-    { secrets, assets: createAssetImporter(), apiBase, allowedHosts: allowedHosts.length > 0 ? allowedHosts : [new URL(apiBase).hostname], log: (m) => console.log(m) },
+    { secrets, assets: createAssetImporter(), apiBase, allowedHosts, log: (m) => console.log(m) },
     { concurrency: Math.max(1, Number(process.env.GIT_SYNC_CONCURRENCY) || 2), log: (m) => console.log(m) },
   );
 }

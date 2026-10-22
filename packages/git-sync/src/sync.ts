@@ -167,14 +167,14 @@ export async function runSync(deps: SyncDeps, sourceId: string, options: SyncOpt
   if (!options.dryRun) {
     const data = { status: "RUNNING" as const, startedAt: started, heartbeatAt: started };
     if (options.runId) {
-      await prisma.gitSyncRun.update({ where: { id: options.runId }, data });
+      await prisma.gitSyncRun.updateMany({ where: { id: options.runId }, data });
       run.runId = options.runId;
     } else {
       run.runId = (await prisma.gitSyncRun.create({ data: { sourceId, trigger: options.trigger, deliveryId: options.deliveryId ?? null, fromSha: source.lastSyncedSha, toSha: "", ...data }, select: { id: true } })).id;
     }
-    await prisma.gitSource.update({ where: { id: sourceId }, data: { status: "SYNCING" } });
+    await prisma.gitSource.updateMany({ where: { id: sourceId, status: { not: "PAUSED" } }, data: { status: "SYNCING" } });
   }
-  const heartbeat = run.runId ? setInterval(() => void prisma.gitSyncRun.update({ where: { id: run.runId! }, data: { heartbeatAt: now() } }).catch(() => undefined), 10_000) : null;
+  const heartbeat = run.runId ? setInterval(() => void prisma.gitSyncRun.updateMany({ where: { id: run.runId! }, data: { heartbeatAt: now() } }).catch(() => undefined), 10_000) : null;
 
   let outcome: SyncOutcome;
   let failure: unknown = null;
@@ -190,7 +190,8 @@ export async function runSync(deps: SyncDeps, sourceId: string, options: SyncOpt
   if (outcome.status === "FAILED" && !options.dryRun) await markFailed(sourceId, redactSecrets(outcome.error ?? "The sync failed.", run.secrets), failure, now());
 
   if (run.runId) {
-    await prisma.gitSyncRun.update({
+    // updateMany: the source (and with it its runs) may have been disconnected while this one was going.
+    await prisma.gitSyncRun.updateMany({
       where: { id: run.runId },
       data: {
         status: outcome.status,
@@ -596,18 +597,29 @@ async function purgeExpired(sourceId: string, graceDays: number, now: Date) {
   await prisma.page.deleteMany({ where: { sourceId, deletedAt: { not: null, lt: cutoff } } });
 }
 
+/**
+ * The source's bookkeeping after a run. All of it is written with `updateMany` (the source may have been
+ * disconnected while the run was going) and none of it overrides a source that someone paused meanwhile.
+ */
 async function markChecked(sourceId: string, etag: string | null, now: Date) {
-  await prisma.gitSource.update({ where: { id: sourceId }, data: { status: "IDLE", lastCheckedAt: now, etag } });
+  await prisma.gitSource.updateMany({ where: { id: sourceId }, data: { lastCheckedAt: now, etag } });
+  await release(sourceId);
 }
 
 async function markSynced(sourceId: string, sha: string, etag: string | null, now: Date) {
-  await prisma.gitSource.update({ where: { id: sourceId }, data: { status: "IDLE", lastSyncedSha: sha, lastSyncedAt: now, lastCheckedAt: now, lastError: null, etag } });
+  await prisma.gitSource.updateMany({ where: { id: sourceId }, data: { lastSyncedSha: sha, lastSyncedAt: now, lastCheckedAt: now, lastError: null, etag } });
+  await release(sourceId);
 }
 
 async function markFailed(sourceId: string, message: string, error: unknown, now: Date) {
+  await prisma.gitSource.updateMany({ where: { id: sourceId }, data: { lastError: message.slice(0, 1000), lastCheckedAt: now } });
   // A rate limit or an outage clears up by itself; a bad credential or a missing branch needs a person.
   const retryable = error instanceof GitHostError && error.retryable;
-  await prisma.gitSource.update({ where: { id: sourceId }, data: { status: retryable ? "IDLE" : "ERROR", lastError: message.slice(0, 1000), lastCheckedAt: now } });
+  await prisma.gitSource.updateMany({ where: { id: sourceId, status: { in: ["SYNCING", "IDLE", "ERROR"] } }, data: { status: retryable ? "IDLE" : "ERROR" } });
+}
+
+async function release(sourceId: string) {
+  await prisma.gitSource.updateMany({ where: { id: sourceId, status: { in: ["SYNCING", "ERROR"] } }, data: { status: "IDLE" } });
 }
 
 function failureOf(error: unknown, secrets: string[], log?: (m: string) => void): { error: string } {

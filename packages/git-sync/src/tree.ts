@@ -39,7 +39,7 @@ export function classify(path: string, summaryPath = "SUMMARY.md"): FileKind | n
 }
 
 /** Walks `rootDir` down from the repository's root tree to the tree that holds it. */
-async function rootTree(client: GitHubClient, owner: string, repo: string, repoTreeSha: string, rootDir: string, branch: string): Promise<string> {
+export async function findRootTree(client: GitHubClient, owner: string, repo: string, repoTreeSha: string, rootDir: string, branch: string): Promise<string> {
   let sha = repoTreeSha;
   for (const segment of rootDir.split("/").filter(Boolean)) {
     const level = await client.getTree(owner, repo, sha);
@@ -83,7 +83,7 @@ export interface ListOptions {
 export async function listFiles(client: GitHubClient, options: ListOptions): Promise<Listing> {
   const limits = options.limits ?? DEFAULT_LIMITS;
   const { owner, repo } = options;
-  const treeSha = options.rootDir ? await rootTree(client, owner, repo, options.repoTreeSha, options.rootDir, options.branch) : options.repoTreeSha;
+  const treeSha = options.rootDir ? await findRootTree(client, owner, repo, options.repoTreeSha, options.rootDir, options.branch) : options.repoTreeSha;
 
   const tree = await client.getTree(owner, repo, treeSha, { recursive: true });
   let entries = tree.entries;
