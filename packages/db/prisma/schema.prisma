@@ -246,6 +246,9 @@ model SiteRedirect {
   // remove its own redirects without touching the ones people made by hand. A removed source leaves
   // them in place as ordinary redirects.
   sourceId   String?
+  // Why a sync made it: "MOVE" (the page's file was moved or renamed) or "FRONT_MATTER" (a
+  // `redirect_from` entry). Move redirects accumulate; front-matter ones follow the files.
+  origin     String?
 
   site   Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
   source GitSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)

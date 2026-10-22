@@ -17,6 +17,7 @@ export const CATALOGUE = {
   "GS-132": { severity: "warning", summary: "Link with an unsafe or unsupported URL" },
   "GS-140": { severity: "info", summary: "File type is not imported" },
   "GS-150": { severity: "error", summary: "File is too large" },
+  "GS-151": { severity: "error", summary: "The repository has too many files to import" },
   "GS-160": { severity: "warning", summary: "Symlink, submodule or LFS pointer skipped" },
   "GS-170": { severity: "error", summary: "Path leaves the repository" },
   "GS-201": { severity: "info", summary: "Formatting the editor cannot represent was simplified" },

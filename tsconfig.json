@@ -11,6 +11,7 @@
       "@gitcrook/shared": ["packages/shared/src/index.ts"],
       "@gitcrook/db": ["packages/db/src/index.ts"],
       "@gitcrook/markdown": ["packages/markdown/src/index.ts"],
+      "@gitcrook/git-sync": ["packages/git-sync/src/index.ts"],
       "@gitcrook/auth": ["packages/auth/src/index.ts"],
       "@/*": ["apps/web/*"]
     }

@@ -1,0 +1,18 @@
+{
+  "name": "@gitcrook/git-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@gitcrook/db": "workspace:*",
+    "@gitcrook/markdown": "workspace:*",
+    "@gitcrook/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "fast-check": "4.3.0",
+    "typescript": "^5.7.3"
+  }
+}
