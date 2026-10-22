@@ -242,10 +242,16 @@ model SiteRedirect {
   toPath     String
   statusCode Int      @default(308)
   createdAt  DateTime @default(now())
+  // Set on a redirect that a sync made (a moved page, `redirect_from`), so the next sync can add and
+  // remove its own redirects without touching the ones people made by hand. A removed source leaves
+  // them in place as ordinary redirects.
+  sourceId   String?
 
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  site   Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  source GitSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   @@unique([siteId, fromPath])
+  @@index([sourceId])
 }
 
 // ==================== Sections / groups / spaces / variants / pages ====================
@@ -376,6 +382,11 @@ model Page {
   sourceBlobSha String?
   frontMatterId String?
   deletedAt     DateTime?
+  // Published but left out of the sidebar and prev/next (front matter `hidden: true`).
+  isHidden      Boolean       @default(false)
+  // What the parser read from the file's front matter and heading, kept so the navigation can be
+  // rebuilt on every sync without fetching the files that did not change.
+  sourceMeta    Json?
 
   variant     Variant          @relation(fields: [variantId], references: [id], onDelete: Cascade)
   site        Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -642,6 +653,7 @@ model GitSource {
   runs         GitSyncRun[]
   pages        Page[]
   assets       Asset[]
+  redirects    SiteRedirect[]
 
   // The poller picks up sources that are due.
   @@index([status, lastCheckedAt])

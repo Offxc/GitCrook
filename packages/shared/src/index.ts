@@ -18,3 +18,4 @@ export * from "./slugs";
 export * from "./anchors";
 export * from "./urls";
 export * from "./shareLinks";
+export * from "./extractText";
