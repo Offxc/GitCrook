@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { prisma } from "@gitcrook/db";
 import type { ResolvedSite } from "./resolveSite";
 import { resolvePublishedPath } from "./resolvePublishedPath";
-import { getPageTree, flattenPageTree, pathsForTree, ancestorsOf } from "./getPageTree";
+import { getPageTree, flattenNavigablePages, pathsForTree, prefixPaths, ancestorsOf } from "./getPageTree";
 import { BlockNoteRenderer } from "@/lib/renderer/blockRenderer";
 import { SiteHeader } from "@/app/(published)/_components/SiteHeader";
 import { Sidebar, MobileNav } from "@/app/(published)/_components/Sidebar";
@@ -71,9 +71,12 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   const { section, space, variant, page, variantOptions, pathPrefix, sections } = resolved;
   trackEvent({ siteId: site.id, type: "PAGEVIEW", pageId: page.id, path: path.join("/"), ...meta });
   const tree = await getPageTree(variant.id);
-  const pathMap = pathsForTree(tree);
+  // The URL a link must carry to stay in this section/space/variant — the same
+  // shape computePagePath builds (default variant omitted, `~v/<slug>` otherwise).
+  const canonicalPrefix = [...pathPrefix, ...(variant.isDefault ? [] : ["~v", variant.slug])];
+  const pathMap = prefixPaths(pathsForTree(tree), canonicalPrefix);
 
-  const flat = flattenPageTree(tree);
+  const flat = flattenNavigablePages(tree);
   const activeIndex = flat.findIndex((n) => n.id === page.id);
   const prevNode = activeIndex > 0 ? flat[activeIndex - 1] : null;
   const nextNode = activeIndex >= 0 && activeIndex < flat.length - 1 ? flat[activeIndex + 1] : null;

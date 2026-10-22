@@ -49,6 +49,26 @@ export function flattenPageTree(nodes: PageTreeNode[]): PageTreeNode[] {
 }
 
 /**
+ * The pages a reader can actually land on, in display order. A group is only a
+ * sidebar header: its own URL resolves to its first child, so including it in
+ * prev/next made the first page of every group offer "Previous: <its own
+ * group>", which led straight back to the page being read.
+ */
+export function flattenNavigablePages(nodes: PageTreeNode[]): PageTreeNode[] {
+  return flattenPageTree(nodes).filter((node) => !node.isGroup);
+}
+
+/**
+ * `pathsForTree` knows only page slugs. A site with several sections or spaces
+ * (or a non-default variant) needs those segments in front of every link, or
+ * following a sidebar link 404s / silently leaves the variant being read.
+ */
+export function prefixPaths(paths: Map<string, string[]>, prefix: string[]): Map<string, string[]> {
+  if (prefix.length === 0) return paths;
+  return new Map([...paths].map(([id, path]) => [id, [...prefix, ...path]] as const));
+}
+
+/**
  * The chain of groups/pages above `pageId`, outermost first, excluding the
  * page itself — GitBook's breadcrumb is this ancestor path, not the
  * section/space the page happens to live in.
