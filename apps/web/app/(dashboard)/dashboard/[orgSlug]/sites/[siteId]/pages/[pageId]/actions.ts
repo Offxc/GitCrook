@@ -6,6 +6,7 @@ import { prisma } from "@gitcrook/db";
 import { canUserDoX, getSessionUserId } from "@gitcrook/auth";
 import { extractPlainText } from "@/lib/editor/extractText";
 import { toJsonSafe } from "@/lib/editor/jsonSafe";
+import { commitPageContent } from "@/lib/pages/commitPageContent";
 
 export interface SaveResult {
   ok: boolean;
@@ -24,9 +25,13 @@ export async function savePageContent(pageId: string, expectedVersion: number, c
   const current = await prisma.page.findUnique({ where: { id: pageId }, select: { contentVersion: true } });
   if (!current) notFound();
 
-  if (current.contentVersion !== expectedVersion) {
-    return { ok: false, conflict: true, contentVersion: current.contentVersion, error: "This page changed elsewhere — reload to see the latest version before saving again." };
-  }
+  const conflict = (contentVersion: number): SaveResult => ({
+    ok: false,
+    conflict: true,
+    contentVersion,
+    error: "This page changed elsewhere — reload to see the latest version before saving again.",
+  });
+  if (current.contentVersion !== expectedVersion) return conflict(current.contentVersion);
 
   const safeContent = toJsonSafe(content);
 
@@ -37,23 +42,22 @@ export async function savePageContent(pageId: string, expectedVersion: number, c
   const lastVersion = await prisma.pageVersion.findFirst({ where: { pageId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
   const dueForSnapshot = !lastVersion || Date.now() - lastVersion.createdAt.getTime() > VERSION_SNAPSHOT_INTERVAL_MS;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    if (dueForSnapshot) {
-      const before = await tx.page.findUnique({ where: { id: pageId }, select: { content: true, contentVersion: true } });
-      if (before) await tx.pageVersion.create({ data: { pageId, content: before.content as object, version: before.contentVersion, createdById: userId } });
-    }
-    return tx.page.update({
-      where: { id: pageId },
-      data: {
-        content: safeContent as object,
-        contentText: extractPlainText(content),
-        contentVersion: { increment: 1 },
-      },
-      select: { contentVersion: true },
-    });
+  const updated = await commitPageContent({
+    pageId,
+    expectedVersion,
+    content: safeContent as object,
+    contentText: extractPlainText(content),
+    userId,
+    snapshot: dueForSnapshot,
   });
 
-  return { ok: true, contentVersion: updated.contentVersion };
+  if (updated === null) {
+    const latest = await prisma.page.findUnique({ where: { id: pageId }, select: { contentVersion: true } });
+    if (!latest) notFound();
+    return conflict(latest.contentVersion);
+  }
+
+  return { ok: true, contentVersion: updated };
 }
 
 const VERSION_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000;

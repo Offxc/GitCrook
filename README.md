@@ -179,11 +179,9 @@ Docker is only needed for deployment.
 ```bash
 git clone https://github.com/Offxc/GitCrook.git gitcrook
 cd gitcrook
+pnpm install
 cp .env.example .env
 ```
-
-Create `.env` **before** `pnpm install`: the install runs `prisma generate`, which needs
-`DATABASE_URL` and fails without it.
 
 Fill in `.env`. The two values with no sensible default:
 
@@ -196,11 +194,9 @@ Put that in `AUTH_SECRET`, then create a Discord application
 (Discord Developer Portal → New Application → OAuth2) and set `AUTH_DISCORD_ID` /
 `AUTH_DISCORD_SECRET`, with `http://localhost:3000/api/auth/callback/discord` as a redirect URI.
 
-Then install, start a local PostgreSQL (runs as a child process — no Docker, no root), migrate,
-seed and run:
+Start a local PostgreSQL (runs as a child process — no Docker, no root), then migrate, seed and run:
 
 ```bash
-pnpm install
 pnpm --filter @gitcrook/db dev:pg    # leave running in its own terminal
 pnpm db:deploy
 pnpm db:seed
@@ -339,8 +335,8 @@ it comes, goes through pull requests rather than direct commits.
 ## Contributing
 
 ```bash
-cp .env.example .env        # fill in, as in Quick start — before installing
 pnpm install
+cp .env.example .env        # fill in, as in Quick start
 pnpm --filter @gitcrook/db dev:pg
 pnpm db:deploy && pnpm db:seed
 pnpm dev
