@@ -28,6 +28,10 @@ Content is edited **in place on the published page** — the structure you see w
 structure a reader sees. There's no separate authoring app to switch to, and no build step between
 writing and publishing.
 
+Or keep the content in Git instead. **Git Sync** (in development — see [below](#git-sync-in-development))
+points a site at a repository and follows your commits, so the docs stay current when the thing that
+changed was the code — whether a teammate or an AI coding agent changed it.
+
 ## Why
 
 Hosted documentation tools are genuinely good. They're also a recurring bill, a third party holding
@@ -42,9 +46,11 @@ GitCrook is the same shape of product with the trade-offs reversed. You run it, 
 database, the "premium" features are just features, and more sites cost nothing extra. The bill is
 whatever your server costs.
 
-It is deliberately **not** an AI product. No assistant, no embeddings, no agent, no third-party
-integrations, no telemetry phoning home. That's most of what the tier above Premium sells, and none
-of what I wanted.
+It is deliberately **not** an AI product. No assistant, no embeddings, no agent inside it, no
+telemetry phoning home. That's most of what the tier above Premium sells, and none of what I wanted.
+What it *is* is easy for your own tools to feed: with Git Sync the docs are plain Markdown in a
+repository, so whatever writes that Markdown — you, a teammate, or an AI agent working on the code —
+keeps the published site up to date. The one external integration is the Git host you point it at.
 
 ## Features
 
@@ -52,7 +58,7 @@ of what I wanted.
 - Live in-place editing on the published page — no separate editor view
 - Block editor (BlockNote/ProseMirror): headings, lists, tables, quotes, toggles, columns
 - Custom blocks: callouts, steppers, cards, buttons, page links, embeds, math, changelog entries
-- Syntax highlighting via Shiki, diagrams via Mermaid, equations via KaTeX
+- Syntax highlighting via Shiki, equations via KaTeX
 - Drag to reorder pages, drag into and out of page groups, inline rename
 - ~1,400 flat icons for pages, groups and sections, searchable
 - Page history with restore, and optimistic-concurrency conflict detection on autosave
@@ -75,9 +81,9 @@ of what I wanted.
   used to make the server issue requests on your behalf
 
 **Theming**
-- Four theme styles, primary and tint colours, semantic callout colours
+- Primary and tint colours, semantic callout colours
 - Body/heading/mono font selection plus custom `.woff2` upload
-- Corner, depth, link, icon and sidebar styles; light/dark/system with per-visitor override
+- Corner, depth, link and sidebar styles; light/dark/system with per-visitor override
 - Logo and favicon, announcement banner, header nav, footer, social links
 - No custom CSS/JS escape hatch, on purpose — themes stay upgradeable
 
@@ -94,6 +100,60 @@ of what I wanted.
 - Top search queries, outbound link clicks, and 404s from external referrers
 - Managed redirects to fix broken inbound URLs
 
+## Git Sync (in development)
+
+Git Sync lets a site's content live in a Git repository instead of the editor. Connect a
+repository, branch and folder, and every push to that branch re-publishes the pages it touched. It
+exists for the case where docs change because *code* changed — a pull request, or an AI coding
+agent that was asked to keep the documentation current — and nobody should have to open an editor
+to reflect it.
+
+> **Status: planned, not shipped.** The design below is settled enough to build against. The
+> build plan, sequencing and open decisions are in [PLAN.md](PLAN.md). Nothing in this section
+> works in a release yet.
+
+**How it will work**
+
+- **Repository → site first, one way.** The repository is the source of truth for the pages it
+  manages. Those pages are read-only in the editor and carry an "Edit on GitHub" link; the rest of
+  the site stays editable as normal. Two-way sync is deliberately not in v1 — see *lossless or
+  locked* below.
+- **Push-driven, with a safety net.** A signed webhook triggers a sync within seconds, and the
+  worker also polls so a missed delivery heals itself. "Sync now" and "Full re-sync" are there for
+  when you don't want to wait.
+- **Plain Markdown that GitHub can render.** Ordinary content is CommonMark + GFM. Callouts use
+  GitHub's `> [!NOTE]` alert syntax and expandables use `<details>`; richer blocks (tabs, steps,
+  columns, cards, changelog entries) use `:::` container directives. Everything degrades to
+  readable text in GitHub's own preview and in any editor. Repositories already synced with
+  GitBook (`SUMMARY.md`, `.gitbook.yaml`, `{% hint %}` tags) are read as they are.
+- **Structure from the folder tree.** Folders and `index.md`/`README.md` become the page tree;
+  front matter (`title`, `description`, `icon`, `slug`, `order`, `draft`, `redirect_from`) tunes
+  individual pages; an optional `gitcrook.yaml` or `SUMMARY.md` makes the navigation explicit.
+- **Stable identity.** A renamed or moved file keeps its page and history and gets an automatic
+  redirect from the old URL. A deleted file unpublishes first and is removed after a grace period.
+- **Visible and debuggable.** Every sync leaves a run log with per-file diagnostics (file, line,
+  reason). Files left out of the navigation, broken links, missing images and unknown directives
+  are warnings you can see, not silent omissions.
+- **Safe by construction.** The repository is treated as untrusted input: only the configured
+  branch is read, raw HTML is allow-listed, URLs and sizes are validated, images go through the
+  same upload pipeline as editor uploads, and every outbound request goes through the SSRF-checked
+  fetch chokepoint to an allow-listed host.
+- **Lossless or locked.** The Markdown ↔ block converter is a written spec with a conformance
+  suite. A page that can't round-trip without loss is never offered for write-back; it stays
+  read-only rather than risk rewriting your content.
+
+**Keeping docs current with an AI agent**
+
+An agent doesn't need a GitCrook integration: it edits Markdown in the repository and commits.
+To make that reliable the plan includes a `gitcrook-docs check` command that validates front
+matter, links, images and directives locally and in CI (the same parser the server uses), a
+copy-pasteable format cheat-sheet for agent instructions, and `.md` / `llms.txt` endpoints on the
+published site so agents can read the docs back.
+
+Credentials (a GitHub App, or a read-only token for private repositories) and the encryption key
+that protects them will be documented under [Configuration](#configuration) when the feature
+ships. Public repositories need none.
+
 ## Tech stack
 
 | Layer | Choice |
@@ -102,7 +162,7 @@ of what I wanted.
 | Database | PostgreSQL 18 + Prisma |
 | Auth | Auth.js v5 (Discord provider, database sessions) |
 | Editor | BlockNote (ProseMirror) |
-| Rendering | Shiki, KaTeX, Mermaid |
+| Rendering | Shiki, KaTeX |
 | Background jobs | Node worker + Playwright/Chromium (PDF export) |
 | Reverse proxy / TLS | Caddy 2 with on-demand certificates |
 | Deployment | Docker Compose, supervised by systemd |
@@ -119,9 +179,11 @@ Docker is only needed for deployment.
 ```bash
 git clone https://github.com/Offxc/GitCrook.git gitcrook
 cd gitcrook
-pnpm install
 cp .env.example .env
 ```
+
+Create `.env` **before** `pnpm install`: the install runs `prisma generate`, which needs
+`DATABASE_URL` and fails without it.
 
 Fill in `.env`. The two values with no sensible default:
 
@@ -134,9 +196,11 @@ Put that in `AUTH_SECRET`, then create a Discord application
 (Discord Developer Portal → New Application → OAuth2) and set `AUTH_DISCORD_ID` /
 `AUTH_DISCORD_SECRET`, with `http://localhost:3000/api/auth/callback/discord` as a redirect URI.
 
-Start a local PostgreSQL (runs as a child process — no Docker, no root), then migrate, seed and run:
+Then install, start a local PostgreSQL (runs as a child process — no Docker, no root), migrate,
+seed and run:
 
 ```bash
+pnpm install
 pnpm --filter @gitcrook/db dev:pg    # leave running in its own terminal
 pnpm db:deploy
 pnpm db:seed
@@ -154,14 +218,12 @@ pnpm worker
 
 ## Self-hosting
 
-[**RUNBOOK.md**](RUNBOOK.md) is the deployment guide: installing Docker on a fresh Ubuntu server,
-the `.env` values, the systemd unit that supervises the Compose stack, DNS records, and the
-redeploy procedure.
-
-The short version:
+You need a Linux server with Docker (Compose v2), ports 80 and 443 open, and DNS for your root
+domain pointing at it.
 
 ```bash
-cp .env.example .env     # fill in, then:
+cp .env.example .env     # fill in AUTH_SECRET, the Discord credentials, ROOT_DOMAIN,
+                         # ROOT_PROTOCOL=https and POSTGRES_PASSWORD, then:
 docker compose up -d --build
 ```
 
@@ -169,8 +231,18 @@ Five services come up: `postgres`, a one-shot `migrate` that applies pending mig
 app starts, `web`, `worker`, and `caddy`. Only Caddy is exposed to the internet — Postgres and the
 app are on an internal network with no published ports.
 
-Two named volumes must survive redeploys: `pgdata` (the database) and `uploads` (images, fonts and
-generated PDFs, shared between `web` and `worker`).
+**Redeploying:** `git pull && docker compose up -d --build`. The `migrate` service runs before the
+new `web` container starts.
+
+**Custom domains:** the tenant points the domain at your server, then adds a TXT record at
+`_gitcrook-challenge.<their-hostname>` with the `gitcrook-verify=…` value the dashboard shows. Caddy
+only issues a certificate for a hostname once it is verified.
+
+**State and backups:** two named volumes must survive redeploys — `pgdata` (the database) and
+`uploads` (images, fonts and generated PDFs, shared between `web` and `worker`). Nothing backs them
+up for you: schedule a `pg_dump` and a snapshot of `uploads`. Run the stack under something that
+restarts it after a reboot (a systemd unit that runs `docker compose up -d` works); the `postgres`
+service has no restart policy of its own.
 
 ## Configuration
 
@@ -225,12 +297,13 @@ schema per block. A reader never downloads the editor.
   requester's access to the owning resource, so a private site's attachments inherit its
   permissions.
 - **Outbound requests** on user-supplied URLs go through one chokepoint: HTTPS only, resolved IPs
-  checked against private and link-local ranges, connection pinned to the validated IP, redirects
-  re-validated per hop.
+  checked against private and link-local ranges, redirects re-validated per hop. Pinning the
+  connection to the validated IP (closing the DNS-rebinding window) is not implemented yet and is a
+  prerequisite for Git Sync, which is the first feature that makes server-initiated fetches.
 - **Secrets**: site passwords are Argon2id; Discord OAuth tokens are never persisted, since only
   identity is needed.
 - **Audit log** records sensitive actions — role changes, domain add/verify/revoke, password
-  changes, deletions — against the acting user.
+  changes, site and section deletions — against the acting user.
 
 Found something? Open a security advisory on the repository rather than a public issue.
 
@@ -239,27 +312,42 @@ Found something? Open a security advisory on the repository rather than a public
 Actively developed and running in production, but young. Known gaps, so nobody discovers them the
 hard way:
 
-- **No test suite yet.** A `test` script exists; nothing fills it.
+- **Git Sync is planned, not built.** See [above](#git-sync-in-development) and [PLAN.md](PLAN.md).
+- **No test suite and no lint step yet.** A `test` script exists; nothing fills it. `pnpm lint`
+  has no ESLint configuration behind it.
 - **Domain re-verification is manual.** Verifying is a button; there's no scheduled job re-checking
   a verified domain, so `NEEDS_REVERIFICATION` in the schema is currently unreachable.
-- **OG images are schema-only.** The theme has an `ogImage` option that nothing reads yet.
+- **OG images are schema-only.** The theme has an `ogImage` option that nothing reads yet, and
+  there is no `sitemap.xml`, `robots.txt` or canonical/OpenGraph metadata.
+- **Mermaid diagrams are not implemented.** The dependency is installed but nothing renders it.
 - **Section groups** (folders around sections) are modelled but have no UI — sections themselves do.
 - **Drafts publish immediately.** Saving an edit makes it live; there's no draft/publish staging.
+- **Rough edges in multi-section and multi-variant sites.** Pages created from the live sidebar
+  always land in the first section's default variant, and sidebar links don't carry the
+  section/variant prefix. Both are tracked in [PLAN.md](PLAN.md).
+- **Share links open one page.** Following a link inside the site loses the token.
+- **PDF export renders public pages only**, and search matches whole words only.
 
 ## Not included, on purpose
 
-No AI features. No third-party integrations or Git sync. No billing. No real-time multi-cursor
-collaboration (autosave is last-write-wins with conflict detection). No change-request review
-workflow — editing is direct, and `Space.editMode` is reserved for that if it lands later.
+No AI features inside the product. No third-party integrations beyond the Git host you connect for
+Git Sync. No billing. No real-time multi-cursor collaboration (autosave is last-write-wins with
+conflict detection). No change-request review workflow — editing is direct, and `Space.editMode`
+is reserved for that if it lands later. Git Sync starts one-way (repository → site); write-back, if
+it comes, goes through pull requests rather than direct commits.
 
 ## Contributing
 
 ```bash
+cp .env.example .env        # fill in, as in Quick start — before installing
 pnpm install
 pnpm --filter @gitcrook/db dev:pg
 pnpm db:deploy && pnpm db:seed
 pnpm dev
 ```
+
+[PLAN.md](PLAN.md) is the working backlog: audited fixes, the Git Sync build plan and the order to
+do them in. Start there if you want to pick something up.
 
 CI runs on every push and pull request: typecheck, a production build, and applying the whole
 migration chain plus the seed against a real PostgreSQL 18 service. Run the first two locally with:

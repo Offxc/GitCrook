@@ -43,8 +43,8 @@ COPY --from=build --chown=gitcrook:gitcrook /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=gitcrook:gitcrook /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=gitcrook:gitcrook /repo/packages/db/generated ./packages/db/generated
 # Baked into the image so a fresh named volume (empty on first mount) inherits
-# this ownership — see RUNBOOK.md's note on the one-time fix needed for a
-# volume that already exists from before this line was added.
+# this ownership. A volume that already exists from before this line was added
+# needs a one-time `chown -R 1001:1001` of its contents.
 RUN mkdir -p /data/uploads && chown -R gitcrook:gitcrook /data/uploads
 USER gitcrook
 EXPOSE 3000
