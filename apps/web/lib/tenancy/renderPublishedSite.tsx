@@ -251,14 +251,30 @@ export async function renderPublishedSite(site: ResolvedSite, path: string[], ba
   );
 }
 
-export async function publishedSiteMetadata(site: ResolvedSite | null, path: string[]): Promise<Metadata> {
+export async function publishedSiteMetadata(site: ResolvedSite | null, path: string[], shareLinkToken?: string): Promise<Metadata> {
   if (!site) return {};
+
+  // Metadata is part of the response a visitor receives, so it follows the same
+  // access rules as the page body: a visitor who would be shown the gate or the
+  // "private" screen must not learn page titles, descriptions or the favicon from
+  // the <head>. And nothing on a non-public site belongs in a search index.
+  const [userId, jar] = await Promise.all([getSessionUserId(), cookies()]);
+  const access = await resolveVisitorAccess({
+    site,
+    userId,
+    passwordProofCookie: jar.get(`vd-pw-${site.id}`)?.value,
+    shareLinkToken,
+  });
+  const noIndex = { index: false, follow: false } as const;
+  if (access.status !== "allow") return { title: site.name, robots: noIndex };
+
   const resolved = await resolvePublishedPath(site, path);
   if (!resolved) return {};
   const theme = resolveTheme(site.theme);
   return {
     title: `${resolved.page.title} — ${site.name}`,
     description: resolved.page.description ?? undefined,
+    robots: site.audienceMode === "PUBLIC" ? undefined : noIndex,
     alternates: {
       types: { "application/rss+xml": `/api/sites/${site.id}/updates.rss` },
     },

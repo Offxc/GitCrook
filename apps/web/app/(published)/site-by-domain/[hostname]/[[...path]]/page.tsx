@@ -20,8 +20,9 @@ export default async function PublishedDomainPage({ params, searchParams }: Page
   return renderPublishedSite(site, path ?? [], "", token);
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { hostname, path } = await params;
   const site = await resolveSiteByHostname(hostname);
-  return publishedSiteMetadata(site, path ?? []);
+  const { token } = await searchParams;
+  return publishedSiteMetadata(site, path ?? [], token);
 }

@@ -16,8 +16,9 @@ export default async function PublishedPage({ params, searchParams }: PageProps)
   return renderPublishedSite(site, path ?? [], `/${siteSlug}`, token);
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { siteSlug, path } = await params;
   const site = await resolveSiteBySlug(siteSlug);
-  return publishedSiteMetadata(site, path ?? []);
+  const { token } = await searchParams;
+  return publishedSiteMetadata(site, path ?? [], token);
 }
