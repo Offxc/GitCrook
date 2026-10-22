@@ -16,7 +16,7 @@ fetch the right one on first use.
 
 ```bash
 pnpm lint                # ESLint across the workspace; warnings are tolerated, errors are not
-pnpm typecheck           # web, worker, and the tests
+pnpm typecheck           # web, worker, the docs checker, and the tests
 pnpm test                # unit tests: no database, no network
 pnpm check:migrations    # fails if a migration drops an index Prisma can't see
 TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/postgres pnpm test:integration

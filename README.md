@@ -366,8 +366,8 @@ do them in. Start there if you want to pick something up.
 
 CI runs on every pull request and every push to `main`: lint, typecheck, unit tests, a migration
 history check, a production build, the integration tests against a real PostgreSQL 18 service
-(which also applies the whole migration chain and the seed), and end-to-end tests in Chromium. Run
-the same locally with:
+(which also applies the whole migration chain and the seed), end-to-end tests in Chromium, a
+dependency audit, and a build of both Docker images. Run the same locally with:
 
 ```bash
 pnpm lint
