@@ -160,8 +160,47 @@ describe("reapStuckRuns", () => {
     expect(await prisma.gitSyncRun.findUniqueOrThrow({ where: { id: deadRun.id } })).toMatchObject({ status: "FAILED" });
     expect((await prisma.gitSyncRun.findUniqueOrThrow({ where: { id: deadRun.id } })).error).toContain("worker stopped");
     expect(await prisma.gitSyncRun.findUniqueOrThrow({ where: { id: liveRun.id } })).toMatchObject({ status: "RUNNING" });
-    expect((await prisma.gitSource.findUniqueOrThrow({ where: { id: dead.id } })).status).toBe("IDLE");
+    const freed = await prisma.gitSource.findUniqueOrThrow({ where: { id: dead.id } });
+    expect(freed.status).toBe("IDLE");
+    // One interruption is nothing unusual (a redeploy): the poller is free to try again at once.
+    expect(freed.lastCheckedAt).toBeNull();
     expect((await prisma.gitSource.findUniqueOrThrow({ where: { id: alive.id } })).status).toBe("SYNCING");
+  });
+
+  it("makes a repository that stops the worker twice in a row wait a full interval before the next try", async () => {
+    const s = await source({ status: "SYNCING", pollIntervalSec: 3600 });
+    const longAgo = new Date(Date.now() - 10 * 60_000);
+    for (let i = 0; i < 2; i++) {
+      await prisma.gitSource.update({ where: { id: s.id }, data: { status: "SYNCING" } });
+      await prisma.gitSyncRun.create({ data: { sourceId: s.id, trigger: "POLL", toSha: "x", status: "RUNNING", startedAt: longAgo, heartbeatAt: longAgo, createdAt: new Date(Date.now() - (10 - i) * 1000) } });
+      await reapStuckRuns();
+      const checked = (await prisma.gitSource.findUniqueOrThrow({ where: { id: s.id } })).lastCheckedAt;
+      if (i === 0) expect(checked).toBeNull();
+      else expect(checked!.getTime()).toBeGreaterThan(Date.now() - 60_000);
+    }
+    expect(await enqueueDueSources()).toBe(0);
+  });
+
+  it("pauses a repository that stops the worker three times in a row, and not one that did so once", async () => {
+    const s = await source({ status: "SYNCING" });
+    const longAgo = new Date(Date.now() - 10 * 60_000);
+    for (let i = 0; i < 3; i++) {
+      await prisma.gitSource.update({ where: { id: s.id }, data: { status: "SYNCING" } });
+      await prisma.gitSyncRun.create({ data: { sourceId: s.id, trigger: "POLL", toSha: "x", status: "RUNNING", startedAt: longAgo, heartbeatAt: longAgo, createdAt: new Date(Date.now() - (10 - i) * 1000) } });
+      await reapStuckRuns();
+      const now = await prisma.gitSource.findUniqueOrThrow({ where: { id: s.id } });
+      expect(now.status).toBe(i < 2 ? "IDLE" : "PAUSED");
+    }
+    expect((await prisma.gitSource.findUniqueOrThrow({ where: { id: s.id } })).lastError).toContain("stopped the sync worker 3 times in a row");
+  });
+
+  it("does not pause a repository whose stops were interleaved with successful syncs", async () => {
+    const s = await source({ status: "SYNCING" });
+    const longAgo = new Date(Date.now() - 10 * 60_000);
+    await prisma.gitSyncRun.create({ data: { sourceId: s.id, trigger: "POLL", toSha: "a", status: "SUCCEEDED", createdAt: new Date(Date.now() - 5000) } });
+    await prisma.gitSyncRun.create({ data: { sourceId: s.id, trigger: "POLL", toSha: "x", status: "RUNNING", startedAt: longAgo, heartbeatAt: longAgo } });
+    await reapStuckRuns();
+    expect((await prisma.gitSource.findUniqueOrThrow({ where: { id: s.id } })).status).toBe("IDLE");
   });
 
   it("treats a run that never sent a heartbeat as stale once it is old enough", async () => {

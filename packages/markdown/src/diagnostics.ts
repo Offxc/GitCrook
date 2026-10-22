@@ -26,6 +26,7 @@ export const CATALOGUE = {
   "GS-205": { severity: "warning", summary: "Directive has missing or invalid attributes" },
   "GS-206": { severity: "info", summary: "Construct is converted to the nearest equivalent" },
   "GS-207": { severity: "warning", summary: "Document is too deeply nested or too large" },
+  "GS-208": { severity: "error", summary: "The file could not be read in time or ran out of memory, and was skipped" },
   "GS-210": { severity: "info", summary: "Tabs are shown as expandable sections" },
   "GS-301": { severity: "warning", summary: "Rate limited, retrying" },
   "GS-302": { severity: "error", summary: "Branch or repository is not reachable" },

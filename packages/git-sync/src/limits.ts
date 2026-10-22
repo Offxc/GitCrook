@@ -4,6 +4,8 @@ export interface SyncLimits {
   maxFiles: number;
   /** Bytes in one Markdown file. */
   maxMarkdownBytes: number;
+  /** Bytes of Markdown read in one run. */
+  maxMarkdownRunBytes: number;
   /** Bytes in one image or other asset. */
   maxAssetBytes: number;
   /** Bytes of assets in one run. */
@@ -19,6 +21,7 @@ export interface SyncLimits {
 export const DEFAULT_LIMITS: SyncLimits = {
   maxFiles: 5_000,
   maxMarkdownBytes: 1_000_000,
+  maxMarkdownRunBytes: 100_000_000,
   maxAssetBytes: 20_000_000,
   maxRunBytes: 500_000_000,
   maxConfigBytes: 256_000,

@@ -5,7 +5,6 @@ import {
   containerPageBlocks,
   Diagnostics,
   diagnostic,
-  parseMarkdown,
   readRepoConfig,
   resolveRepoLink,
   type Diagnostic,
@@ -15,7 +14,7 @@ import {
 } from "@gitcrook/markdown";
 import { extractPlainText, variantPrefix, type StructureSection } from "@gitcrook/shared";
 import type { SecretBox } from "@gitcrook/shared/server";
-import { applyTree, ForeignPagesError, type ApplyStats, type PageWrite } from "./apply";
+import { applyTree, ForeignPagesError, MAX_REDIRECTS_PER_SOURCE, type ApplyStats, type PageWrite } from "./apply";
 import { resolveCredential, redactSecrets } from "./credentials";
 import { GitHubClient, type BranchInfo, type FetchLike } from "./github/client";
 import { GitHostError } from "./github/errors";
@@ -23,6 +22,7 @@ import { DEFAULT_LIMITS, type SyncLimits } from "./limits";
 import { metaFrom, navFileFrom, readMeta, type SourceMeta } from "./meta";
 import { matchMovesById, planChanges, type KnownFile, type Plan } from "./plan";
 import { relativeUrl, rewriteBlocks, type Target } from "./rewrite";
+import { getParserPool, ParseCrashError, ParseTimeoutError, type ParserPool } from "./parser/pool";
 import { decodeRepoText } from "./text";
 import { CONFIG_FILE_NAMES, isConfigPath, listFiles } from "./tree";
 
@@ -43,6 +43,8 @@ export interface SyncDeps {
   apiBase?: string;
   allowedHosts?: readonly string[];
   limits?: Partial<SyncLimits>;
+  /** Parses Markdown on a thread that can be stopped. Defaults to the process's shared one; tests pass their own. */
+  parser?: ParserPool;
   now?: () => Date;
   /** Told when something is worth a line in the worker's log. Never receives a secret. */
   log?: (message: string) => void;
@@ -304,6 +306,10 @@ async function synchronise(run: Run, client: GitHubClient, branch: BranchInfo): 
   const parsed = new Map<string, Parsed>();
   const skipped = new Set<string>();
 
+  // The same file content under several names is fetched once, and what is read in total is bounded.
+  const textBySha = new Map<string, Promise<string | null>>();
+  let markdownBytes = 0;
+
   const fetchMarkdown = async (paths: readonly string[]) => {
     await mapLimit(
       paths.filter((p) => !texts.has(p) && !skipped.has(p)),
@@ -316,8 +322,19 @@ async function synchronise(run: Run, client: GitHubClient, branch: BranchInfo): 
           skipped.add(path);
           return;
         }
-        const text = await readText(run, client, file.sha, limits.maxMarkdownBytes, run.where(path));
-        run.stats.fetched = (run.stats.fetched ?? 0) + 1;
+        let pending = textBySha.get(file.sha);
+        if (!pending) {
+          if (markdownBytes + file.size > limits.maxMarkdownRunBytes) {
+            run.add(diagnostic("GS-150", `"${run.where(path)}" was skipped: this run has already read ${limits.maxMarkdownRunBytes} bytes of Markdown.`, { path: run.where(path) }));
+            skipped.add(path);
+            return;
+          }
+          markdownBytes += file.size;
+          pending = readText(run, client, file.sha, limits.maxMarkdownBytes, run.where(path));
+          textBySha.set(file.sha, pending);
+          run.stats.fetched = (run.stats.fetched ?? 0) + 1;
+        }
+        const text = await pending;
         if (text === null) skipped.add(path);
         else texts.set(path, text);
       },
@@ -325,31 +342,27 @@ async function synchronise(run: Run, client: GitHubClient, branch: BranchInfo): 
   };
 
   const seedFor = (path: string): string => metaOf.get(path)?.idSeed ?? path;
+  const parser = run.deps.parser ?? getParserPool();
   const parseAll = async (paths: readonly string[], seeds: ReadonlyMap<string, string>) => {
     for (const path of paths) {
       const text = texts.get(path);
       if (text === undefined) continue;
       const seed = seeds.get(path) ?? path;
-      // `{% include %}` reads other files of the repository: parse, fetch what was asked for, parse again.
-      let result: ParseResult | null = null;
-      for (let round = 0; round < 4; round++) {
-        const wanted = new Set<string>();
-        result = parseMarkdown(text, {
-          path,
-          idSeed: seed,
-          resolveInclude: (target) => {
-            const resolved = resolveRepoLink(path, target);
-            if (!resolved || "escapes" in resolved) return null;
-            const cached = texts.get(resolved.path);
-            if (cached !== undefined) return cached;
-            if (markdownByPath.has(resolved.path)) wanted.add(resolved.path);
-            return null;
-          },
+      run.checkTime();
+      try {
+        // `{% include %}` reads other files of the repository: the parser asks for them, and they are fetched on demand.
+        const result = await parser.parse(text, { path, idSeed: seed }, async (target) => {
+          const resolved = resolveRepoLink(path, target);
+          if (!resolved || "escapes" in resolved) return null;
+          if (!texts.has(resolved.path) && markdownByPath.has(resolved.path)) await fetchMarkdown([resolved.path]);
+          return texts.get(resolved.path) ?? null;
         });
-        if (wanted.size === 0) break;
-        await fetchMarkdown([...wanted]);
+        parsed.set(path, { path, sha: markdownByPath.get(path)!.sha, result, seed });
+      } catch (error) {
+        if (!(error instanceof ParseTimeoutError || error instanceof ParseCrashError)) throw error;
+        run.add(diagnostic("GS-208", `"${run.where(path)}" was skipped: ${error.message}`, { path: run.where(path) }));
+        skipped.add(path);
       }
-      parsed.set(path, { path, sha: markdownByPath.get(path)!.sha, result: result!, seed });
     }
   };
 
@@ -372,7 +385,12 @@ async function synchronise(run: Run, client: GitHubClient, branch: BranchInfo): 
   // --- The navigation -----------------------------------------------------------------------------
   const navFiles: NavFile[] = [];
   for (const file of markdownFiles) {
-    if (skipped.has(file.path)) continue;
+    if (skipped.has(file.path)) {
+      // A file that could not be read this time (too big, not text, took too long) leaves the page it already made as it was.
+      const previous = metaOf.get(file.path);
+      if (previous) navFiles.push(navFileFrom(file.path, previous));
+      continue;
+    }
     const fresh = parsed.get(file.path);
     if (fresh) {
       navFiles.push({ path: file.path, frontMatter: fresh.result.frontMatter, title: fresh.result.title });
@@ -383,6 +401,13 @@ async function synchronise(run: Run, client: GitHubClient, branch: BranchInfo): 
   }
   const nav = buildNavigation({ files: navFiles, config, summary });
   run.add(...nav.diagnostics.map((d) => (d.path && !isConfigPath(d.path, config) ? { ...d, path: run.where(d.path) } : d)));
+
+  const askedRedirects = nav.nodes.reduce(function count(n: number, node: NavNode): number {
+    return node.children.reduce(count, n + node.redirectFrom.length);
+  }, 0);
+  if (askedRedirects > MAX_REDIRECTS_PER_SOURCE) {
+    run.add(diagnostic("GS-207", `${askedRedirects} old addresses are listed in redirect_from; only the first ${MAX_REDIRECTS_PER_SOURCE} are used.`));
+  }
 
   // A configuration error stops the run before anything is touched.
   const fatal = run.diagnostics.find((d) => d.severity === "error" && d.path !== undefined && isConfigPath(d.path, config));

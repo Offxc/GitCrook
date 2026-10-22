@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { makeOrg, makeSite, resetDatabase } from "../../../tests/support/factory";
 import { createTokenCredential } from "./credentials";
 import { runSync, type AssetImporter, type SyncDeps } from "./sync";
+import { ParserPool } from "./parser/pool";
 import { FakeGitHub } from "./testing/fakeGitHub";
 
 beforeEach(resetDatabase);
@@ -530,4 +531,59 @@ describe("pages that link to each other", () => {
     expect(second.diagnostics.map((d) => d.code)).not.toContain("GS-130");
     expect(textOf((await pages())["a.md"]!)).toContain('"href":"b"');
   });
+});
+
+describe("files that are hostile or too much", () => {
+  it("stops a file the parser cannot finish, reports it, and publishes everything else", async () => {
+    const pool = new ParserPool({ timeoutMs: 500 });
+    try {
+      const t = await setup({ files: { "ok.md": "# OK\n\nFine.\n", "evil.md": ":::a\n".repeat(3000), "also-ok.md": "# Also OK\n" } });
+      t.deps.parser = pool;
+      const outcome = await t.sync();
+      expect(outcome.status).toBe("PARTIAL");
+      expect(outcome.diagnostics.find((d) => d.code === "GS-208")).toMatchObject({ path: "evil.md", severity: "error" });
+      expect(Object.keys(await pages()).sort()).toEqual(["also-ok.md", "ok.md"]);
+    } finally {
+      pool.close();
+    }
+  }, 60_000);
+
+  it("leaves a page as it was when its file stops being readable", async () => {
+    const t = await setup({ files: { "a.md": "# A\n\nOriginal text.\n", "b.md": "# B\n" } });
+    await t.sync();
+    t.deps.limits = { maxMarkdownBytes: 200 };
+    t.repo.commit({ "a.md": `# A\n\nChanged.\n${"x".repeat(500)}\n` });
+    const outcome = await t.sync();
+    expect(outcome.diagnostics.map((d) => [d.code, d.path])).toContainEqual(["GS-150", "a.md"]);
+    const p = await pages();
+    expect(Object.keys(p).sort()).toEqual(["a.md", "b.md"]);
+    expect(textOf(p["a.md"]!)).toContain("Original text.");
+    expect(p["a.md"]!.deletedAt).toBeNull();
+
+    // And once it is small again, it is read again.
+    t.repo.commit({ "a.md": "# A\n\nShort again.\n" });
+    await t.sync();
+    expect(textOf((await pages())["a.md"]!)).toContain("Short again.");
+  }, 60_000);
+
+  it("fetches identical files once, however many names they have", async () => {
+    const same = "# Same\n\nIdentical content.\n";
+    const files = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`copy-${i}.md`, same]));
+    const t = await setup({ files });
+    const outcome = await t.sync();
+    expect(outcome.stats.added).toBeGreaterThanOrEqual(12);
+    expect(blobRequests(t.github)).toBe(1);
+  }, 60_000);
+
+  it("stops reading Markdown once a run has read as much as it may", async () => {
+    const files = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`p${i}.md`, `# P${i}\n\n${String(i).repeat(300)}\n`]));
+    const t = await setup({ files });
+    t.deps.limits = { maxMarkdownRunBytes: 1000 };
+    const outcome = await t.sync();
+    const skipped = outcome.diagnostics.filter((d) => d.code === "GS-150");
+    expect(skipped.length).toBeGreaterThan(0);
+    expect(skipped[0]!.message).toContain("already read");
+    expect(Object.keys(await pages()).length).toBeLessThan(8);
+    expect(Object.keys(await pages()).length).toBeGreaterThan(0);
+  }, 60_000);
 });

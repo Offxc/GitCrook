@@ -109,12 +109,28 @@ export async function reapStuckRuns(now: Date = new Date(), staleAfterMs = 90_00
   const stuck = await prisma.gitSyncRun.findMany({ where: { status: "RUNNING", OR: [{ heartbeatAt: { lt: cutoff } }, { heartbeatAt: null, startedAt: { lt: cutoff } }] }, select: { id: true, sourceId: true } });
   for (const run of stuck) {
     await prisma.$transaction([
-      prisma.gitSyncRun.update({ where: { id: run.id }, data: { status: "FAILED", finishedAt: now, error: "The worker stopped before this run finished. The site was not changed by it." } }),
+      prisma.gitSyncRun.update({ where: { id: run.id }, data: { status: "FAILED", finishedAt: now, error: WORKER_STOPPED } }),
       prisma.gitSource.updateMany({ where: { id: run.sourceId, status: "SYNCING" }, data: { status: "IDLE", lastError: "A sync was interrupted; it will be tried again." } }),
     ]);
+    // A redeploy interrupts a run now and then, and the poller tries again at once. A repository that stops the worker
+    // every time it is read is a different matter: after a second time in a row it waits a full interval, and after a
+    // third it is paused until someone looks, rather than taking the worker down over and over.
+    const recent = await prisma.gitSyncRun.findMany({ where: { sourceId: run.sourceId, status: { notIn: ["PENDING", "RUNNING"] } }, orderBy: { createdAt: "desc" }, take: STOPS_BEFORE_PAUSE, select: { error: true } });
+    let stops = 0;
+    while (stops < recent.length && recent[stops]!.error === WORKER_STOPPED) stops++;
+    if (stops >= 2) await prisma.gitSource.updateMany({ where: { id: run.sourceId, status: { not: "PAUSED" } }, data: { lastCheckedAt: now } });
+    if (stops >= STOPS_BEFORE_PAUSE) {
+      await prisma.gitSource.updateMany({
+        where: { id: run.sourceId, status: { not: "PAUSED" } },
+        data: { status: "PAUSED", lastError: `Reading this repository stopped the sync worker ${STOPS_BEFORE_PAUSE} times in a row, so syncing is paused. Check the repository for very large or unusual files, then resume.` },
+      });
+    }
   }
   return stuck.length;
 }
+
+const WORKER_STOPPED = "The worker stopped before this run finished. The site was not changed by it.";
+const STOPS_BEFORE_PAUSE = 3;
 
 /** Old finished runs are history nobody reads past a point. Keeps the last `keep` per source. */
 export async function pruneRuns(sourceId: string, keep = 200): Promise<number> {

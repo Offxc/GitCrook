@@ -1,6 +1,6 @@
 import type { Blockquote, Code, Heading, List, ListItem, Paragraph, PhrasingContent, RootContent, Table } from "mdast";
 import { toString } from "mdast-util-to-string";
-import { isHintStyle } from "@gitcrook/shared";
+import { isHintStyle, safeMediaUrl } from "@gitcrook/shared";
 import type { Block, Inline, TableCell, TableContent } from "../types";
 import { createBlock, type ConvertContext, type Place } from "./context";
 import { convertDirective } from "./directives";
@@ -132,15 +132,23 @@ function convertParagraph(node: Paragraph, ctx: ConvertContext, place: Place, in
   const make = (type: string, props: Record<string, unknown>, content?: Block["content"]) =>
     createBlock(ctx, place, index + out.length, type, props, content, node);
 
+  /** An image as a block, or nothing (and a message) if its address is not one a page may point at. */
+  const pushImage = (image: { url: string; alt: string; title: string | null }) => {
+    const url = safeMediaUrl(image.url);
+    if (!url) {
+      ctx.diags.add("GS-132", `Image address "${image.url.slice(0, 80)}" is not allowed; the image was left out.`, node.position);
+      return;
+    }
+    const block = make("image", { url, caption: image.title ?? "", name: image.alt });
+    if (block) {
+      out.push(block);
+      ctx.references.push({ kind: "image", target: url, blockId: block.id, line: node.position?.start.line });
+    }
+  };
+
   const images = onlyImages(node.children);
   if (images) {
-    for (const image of images) {
-      const block = make("image", { url: image.url, caption: image.title ?? "", name: image.alt });
-      if (block) {
-        out.push(block);
-        ctx.references.push({ kind: "image", target: image.url, blockId: block.id, line: node.position?.start.line });
-      }
-    }
+    for (const image of images) pushImage(image);
     return out;
   }
 
@@ -168,11 +176,7 @@ function convertParagraph(node: Paragraph, ctx: ConvertContext, place: Place, in
   if (pieces.length > 1) ctx.diags.add("GS-206", "An image in the middle of a paragraph was moved onto its own line.", node.position);
   for (const piece of pieces) {
     if ("image" in piece) {
-      const block = make("image", { url: piece.image.url, caption: piece.image.title ?? "", name: piece.image.alt });
-      if (block) {
-        out.push(block);
-        ctx.references.push({ kind: "image", target: piece.image.url, blockId: block.id, line: node.position?.start.line });
-      }
+      pushImage(piece.image);
       continue;
     }
     const inline = phrasingToInline(piece.text, inlineCtx(ctx));

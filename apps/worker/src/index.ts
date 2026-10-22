@@ -1,6 +1,6 @@
 import { createAssetImporter } from "@gitcrook/assets";
 import { prisma } from "@gitcrook/db";
-import { createGitSyncRunner, hostConfigFromEnv } from "@gitcrook/git-sync";
+import { closeParserPool, createGitSyncRunner, hostConfigFromEnv } from "@gitcrook/git-sync";
 import { SecretBox } from "@gitcrook/shared/server";
 import { runExportPdfJob } from "./jobs/exportPdf";
 
@@ -19,7 +19,7 @@ function startGitSync() {
   }
   const { apiBase, allowedHosts } = hostConfigFromEnv();
   return createGitSyncRunner(
-    { secrets, assets: createAssetImporter(), apiBase, allowedHosts, log: (m) => console.log(m) },
+    { secrets, assets: createAssetImporter(undefined, { maxOrganizationBytes: (Number(process.env.GIT_SYNC_ORG_ASSET_QUOTA_MB) || 2048) * 1024 * 1024 }), apiBase, allowedHosts, log: (m) => console.log(m) },
     { concurrency: Math.max(1, Number(process.env.GIT_SYNC_CONCURRENCY) || 2), log: (m) => console.log(m) },
   );
 }
@@ -50,6 +50,7 @@ async function main(): Promise<void> {
   const shutdown = async () => {
     console.log("[worker] stopping; waiting for Git Sync runs to finish");
     await Promise.race([gitSync.idle(), new Promise((resolve) => setTimeout(resolve, 20_000))]);
+    closeParserPool();
     process.exit(0);
   };
   process.once("SIGTERM", () => void shutdown());

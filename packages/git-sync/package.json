@@ -8,7 +8,8 @@
   "dependencies": {
     "@gitcrook/db": "workspace:*",
     "@gitcrook/markdown": "workspace:*",
-    "@gitcrook/shared": "workspace:*"
+    "@gitcrook/shared": "workspace:*",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@gitcrook/assets": "workspace:*",

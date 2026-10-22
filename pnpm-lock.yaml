@@ -283,6 +283,9 @@ importers:
       '@gitcrook/shared':
         specifier: workspace:*
         version: link:../shared
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
     devDependencies:
       '@gitcrook/assets':
         specifier: workspace:*

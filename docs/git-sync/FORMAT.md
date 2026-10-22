@@ -360,7 +360,13 @@ is flattened into its parent (`GS-206`).
 ## Limits
 
 A page of more than 5,000 blocks, or nested more than 20 levels deep, is cut off at the limit with `GS-207`.
-Both are configurable by the caller. Parsing never throws: bad input produces diagnostics, not exceptions.
+Both are configurable by the caller. GitBook tags (`{% hint %}` and the like) nest at most 8 deep, and the
+`{% include %}`s of one page add up to at most 200 files or 1,000,000 characters (`GS-207`). Parsing never throws: bad
+input produces diagnostics, not exceptions.
+
+The Markdown parser is not linear in every input: some shapes of file (thousands of list items, deeply nested
+directives) take it far longer than their size suggests. A sync therefore reads each file on a separate thread with a
+20-second limit and a memory limit; a file that exceeds either is skipped and reported as `GS-208`.
 
 ## Block ids
 
@@ -384,7 +390,7 @@ changed or skipped) and `info`.
 | `GS-122` | warning | File appears more than once in the navigation |
 | `GS-130` | warning | Link to a page that does not exist |
 | `GS-131` | warning | Image, file or include that does not exist |
-| `GS-132` | warning | Link with an unsafe or unsupported URL |
+| `GS-132` | warning | Link or image with an unsafe or unsupported address |
 | `GS-140` | info | File type is not imported |
 | `GS-150` | error | File is too large |
 | `GS-151` | error | The repository has too many files to import |
@@ -395,7 +401,8 @@ changed or skipped) and `info`.
 | `GS-204` | info | HTML that is not allowed was removed, or a tag was unbalanced |
 | `GS-205` | warning | Directive has missing or invalid attributes |
 | `GS-206` | info | Construct is converted to the nearest equivalent |
-| `GS-207` | warning | Document is too deeply nested or too large |
+| `GS-207` | warning | Document is too deeply nested or too large, or includes too much |
+| `GS-208` | error | The file took too long to read, or ran out of memory, and was skipped |
 | `GS-210` | info | Tabs are shown as expandable sections |
 | `GS-301` | warning | Rate limited, retrying |
 | `GS-302` | error | Branch or repository is not reachable |
