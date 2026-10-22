@@ -9,9 +9,10 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
 
   const publishedBase = publishedUrlFor(site);
 
-  const [pageCount, sectionCount] = await Promise.all([
+  const [pageCount, sectionCount, gitSourceCount] = await Promise.all([
     prisma.page.count({ where: { siteId: site.id, isGroup: false, deletedAt: null } }),
     prisma.section.count({ where: { siteId: site.id } }),
+    prisma.gitSource.count({ where: { siteId: site.id } }),
   ]);
 
   return (
@@ -55,6 +56,10 @@ export default async function SiteOverviewPage({ params }: { params: Promise<{ o
           <p className="mt-1 text-sm text-ink-muted">
             {sectionCount} top-level tab{sectionCount === 1 ? "" : "s"}
           </p>
+        </Link>
+        <Link href={`/dashboard/${orgSlug}/sites/${site.id}/git`} className="rounded-xl border border-border bg-canvas p-5 transition hover:border-brand">
+          <h2 className="text-sm font-medium text-ink">Git Sync</h2>
+          <p className="mt-1 text-sm text-ink-muted">{gitSourceCount > 0 ? `${gitSourceCount} repositor${gitSourceCount === 1 ? "y" : "ies"} connected` : "Pages from a GitHub repository"}</p>
         </Link>
       </div>
 
