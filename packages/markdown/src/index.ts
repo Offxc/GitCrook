@@ -10,3 +10,4 @@ export { defaultConfig, readRepoConfig, type NavEntry, type RepoConfig } from ".
 export { basenameOf, cleanRepoPath, dirnameOf, humanize, isMarkdownPath, resolveRepoLink, stemOf } from "./nav/paths";
 export { parseSummary, specFromNav, type SpecEntry } from "./nav/summary";
 export { Diagnostics } from "./diagnostics";
+export { configJsonSchema, frontMatterJsonSchema } from "./schemas";

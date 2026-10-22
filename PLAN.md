@@ -111,6 +111,7 @@ the format in `docs/git-sync/FORMAT.md`.
 | GS-15 | `packages/assets`: the upload pipeline as a library, used by `/api/upload` and by the importer. **SVG is allowed** — rebuilt from an allow-list, served with a sandboxing CSP and `nosniff` |
 | GS-16 / GS-17 | Dashboard (Site settings → Git Sync): connect, status, runs with diagnostics, sync now / full re-sync / pause, settings, token. Pages from a source are read-only in the editor, on the server as well, with an "Edit on GitHub" link; the reader hides drafts, hidden pages and soft-deleted pages from the sidebar, search, feed and Markdown view |
 | GS-20 | `/{page}.md`, `/llms.txt`, `/llms-full.txt` for every site. A suffix cannot be a Next route, so the proxy rewrites `*.md` to a `~md` folder (`~` cannot be in a slug, so it can never shadow a page); the handlers apply the page's visitor access, a rate limit and cache headers; `llms-full.txt` reads pages in batches and stops at 2 MB, saying so |
+| GS-19 | `packages/git-sync/src/analyze.ts` reads a whole repository like a sync without a database; `packages/docs-cli` is the folder reader and command (`check`, `tree`, text/JSON/GitHub-annotation output), bundled to one file by esbuild. A parity test runs 14 repositories through both the analysis and a sync preview and requires identical findings — it found two real discrepancies (the preview called every existing image missing; diagnostics showed paths relative to a docs folder named only in `.gitbook.yaml`). JSON Schemas for front matter and `gitcrook.yaml` are generated from the importer's Zod schemas and checked by snapshot; `docs/git-sync/agent-guide.md` is the paste-in section for agents. Not published to a registry (decision for the maintainer) |
 | GS-21 | The fake-GitHub harness above |
 | GS-22 | `docs/git-sync/README.md`, root README, `.env.example` |
 
@@ -118,8 +119,7 @@ the format in `docs/git-sync/FORMAT.md`.
 new address (the site's old root included); adding a section whose address is already a top-level page of the
 first section is refused with an explanation. Covered by unit, integration and end-to-end tests.
 
-**Open:** GS-18 (GitHub App login; `GITHUB_APP_INSTALLATION` credentials are rejected for now), GS-19
-(`gitcrook-docs check`), the dry-run preview in the dashboard
+**Open:** GS-18 (GitHub App login; `GITHUB_APP_INSTALLATION` credentials are rejected for now), the dry-run preview in the dashboard
 (the engine supports it: `runSync(..., { dryRun: true })`), A8 (group renames do not create redirects), the editor surface does not yet show tab
 content as tabs (`GS-210`), and the remaining S13–S19 hardening items.
 
@@ -758,7 +758,7 @@ client. Planned configuration: `GIT_SYNC_ENCRYPTION_KEY`, `GITHUB_APP_ID`,
 | GS-16 ✓ | M | Managed-page UX: read-only editor, banner, Edit on GitHub, sidebar locks | GS-08, A2 |
 | GS-17 ✓ | L | Dashboard and modal panel: connect, dry run, status, runs, actions | GS-12, GS-16 |
 | GS-18 | M | GitHub App manifest flow | GS-11 |
-| GS-19 | M | `packages/docs-cli` (`check`), JSON Schemas, cheat-sheet generator | GS-06 |
+| GS-19 ✓ | M | `packages/docs-cli` (`check`), JSON Schemas, cheat-sheet generator | GS-06 |
 | GS-20 ✓ | S | `/<page>.md`, `/llms.txt`, `/llms-full.txt` | GS-04 |
 | GS-21 ✓ | L | Test harness: fake GitHub API over a local bare repo; failure injection (truncated tree, force-push, rate limit, 5k files, bad YAML, symlink, traversal, cycles, duplicate slugs, missing README, case-colliding paths, LFS pointer) | GS-12 |
 | GS-22 ✓ | M | Docs: README setup, FORMAT.md, agent guide, GitBook migration guide | all |

@@ -1,0 +1,26 @@
+{
+  "name": "@gitcrook/docs-cli",
+  "version": "0.1.0",
+  "description": "Check a documentation repository the way GitCrook's Git Sync will read it.",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "bin": {
+    "gitcrook-docs": "dist/gitcrook-docs.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "tsx src/cli.ts check"
+  },
+  "dependencies": {
+    "@gitcrook/git-sync": "workspace:*",
+    "@gitcrook/markdown": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

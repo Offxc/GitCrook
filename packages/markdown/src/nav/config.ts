@@ -24,14 +24,14 @@ const entry: z.ZodType<NavEntry> = z.lazy(() =>
 
 const redirects = z.record(z.string().min(1), z.string().min(1));
 
-const gitcrookSchema = z.object({
+export const gitcrookSchema = z.object({
   version: z.literal(1).optional(),
   root: z.string().optional(),
   nav: z.array(entry).max(2000).optional(),
   redirects: redirects.optional(),
 });
 
-const gitbookSchema = z.object({
+export const gitbookSchema = z.object({
   root: z.string().optional(),
   structure: z.object({ readme: z.string().optional(), summary: z.string().optional() }).partial().optional(),
   redirects: redirects.optional(),

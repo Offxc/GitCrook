@@ -147,14 +147,16 @@ the Markdown dialect is specified in [docs/git-sync/FORMAT.md](docs/git-sync/FOR
 **Keeping docs current with an AI agent**
 
 An agent doesn't need a GitCrook integration: it edits Markdown in the repository and commits.
-[FORMAT.md](docs/git-sync/FORMAT.md) is written to double as the cheat-sheet for agent instructions.
+[docs/git-sync/agent-guide.md](docs/git-sync/agent-guide.md) is a section to paste into its instruction file
+(layout, front matter, the Markdown it may use, how to check its work), and `gitcrook-docs check` validates a
+documentation folder locally or in CI with the same parser and messages the server uses
+([packages/docs-cli](packages/docs-cli/README.md)).
 The published site answers back in a form agents can read: add `.md` to any page's address, or fetch
-`/llms.txt` (a table of contents) and `/llms-full.txt` (all the text). Still planned: a
-`gitcrook-docs check` command that validates front matter, links, images and directives locally and
-in CI with the same parser the server uses. See [PLAN.md](PLAN.md).
+`/llms.txt` (a table of contents) and `/llms-full.txt` (all the text).
 
 Not yet supported: authenticating as a GitHub App (access tokens only for now), Git hosts other
-than GitHub / GitHub Enterprise Server, and previewing a sync before it applies.
+than GitHub / GitHub Enterprise Server, and previewing a sync in the dashboard before it applies
+(`gitcrook-docs check` does the equivalent locally).
 
 ## Tech stack
 
@@ -281,6 +283,7 @@ packages/
   shared/                 Env schema, theme schema, block schemas, SSRF-safe fetch, utilities
   markdown/               Markdown ↔ blocks (GitCrook Markdown), navigation builder
   git-sync/               GitHub client, sync engine, run queue, webhook handling
+  docs-cli/               gitcrook-docs: check a documentation folder locally or in CI
   assets/                 Upload pipeline: type detection, image re-encoding, SVG sanitiser
 docs/git-sync/            Git Sync setup guide and the Markdown format specification
 docker/                   Dockerfiles and Caddy config
@@ -324,8 +327,9 @@ Actively developed and running in production, but young. Known gaps, so nobody d
 hard way:
 
 - **Git Sync is new.** It reads GitHub and GitHub Enterprise Server with access tokens, one way. A
-  GitHub App login, other Git hosts, a dry-run preview and the `gitcrook-docs check` command are still
-  to come ([PLAN.md](PLAN.md)).
+  GitHub App login, other Git hosts and a dry-run preview in the dashboard are still to come
+  ([PLAN.md](PLAN.md)). `gitcrook-docs` is not published to a package registry yet; you build the
+  single-file checker from this repository.
 - **Domain re-verification is manual.** Verifying is a button; there's no scheduled job re-checking
   a verified domain, so `NEEDS_REVERIFICATION` in the schema is currently unreachable.
 - **OG images are schema-only.** The theme has an `ogImage` option that nothing reads yet, and

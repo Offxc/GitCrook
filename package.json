@@ -20,7 +20,7 @@
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run --project unit --project integration",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "typecheck": "pnpm --filter @gitcrook/web exec tsc --noEmit -p . && pnpm --filter @gitcrook/worker exec tsc --noEmit -p . && tsc --noEmit -p tsconfig.json",
+    "typecheck": "pnpm --filter @gitcrook/web exec tsc --noEmit -p . && pnpm --filter @gitcrook/worker exec tsc --noEmit -p . && tsc --noEmit -p tsconfig.json && pnpm --filter @gitcrook/docs-cli exec tsc --noEmit -p .",
     "test:e2e": "vitest run --project e2e"
   },
   "devDependencies": {

@@ -12,6 +12,7 @@ COPY packages/shared/package.json packages/shared/package.json
 COPY packages/markdown/package.json packages/markdown/package.json
 COPY packages/git-sync/package.json packages/git-sync/package.json
 COPY packages/assets/package.json packages/assets/package.json
+COPY packages/docs-cli/package.json packages/docs-cli/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"

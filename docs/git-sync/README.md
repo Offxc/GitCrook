@@ -10,6 +10,7 @@ The sync is **one way**: repository → site. GitCrook never writes to your repo
 - [Push webhooks](#push-webhooks)
 - [What a repository looks like](#what-a-repository-looks-like)
 - [What a sync does](#what-a-sync-does)
+- [Checking before you push](#checking-before-you-push)
 - [Reading the docs back](#reading-the-docs-back)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
@@ -161,6 +162,23 @@ transaction: it either all lands or none of it does.
   don't exist, missing images, unknown directives and files left out of the navigation are warnings you can see.
 - **One run at a time per source.** A push during a run queues exactly one follow-up; ten pushes during a run
   still give one.
+
+## Checking before you push
+
+`gitcrook-docs` reads a folder exactly as a sync will, with the same parser and the same messages, so mistakes show up
+in your terminal or in a pull request instead of after a failed sync:
+
+```sh
+node tools/gitcrook-docs.mjs check --dir docs        # exits 1 on errors (--strict: on warnings too)
+node tools/gitcrook-docs.mjs tree --dir docs         # the pages, with the addresses they will have
+```
+
+It is a single file you build from this repository and copy into yours; setup, options and a GitHub Actions workflow
+that annotates pull requests are in [packages/docs-cli/README.md](../../packages/docs-cli/README.md). JSON Schemas for
+front matter and `gitcrook.yaml` (editor completion and validation) are in [schemas/](schemas).
+
+If an AI coding agent maintains your documentation, give it [agent-guide.md](agent-guide.md): a self-contained section
+to paste into its instruction file, covering the layout, front matter, the Markdown it may use and how to run the check.
 
 ## Reading the docs back
 

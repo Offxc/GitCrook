@@ -7,17 +7,17 @@ import type { Diagnostics } from "./diagnostics";
  * The keys a page's front matter may carry (see docs/git-sync/FORMAT.md). Each is checked on its own: a bad
  * `order` doesn't throw away a good `title`, it is reported (GS-103) and ignored.
  */
-const KEYS = {
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(500),
-  icon: z.string().trim().min(1).max(64),
-  slug: z.string().trim().refine((s) => validateSlug(s).ok, "must be lowercase letters, numbers and hyphens, and not reserved"),
-  order: z.number().finite(),
-  draft: z.boolean(),
-  hidden: z.boolean(),
-  redirect_from: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).max(50)]).transform((v) => (Array.isArray(v) ? v : [v])),
-  id: z.string().trim().min(1).max(100),
-  nav_title: z.string().trim().min(1).max(200),
+export const KEYS = {
+  title: z.string().trim().min(1).max(200).describe("Page title. Default: the leading # heading, else the file name."),
+  description: z.string().trim().max(500).describe("Subtitle and meta description."),
+  icon: z.string().trim().min(1).max(64).describe("An icon name from the editor's icon set."),
+  slug: z.string().trim().refine((s) => validateSlug(s).ok, "must be lowercase letters, numbers and hyphens, and not reserved").describe("The URL segment. Default: the file name."),
+  order: z.number().finite().describe("Sort key among siblings. Default: alphabetical."),
+  draft: z.boolean().describe("Do not publish this page."),
+  hidden: z.boolean().describe("Publish the page but leave it out of the sidebar."),
+  redirect_from: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).max(50)]).transform((v) => (Array.isArray(v) ? v : [v])).describe("Old paths that should redirect to this page."),
+  id: z.string().trim().min(1).max(100).describe("An identity that survives renames and moves."),
+  nav_title: z.string().trim().min(1).max(200).describe("Sidebar label when it should differ from the title."),
 } as const;
 
 export interface FrontMatter {
