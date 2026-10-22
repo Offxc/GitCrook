@@ -98,9 +98,50 @@ tests, and a clean-clone install under pnpm 11).
 | E1 / E8 | A page's payload is its content plus a compact tree, not every page's content |
 | S13 | `safeFetch` pins the address it validated (checked inside the socket's own DNS lookup), refuses every reserved range for IPv4 and IPv6 including IPv4-in-IPv6, follows redirects by hand and caps the body while streaming |
 
-**Git Sync is under way.** `packages/markdown` (GS-01 … GS-06, GS-20 in part) is written and tested:
-parser, serializer, front matter and diagnostics. See `docs/git-sync/FORMAT.md` and
-`packages/markdown/fixtures`. "Copy as Markdown" already uses the serializer.
+**Git Sync v1 is built** apart from the items marked open below. Setup is in `docs/git-sync/README.md`,
+the format in `docs/git-sync/FORMAT.md`.
+
+| Task | Result |
+| --- | --- |
+| GS-01 … GS-07 | `packages/markdown`: parser, serializer, front matter, diagnostics, navigation builder. 7 fixtures, a property-based round trip, a front-matter size cap (32,000 characters) after a 200,000-deep document turned out to be a way to stall a run. "Copy as Markdown" uses the serializer |
+| GS-08 / GS-09 | Three migrations (`git_sync`, `git_sync_page_meta`, `git_sync_one_pending_run`). `SecretBox`: AES-256-GCM with the credential id as associated data, key ids and rotation |
+| GS-10 | Done earlier as S13 |
+| GS-11 / GS-12 | GitHub client (ETag, rate limits, `allowedHosts`) and the engine. A fake GitHub (`testing/fakeGitHub.ts`) drives 100+ integration tests, including truncated trees, rate limits, force pushes, traversal, symlinks, LFS pointers, case-colliding paths, duplicate slugs, a run that outlives its timeout and a source disconnected mid-run |
+| GS-13 / GS-14 | DB-table queue with `SKIP LOCKED` and a stuck-run reaper, one `PENDING` run per source (partial unique index), polling, the worker loop (SIGTERM waits up to 20 s for runs), the webhook route |
+| GS-15 | `packages/assets`: the upload pipeline as a library, used by `/api/upload` and by the importer. **SVG is allowed** — rebuilt from an allow-list, served with a sandboxing CSP and `nosniff` |
+| GS-16 / GS-17 | Dashboard (Site settings → Git Sync): connect, status, runs with diagnostics, sync now / full re-sync / pause, settings, token. Pages from a source are read-only in the editor, on the server as well, with an "Edit on GitHub" link; the reader hides drafts, hidden pages and soft-deleted pages from the sidebar, search, feed and Markdown view |
+| GS-21 | The fake-GitHub harness above |
+| GS-22 | `docs/git-sync/README.md`, root README, `.env.example` |
+
+**Open:** GS-18 (GitHub App login; `GITHUB_APP_INSTALLATION` credentials are rejected for now), GS-19
+(`gitcrook-docs check`), GS-20's `/<page>.md` and `llms.txt` endpoints, the dry-run preview in the dashboard
+(the engine supports it: `runSync(..., { dryRun: true })`), A7 (308 redirects from legacy URLs when a second
+section is added), A8 (group renames do not create redirects), the editor surface does not yet show tab
+content as tabs (`GS-210`), and the remaining S13–S19 hardening items.
+
+**Deploying Git Sync:** three new migrations (`20261022190000_git_sync`, `…200000_git_sync_page_meta`,
+`…210000_git_sync_one_pending_run`) run through the `migrate` service. Rebuild **both** `web` and `worker`.
+Set `GIT_SYNC_ENCRYPTION_KEY` to save tokens for private repositories, `GITHUB_WEBHOOK_SECRET` for push
+webhooks, and optionally `GITHUB_API_URL`, `GIT_SYNC_ALLOWED_HOSTS`, `GIT_SYNC_CONCURRENCY`.
+
+How the engine differs from the first sketch in §4, and why:
+
+- **The engine diffs the whole tree against the database**, not a commit range. GitHub's compare API caps
+  at 300 files and misses force pushes; a tree walk (with blob SHAs, so unchanged files are not re-fetched)
+  gives the same result on a first sync, a force push and a missed webhook, with one code path.
+- **Soft delete** means `deletedAt` plus `isDraft = true`: every existing reader query already hides drafts,
+  and the new filters make the deleted state explicit. A deleted file's page returns, with its history, if the
+  file comes back inside the grace period.
+- **Hidden pages** (`hidden: true`) are published but left out of the sidebar, search and feed; reachable by URL.
+- **A page's history** gets a `GIT` version holding the new content and the commit, written in the same
+  transaction as the page.
+- **Redirects belong to the source** (`SiteRedirect.sourceId`, origin `MOVE` or `FRONT_MATTER`), so a removed
+  `redirect_from` removes its redirect and a hand-made redirect is never touched. Renaming a group (a folder with
+  no page of its own) does not redirect, because the group has no URL.
+- **Links between pages are rewritten to relative URLs**, and when a page moves, the pages that link to it are
+  re-written even though their files did not change.
+- **Connecting needs an empty version** (or an explicit "replace its pages"); a foreign page found later fails
+  the run with `GS-304` instead of guessing.
 
 How the format differs from the first sketch in §4.6, and why:
 
@@ -695,28 +736,28 @@ client. Planned configuration: `GIT_SYNC_ENCRYPTION_KEY`, `GITHUB_APP_ID`,
 
 | ID | Size | Task | Depends on |
 | --- | --- | --- | --- |
-| GS-01 | M | Write `docs/git-sync/FORMAT.md` and the fixtures directory | — |
-| GS-02 | L | `packages/markdown`: unified pipeline (`remark-parse`, `remark-gfm`, `remark-directive`, `remark-math`, `remark-frontmatter`), mdast → block JSON for core blocks | GS-01 |
-| GS-03 | L | Directive mappers (callout, tabs, steps, columns, cards, updates, button, embed, file, video, audio), HTML allow-list, GitBook compatibility parse | GS-02 |
-| GS-04 | L | Serializer blocks → GCM; round-trip property tests; replace `blocksToMarkdown` | GS-02 |
-| GS-05 | S | Deterministic block ids (hash of path + index + type) and `github-slugger` anchors | GS-02, B5 |
-| GS-06 | M | Front-matter and config schemas (Zod), diagnostics catalogue | GS-01 |
-| GS-07 | M | Navigation builder (folders, index, `SUMMARY.md`, `gitcrook.yaml`, `.gitbook.yaml`) | GS-06 |
-| GS-08 | M | Prisma migration (models above, partial slug indexes) | D2 |
-| GS-09 | S | AES-256-GCM secret helper with key ids | — |
-| GS-10 | M | Harden `safeFetch` (pinning, streaming caps, ranges) + tests | — |
-| GS-11 | L | `packages/git-sync`: GitHub client (trees, compare, blobs, ETag, rate limits, App auth) | GS-09, GS-10 |
-| GS-12 | XL | Sync engine: planner and transactional applier, rename detection, soft delete, redirects | GS-02…GS-08, GS-11 |
-| GS-13 | M | Worker: run queue, advisory lock, poll scheduler, timeouts, stuck-run reaper | GS-08 |
-| GS-14 | M | Webhook route: raw body, HMAC, dedupe, enqueue | GS-08 |
-| GS-15 | M | Extract the upload pipeline from `/api/upload` into a library function; decide SVG | — |
-| GS-16 | M | Managed-page UX: read-only editor, banner, Edit on GitHub, sidebar locks | GS-08, A2 |
-| GS-17 | L | Dashboard and modal panel: connect, dry run, status, runs, actions | GS-12, GS-16 |
+| GS-01 ✓ | M | Write `docs/git-sync/FORMAT.md` and the fixtures directory | — |
+| GS-02 ✓ | L | `packages/markdown`: unified pipeline (`remark-parse`, `remark-gfm`, `remark-directive`, `remark-math`, `remark-frontmatter`), mdast → block JSON for core blocks | GS-01 |
+| GS-03 ✓ | L | Directive mappers (callout, tabs, steps, columns, cards, updates, button, embed, file, video, audio), HTML allow-list, GitBook compatibility parse | GS-02 |
+| GS-04 ✓ | L | Serializer blocks → GCM; round-trip property tests; replace `blocksToMarkdown` | GS-02 |
+| GS-05 ✓ | S | Deterministic block ids (hash of path + index + type) and `github-slugger` anchors | GS-02, B5 |
+| GS-06 ✓ | M | Front-matter and config schemas (Zod), diagnostics catalogue | GS-01 |
+| GS-07 ✓ | M | Navigation builder (folders, index, `SUMMARY.md`, `gitcrook.yaml`, `.gitbook.yaml`) | GS-06 |
+| GS-08 ✓ | M | Prisma migration (models above, partial slug indexes) | D2 |
+| GS-09 ✓ | S | AES-256-GCM secret helper with key ids | — |
+| GS-10 ✓ | M | Harden `safeFetch` (pinning, streaming caps, ranges) + tests | — |
+| GS-11 ✓ | L | `packages/git-sync`: GitHub client (trees, compare, blobs, ETag, rate limits, App auth) | GS-09, GS-10 |
+| GS-12 ✓ | XL | Sync engine: planner and transactional applier, rename detection, soft delete, redirects | GS-02…GS-08, GS-11 |
+| GS-13 ✓ | M | Worker: run queue, advisory lock, poll scheduler, timeouts, stuck-run reaper | GS-08 |
+| GS-14 ✓ | M | Webhook route: raw body, HMAC, dedupe, enqueue | GS-08 |
+| GS-15 ✓ | M | Extract the upload pipeline from `/api/upload` into a library function; decide SVG | — |
+| GS-16 ✓ | M | Managed-page UX: read-only editor, banner, Edit on GitHub, sidebar locks | GS-08, A2 |
+| GS-17 ✓ | L | Dashboard and modal panel: connect, dry run, status, runs, actions | GS-12, GS-16 |
 | GS-18 | M | GitHub App manifest flow | GS-11 |
 | GS-19 | M | `packages/docs-cli` (`check`), JSON Schemas, cheat-sheet generator | GS-06 |
-| GS-20 | S | `/<page>.md`, `/llms.txt`, `/llms-full.txt` | GS-04 |
-| GS-21 | L | Test harness: fake GitHub API over a local bare repo; failure injection (truncated tree, force-push, rate limit, 5k files, bad YAML, symlink, traversal, cycles, duplicate slugs, missing README, case-colliding paths, LFS pointer) | GS-12 |
-| GS-22 | M | Docs: README setup, FORMAT.md, agent guide, GitBook migration guide | all |
+| GS-20 | S | `/<page>.md`, `/llms.txt`, `/llms-full.txt` *(open; "Copy as Markdown" already uses the serializer)* | GS-04 |
+| GS-21 ✓ | L | Test harness: fake GitHub API over a local bare repo; failure injection (truncated tree, force-push, rate limit, 5k files, bad YAML, symlink, traversal, cycles, duplicate slugs, missing README, case-colliding paths, LFS pointer) | GS-12 |
+| GS-22 ✓ | M | Docs: README setup, FORMAT.md, agent guide, GitBook migration guide | all |
 | GS-23 | L | *(v2)* Write-back as a pull request when the page round-trips losslessly (serialise → parse → equal), else keep it locked | GS-04, GS-18 |
 | GS-24 | L | *(v2)* PR preview deployments and a GitHub check run / comment with the preview link | GS-12 |
 | GS-25 | M | *(v2)* Variants from refs and sections from directories via `gitcrook.yaml` | GS-12 |

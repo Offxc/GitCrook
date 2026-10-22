@@ -28,9 +28,9 @@ Content is edited **in place on the published page** — the structure you see w
 structure a reader sees. There's no separate authoring app to switch to, and no build step between
 writing and publishing.
 
-Or keep the content in Git instead. **Git Sync** (in development — see [below](#git-sync-in-development))
-points a site at a repository and follows your commits, so the docs stay current when the thing that
-changed was the code — whether a teammate or an AI coding agent changed it.
+Or keep the content in Git instead. **[Git Sync](#git-sync)** points a site at a repository and
+follows your commits, so the docs stay current when the thing that changed was the code — whether a
+teammate or an AI coding agent changed it.
 
 ## Why
 
@@ -71,6 +71,7 @@ keeps the published site up to date. The one external integration is the Git hos
 - Copy or view any page as Markdown
 - RSS feed for changelog-style updates
 - PDF export, rendered by a background worker
+- **Git Sync** — pages from a GitHub repository, updated on every push (see [below](#git-sync))
 
 **Custom domains**
 - Add a domain, verify ownership by DNS TXT record, and it's served with an automatically issued
@@ -102,7 +103,7 @@ keeps the published site up to date. The one external integration is the Git hos
 - Top search queries, outbound link clicks, and 404s from external referrers
 - Managed redirects to fix broken inbound URLs
 
-## Git Sync (in development)
+## Git Sync
 
 Git Sync lets a site's content live in a Git repository instead of the editor. Connect a
 repository, branch and folder, and every push to that branch re-publishes the pages it touched. It
@@ -110,16 +111,14 @@ exists for the case where docs change because *code* changed — a pull request,
 agent that was asked to keep the documentation current — and nobody should have to open an editor
 to reflect it.
 
-> **Status: planned, not shipped.** The design below is settled enough to build against. The
-> build plan, sequencing and open decisions are in [PLAN.md](PLAN.md). Nothing in this section
-> works in a release yet.
+Setup, the repository layout, and troubleshooting are in [docs/git-sync/README.md](docs/git-sync/README.md);
+the Markdown dialect is specified in [docs/git-sync/FORMAT.md](docs/git-sync/FORMAT.md). Short version:
+**Site settings → Git Sync**, enter `owner/repo`, connect. A public repository needs no credentials.
 
-**How it will work**
-
-- **Repository → site first, one way.** The repository is the source of truth for the pages it
-  manages. Those pages are read-only in the editor and carry an "Edit on GitHub" link; the rest of
-  the site stays editable as normal. Two-way sync is deliberately not in v1 — see *lossless or
-  locked* below.
+- **Repository → site, one way.** The repository is the source of truth for the pages it
+  manages. Those pages are read-only in the editor (enforced on the server, not only hidden in the
+  UI) and carry an "Edit on GitHub" link; the rest of the site stays editable as normal. Nothing is
+  ever written back to your repository.
 - **Push-driven, with a safety net.** A signed webhook triggers a sync within seconds, and the
   worker also polls so a missed delivery heals itself. "Sync now" and "Full re-sync" are there for
   when you don't want to wait.
@@ -129,32 +128,31 @@ to reflect it.
   readable text in GitHub's own preview and in any editor. Repositories already synced with
   GitBook (`SUMMARY.md`, `.gitbook.yaml`, `{% hint %}` tags) are read as they are.
 - **Structure from the folder tree.** Folders and `index.md`/`README.md` become the page tree;
-  front matter (`title`, `description`, `icon`, `slug`, `order`, `draft`, `redirect_from`) tunes
-  individual pages; an optional `gitcrook.yaml` or `SUMMARY.md` makes the navigation explicit.
+  front matter (`title`, `description`, `icon`, `slug`, `order`, `draft`, `hidden`, `redirect_from`)
+  tunes individual pages; an optional `gitcrook.yaml` or `SUMMARY.md` makes the navigation explicit.
 - **Stable identity.** A renamed or moved file keeps its page and history and gets an automatic
   redirect from the old URL. A deleted file unpublishes first and is removed after a grace period.
 - **Visible and debuggable.** Every sync leaves a run log with per-file diagnostics (file, line,
-  reason). Files left out of the navigation, broken links, missing images and unknown directives
-  are warnings you can see, not silent omissions.
+  stable `GS-…` code). Files left out of the navigation, broken links, missing images and unknown
+  directives are warnings you can see, not silent omissions.
 - **Safe by construction.** The repository is treated as untrusted input: only the configured
   branch is read, raw HTML is allow-listed, URLs and sizes are validated, images go through the
-  same upload pipeline as editor uploads, and every outbound request goes through the SSRF-checked
-  fetch chokepoint to an allow-listed host.
+  same upload pipeline as editor uploads (SVG sanitised), tokens are encrypted at rest, and every
+  outbound request goes through the SSRF-checked fetch chokepoint to an allow-listed host.
 - **Lossless or locked.** The Markdown ↔ block converter is a written spec with a conformance
-  suite. A page that can't round-trip without loss is never offered for write-back; it stays
-  read-only rather than risk rewriting your content.
+  suite and a property-based round-trip test. A page that can't round-trip without loss is never
+  offered for write-back; it stays read-only rather than risk rewriting your content.
 
 **Keeping docs current with an AI agent**
 
 An agent doesn't need a GitCrook integration: it edits Markdown in the repository and commits.
-To make that reliable the plan includes a `gitcrook-docs check` command that validates front
-matter, links, images and directives locally and in CI (the same parser the server uses), a
-copy-pasteable format cheat-sheet for agent instructions, and `.md` / `llms.txt` endpoints on the
-published site so agents can read the docs back.
+[FORMAT.md](docs/git-sync/FORMAT.md) is written to double as the cheat-sheet for agent instructions.
+Still planned: a `gitcrook-docs check` command that validates front matter, links, images and
+directives locally and in CI with the same parser the server uses, and `.md` / `llms.txt` endpoints
+on the published site so agents can read the docs back. See [PLAN.md](PLAN.md).
 
-Credentials (a GitHub App, or a read-only token for private repositories) and the encryption key
-that protects them will be documented under [Configuration](#configuration) when the feature
-ships. Public repositories need none.
+Not yet supported: authenticating as a GitHub App (access tokens only for now), Git hosts other
+than GitHub / GitHub Enterprise Server, and previewing a sync before it applies.
 
 ## Tech stack
 
@@ -258,6 +256,9 @@ service has no restart policy of its own.
 | `SIGNUP_MODE` | no | `closed` (default) or `open`. Closed admits only allow-listed Discord IDs, people holding an email invitation (their Discord email must be verified) and, on an empty database, the first sign-in, who becomes the owner. People who already have an account can always sign in. `open` lets any Discord account create its own organization — and publish under your domain. |
 | `ALLOWED_DISCORD_IDS` | no | Comma-separated Discord user IDs that may create an account. Setting it also turns off *first sign-in becomes the owner*, so list your own ID before exposing a new deployment (or sign in yourself the moment it comes up). |
 | `STORAGE_DIR` | no | Upload directory. Compose points this at the shared volume. |
+| `GIT_SYNC_ENCRYPTION_KEY` | for private repositories | Encrypts saved access tokens (AES-256-GCM). `openssl rand -base64 32`. Public repositories need no key. `GIT_SYNC_ENCRYPTION_KEYS_PREVIOUS` holds older keys during a rotation. |
+| `GITHUB_WEBHOOK_SECRET` | for push webhooks | Verifies GitHub's signature on `/api/webhooks/github`. Without it the worker polls instead. |
+| `GITHUB_API_URL`, `GIT_SYNC_ALLOWED_HOSTS`, `GIT_SYNC_CONCURRENCY` | no | GitHub Enterprise Server API base, the hosts the worker may contact, and how many repositories sync at once. Details in [docs/git-sync/README.md](docs/git-sync/README.md#configuration). |
 | `CHROMIUM_EXECUTABLE_PATH` | no | Local-only; the worker image bakes its own Chromium. |
 
 ## Project layout
@@ -271,11 +272,15 @@ apps/
     lib/renderer/         Read-only block renderer (ships no editor JS to readers)
     lib/tenancy/          Host/slug resolution, page tree, access resolution
     proxy.ts              Security headers + multi-tenant host routing
-  worker/                 Background jobs (PDF export, domain re-verification)
+  worker/                 Background jobs (PDF export, Git Sync runs)
 packages/
   db/                     Prisma schema, migrations, seed, local dev Postgres
   auth/                   Auth.js config, RBAC, visitor access
-  shared/                 Env schema, theme schema, block schemas, utilities
+  shared/                 Env schema, theme schema, block schemas, SSRF-safe fetch, utilities
+  markdown/               Markdown ↔ blocks (GitCrook Markdown), navigation builder
+  git-sync/               GitHub client, sync engine, run queue, webhook handling
+  assets/                 Upload pipeline: type detection, image re-encoding, SVG sanitiser
+docs/git-sync/            Git Sync setup guide and the Markdown format specification
 docker/                   Dockerfiles and Caddy config
 scripts/                  Maintenance scripts (icon set generation)
 ```
@@ -291,16 +296,21 @@ schema per block. A reader never downloads the editor.
 - **Headers**: nonce-based CSP with `strict-dynamic`, `frame-ancestors`, `Referrer-Policy`,
   `Permissions-Policy`, `nosniff`, set on every response.
 - **Uploads** are typed by magic bytes rather than the client's `Content-Type`, and raster images
-  are re-encoded through sharp, which strips EXIF and neutralises polyglot files. SVG is rejected
-  outright rather than sanitised. Everything is served through a route that re-checks the
-  requester's access to the owning resource, so a private site's attachments inherit its
-  permissions.
+  are re-encoded through sharp, which strips EXIF and neutralises polyglot files. SVG is parsed and
+  rebuilt from an allow-list of elements and attributes (no scripts, handlers, external references or
+  `foreignObject`) and is also served with a sandboxing CSP. Everything is served through a route
+  that re-checks the requester's access to the owning resource, so a private site's attachments
+  inherit its permissions.
 - **Outbound requests** on user-supplied URLs go through one chokepoint: HTTPS only, resolved IPs
-  checked against private and link-local ranges, redirects re-validated per hop. Pinning the
-  connection to the validated IP (closing the DNS-rebinding window) is not implemented yet and is a
-  prerequisite for Git Sync, which is the first feature that makes server-initiated fetches.
+  checked against private and link-local ranges, redirects re-validated per hop, and the check runs
+  inside the socket's own DNS lookup so there is no gap between "validated" and "connected" for a
+  rebinding DNS record to use. Git Sync, the feature that makes server-initiated requests, uses only
+  this, and only to hosts the operator lists.
 - **Secrets**: site passwords are Argon2id; Discord OAuth tokens are never persisted, since only
-  identity is needed.
+  identity is needed. Git Sync access tokens are encrypted at rest (AES-256-GCM, bound to their own
+  record, key-rotatable), decrypted only inside the worker, and scrubbed from logs and stored messages.
+- **Webhooks** are verified by HMAC over the raw body before anything is parsed, compared in constant
+  time; with no secret configured they are refused.
 - **Audit log** records sensitive actions — role changes, domain add/verify/revoke, password
   changes, site and section deletions — against the acting user.
 
@@ -311,9 +321,9 @@ Found something? Open a security advisory on the repository rather than a public
 Actively developed and running in production, but young. Known gaps, so nobody discovers them the
 hard way:
 
-- **Git Sync is planned, not built.** See [above](#git-sync-in-development) and [PLAN.md](PLAN.md).
-- **No test suite and no lint step yet.** A `test` script exists; nothing fills it. `pnpm lint`
-  has no ESLint configuration behind it.
+- **Git Sync is new.** It reads GitHub and GitHub Enterprise Server with access tokens, one way. A
+  GitHub App login, other Git hosts, a dry-run preview and the `gitcrook-docs check` command are still
+  to come ([PLAN.md](PLAN.md)).
 - **Domain re-verification is manual.** Verifying is a button; there's no scheduled job re-checking
   a verified domain, so `NEEDS_REVERIFICATION` in the schema is currently unreachable.
 - **OG images are schema-only.** The theme has an `ogImage` option that nothing reads yet, and
@@ -348,16 +358,23 @@ pnpm dev
 [PLAN.md](PLAN.md) is the working backlog: audited fixes, the Git Sync build plan and the order to
 do them in. Start there if you want to pick something up.
 
-CI runs on every push and pull request: typecheck, a production build, and applying the whole
-migration chain plus the seed against a real PostgreSQL 18 service. Run the first two locally with:
+CI runs on every pull request and every push to `main`: lint, typecheck, unit tests, a migration
+history check, a production build, the integration tests against a real PostgreSQL 18 service
+(which also applies the whole migration chain and the seed), and end-to-end tests in Chromium. Run
+the same locally with:
 
 ```bash
-pnpm --filter @gitcrook/web exec tsc --noEmit -p .
+pnpm lint
+pnpm typecheck
+pnpm test                   # unit tests, no database needed
+pnpm check:migrations
 pnpm build
+pnpm test:integration       # needs DATABASE_URL pointing at a throwaway Postgres
 ```
 
-A `test` script exists but there is no test suite yet — `packages/auth`'s RBAC matrix is the
-obvious first target if you want somewhere to start.
+The Markdown dialect has a conformance suite (`packages/markdown/fixtures`) and a property-based
+round-trip test; if you change the format, change [docs/git-sync/FORMAT.md](docs/git-sync/FORMAT.md)
+and the fixtures with it.
 
 Schema changes need care in one specific place: `Page.searchVector` is a generated column Prisma
 can't express, so `prisma migrate dev` produces a spurious `DROP INDEX` on every schema change.
