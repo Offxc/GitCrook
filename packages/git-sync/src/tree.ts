@@ -57,13 +57,28 @@ export async function findRootTree(client: GitHubClient, owner: string, repo: st
   return sha;
 }
 
+/** The most distinct directories one listing will ask the host for. */
+const MAX_TREE_REQUESTS = 5_000;
+
 /** Lists a tree directory by directory, for repositories too large for GitHub's one-call listing. */
 async function walk(client: GitHubClient, owner: string, repo: string, treeSha: string, limits: SyncLimits): Promise<TreeEntry[]> {
   const out: TreeEntry[] = [];
   const queue: { sha: string; prefix: string }[] = [{ sha: treeSha, prefix: "" }];
+  // Git stores a directory once however many places use it, so a repository can list one directory under thousands of
+  // names. Each distinct directory is asked for once.
+  const fetched = new Map<string, ReturnType<GitHubClient["getTree"]>>();
+  const treeOf = (sha: string) => {
+    let pending = fetched.get(sha);
+    if (!pending) {
+      if (fetched.size >= MAX_TREE_REQUESTS) throw new GitHostError("The repository has far too many directories to import.", "GS-302", false);
+      pending = client.getTree(owner, repo, sha);
+      fetched.set(sha, pending);
+    }
+    return pending;
+  };
   while (queue.length > 0) {
     const batch = queue.splice(0, limits.concurrency);
-    const results = await Promise.all(batch.map((b) => client.getTree(owner, repo, b.sha)));
+    const results = await Promise.all(batch.map((b) => treeOf(b.sha)));
     results.forEach((tree, i) => {
       for (const entry of tree.entries) {
         const path = batch[i]!.prefix + entry.path;

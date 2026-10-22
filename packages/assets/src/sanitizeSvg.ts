@@ -126,7 +126,7 @@ export function sanitizeSvg(input: string | Uint8Array): SvgResult {
             if (!value.startsWith("#") || !safeValue(value)) continue;
           } else if (key === "style") {
             if (!safeCss(value)) continue;
-          } else if (!safeValue(value)) continue;
+          } else if (!safeValue(value) || !withinFilterLimit(key, value)) continue;
           attrs.push(`${key}="${escapeAttr(value)}"`);
         }
         if (isRoot) {
@@ -192,4 +192,18 @@ export function sanitizeSvg(input: string | Uint8Array): SvgResult {
     }
   }
   return { ok: true, svg: out.join(""), width, height };
+}
+
+/**
+ * Filter settings that make a browser do unbounded work. A blur or morphology radius in the thousands, or a turbulence of
+ * dozens of octaves, can hang the tab of anyone who views the image; the largest values that are any use are small. An
+ * attribute over its limit is dropped, which puts it back to its (cheap) default.
+ */
+const FILTER_LIMITS: Record<string, number> = { stdDeviation: 50, radius: 50, numOctaves: 6, scale: 1000 };
+
+function withinFilterLimit(key: string, value: string): boolean {
+  const limit = FILTER_LIMITS[key];
+  if (limit === undefined) return true;
+  const numbers = value.trim().split(/[\s,]+/).filter(Boolean);
+  return numbers.length > 0 && numbers.length <= 2 && numbers.every((n) => /^-?\d*\.?\d+(e[-+]?\d+)?$/i.test(n) && Math.abs(Number(n)) <= limit);
 }

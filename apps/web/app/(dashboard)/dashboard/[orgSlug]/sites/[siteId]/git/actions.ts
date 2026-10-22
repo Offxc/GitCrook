@@ -45,6 +45,17 @@ const ConnectSchema = z.object({
   pollIntervalSec: number(POLL_INTERVAL.min, POLL_INTERVAL.max, POLL_INTERVAL.default),
 });
 
+/**
+ * Checking a repository without a token is a request from this server's own address, and GitHub allows an address very few
+ * of those. They are shared with the worker's syncs of public repositories, so one organization may not use them up.
+ * Returns what to tell the person, or null if the check may go ahead.
+ */
+function publicCheckBlocked(organizationId: string): string | null {
+  if (!checkRateLimit(`git-public:org:${organizationId}`, 10, 3_600_000).allowed) return "This organization has checked a lot of public repositories this hour. Add an access token to the repository, or try again later.";
+  if (!checkRateLimit("git-public:all", 30, 3_600_000).allowed) return "This server has checked a lot of public repositories this hour. Try again later.";
+  return null;
+}
+
 export async function connectRepository(orgSlug: string, siteId: string, _prev: GitActionState, formData: FormData): Promise<GitActionState> {
   const { site, organization, userId } = await assertCanManage(orgSlug, siteId);
   // Each attempt makes requests to GitHub on the server's behalf.
@@ -60,6 +71,11 @@ export async function connectRepository(orgSlug: string, siteId: string, _prev: 
   if (branch && !validBranch(branch)) return { error: "That is not a branch name Git Sync can use.", field: "branch" };
   const rootDir = parseRootDir(parsed.data.rootDir || repository.value.rootDir || "");
   if (!rootDir.ok) return { error: rootDir.error, field: "rootDir" };
+
+  if (!parsed.data.token?.trim()) {
+    const blocked = publicCheckBlocked(organization.id);
+    if (blocked) return { error: blocked };
+  }
 
   const result = await connectSource(
     { secrets: env.secrets, host: env.host },
@@ -137,6 +153,10 @@ export async function updateRepository(orgSlug: string, siteId: string, sourceId
   const env = gitSyncEnv();
 
   const newToken = parsed.data.token?.trim();
+  if (!newToken) {
+    const blocked = publicCheckBlocked(organization.id);
+    if (blocked) return { error: blocked };
+  }
   const result = await updateSource({ secrets: env.secrets, host: env.host }, sourceId, {
     branch: parsed.data.branch,
     rootDir: rootDir.value,

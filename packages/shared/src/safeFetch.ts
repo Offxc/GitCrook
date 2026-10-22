@@ -175,6 +175,13 @@ function checkUrl(raw: string, opts: SafeFetchOptions): URL {
   return parsed;
 }
 
+const CREDENTIAL_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "x-api-key"]);
+
+function withoutCredentials(headers: Record<string, string> | undefined): Record<string, string> | undefined {
+  if (!headers) return headers;
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => !CREDENTIAL_HEADERS.has(name.toLowerCase())));
+}
+
 /** `safeFetch` with its network layer injectable, so the rules above can be tested without a network. */
 export function createSafeFetch(fetchImpl: FetchImpl) {
   return async function safeFetch(url: string, opts: SafeFetchOptions = {}): Promise<Response> {
@@ -183,17 +190,21 @@ export function createSafeFetch(fetchImpl: FetchImpl) {
     let current = url;
     let hopMethod = method;
     let hopBody = body;
+    let hopHeaders = headers;
 
     for (let hop = 0; hop <= maxRedirects; hop++) {
       const parsed = checkUrl(current, opts);
 
-      const res = await fetchImpl(parsed.toString(), { method: hopMethod, headers, body: hopBody, signal, redirect: "manual" });
+      const res = await fetchImpl(parsed.toString(), { method: hopMethod, headers: hopHeaders, body: hopBody, signal, redirect: "manual" });
 
       if (REDIRECTS.has(res.status)) {
         const location = res.headers.get("location");
         await res.body?.cancel().catch(() => undefined);
         if (!location) throw new SsrfBlockedError("redirect with no Location header", current);
-        current = new URL(location, current).toString();
+        const next = new URL(location, current);
+        // Credentials belong to the host they were given for, as in a browser: a redirect elsewhere does not carry them along.
+        if (next.host !== new URL(current).host) hopHeaders = withoutCredentials(hopHeaders);
+        current = next.toString();
         // 301/302/303 turn a POST into a GET, as browsers do; 307/308 keep the method and body.
         if (res.status !== 307 && res.status !== 308 && hopMethod === "POST") {
           hopMethod = "GET";

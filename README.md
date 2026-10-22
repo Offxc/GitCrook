@@ -261,7 +261,7 @@ service has no restart policy of its own.
 | `ALLOWED_DISCORD_IDS` | no | Comma-separated Discord user IDs that may create an account. Setting it also turns off *first sign-in becomes the owner*, so list your own ID before exposing a new deployment (or sign in yourself the moment it comes up). |
 | `STORAGE_DIR` | no | Upload directory. Compose points this at the shared volume. |
 | `GIT_SYNC_ENCRYPTION_KEY` | for private repositories | Encrypts saved access tokens (AES-256-GCM). `openssl rand -base64 32`. Public repositories need no key. `GIT_SYNC_ENCRYPTION_KEYS_PREVIOUS` holds older keys during a rotation. |
-| `GITHUB_WEBHOOK_SECRET` | for push webhooks | Verifies GitHub's signature on `/api/webhooks/github`. Without it the worker polls instead. |
+| `GITHUB_WEBHOOK_SECRET` | for push webhooks | 32+ characters. Each repository's own webhook secret is derived from it and shown on the Git Sync page. Without it the worker polls instead. |
 | `GITHUB_API_URL`, `GIT_SYNC_ALLOWED_HOSTS`, `GIT_SYNC_CONCURRENCY` | no | GitHub Enterprise Server API base, the hosts the worker may contact, and how many repositories sync at once. Details in [docs/git-sync/README.md](docs/git-sync/README.md#configuration). |
 | `CHROMIUM_EXECUTABLE_PATH` | no | Local-only; the worker image bakes its own Chromium. |
 
@@ -315,7 +315,8 @@ schema per block. A reader never downloads the editor.
   identity is needed. Git Sync access tokens are encrypted at rest (AES-256-GCM, bound to their own
   record, key-rotatable), decrypted only inside the worker, and scrubbed from logs and stored messages.
 - **Webhooks** are verified by HMAC over the raw body before anything is parsed, compared in constant
-  time; with no secret configured they are refused.
+  time, with a secret that belongs to one connected repository (derived from the server's); with no
+  secret configured they are refused.
 - **Audit log** records sensitive actions — role changes, domain add/verify/revoke, password
   changes, site and section deletions — against the acting user.
 

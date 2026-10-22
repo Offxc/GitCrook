@@ -16,9 +16,11 @@ import { sanitizeSvg } from "./sanitizeSvg";
 export interface ProcessLimits {
   maxImageBytes: number;
   maxFileBytes: number;
+  /** Pixels in a raster image once decoded. A small file can be a huge picture: 100 KB of PNG can be a gigabyte in memory. */
+  maxPixels?: number;
 }
 
-export const DEFAULT_PROCESS_LIMITS: ProcessLimits = { maxImageBytes: 20 * 1024 * 1024, maxFileBytes: 100 * 1024 * 1024 };
+export const DEFAULT_PROCESS_LIMITS: ProcessLimits = { maxImageBytes: 20 * 1024 * 1024, maxFileBytes: 100 * 1024 * 1024, maxPixels: 40_000_000 };
 
 const RASTER = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MEDIA = new Set(["video/mp4", "video/webm", "audio/mpeg", "audio/ogg", "audio/wav"]);
@@ -46,11 +48,13 @@ export async function processAsset(input: Uint8Array, hints: { filename?: string
     if (buffer.byteLength > limits.maxImageBytes) return { ok: false, status: 413, error: `Image exceeds ${Math.round(limits.maxImageBytes / 1024 / 1024)}MB` };
     try {
       // Re-encoding is what strips EXIF and neutralises polyglots; sharp carries no metadata forward unless asked to.
-      const bytes = await sharp(buffer, { animated: mime === "image/gif" }).toFormat(mime.split("/")[1] as "jpeg" | "png" | "webp" | "gif").toBuffer();
+      const bytes = await sharp(buffer, { animated: mime === "image/gif", limitInputPixels: limits.maxPixels ?? DEFAULT_PROCESS_LIMITS.maxPixels, failOn: "error" })
+        .toFormat(mime.split("/")[1] as "jpeg" | "png" | "webp" | "gif")
+        .toBuffer();
       const meta = await sharp(bytes).metadata();
       return { ok: true, kind: "IMAGE", mime, extension: EXTENSION[mime]!, bytes, width: meta.width ?? null, height: meta.height ?? null };
     } catch {
-      return { ok: false, status: 422, error: "The image could not be read." };
+      return { ok: false, status: 422, error: "The image could not be read, or is larger than it may be." };
     }
   }
 

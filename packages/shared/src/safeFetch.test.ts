@@ -156,6 +156,19 @@ describe("safeFetch rules", () => {
     expect(impl.mock.calls[1]![0]).toBe("https://example.com/next");
   });
 
+  it("keeps credentials on a redirect within the host and drops them when it leaves", async () => {
+    const impl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "/same-host" } }))
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "https://other.example.com/elsewhere" } }))
+      .mockResolvedValueOnce(ok());
+    await run(impl)("https://api.example.com/start", { headers: { Authorization: "Bearer secret", Cookie: "a=b", Accept: "application/json" } });
+    const sent = (call: number) => (impl.mock.calls[call]![1] as { headers: Record<string, string> }).headers;
+    expect(sent(0)).toMatchObject({ Authorization: "Bearer secret", Cookie: "a=b" });
+    expect(sent(1)).toMatchObject({ Authorization: "Bearer secret" });
+    expect(sent(2)).toEqual({ Accept: "application/json" });
+  });
+
   it("downgrades a POST to a GET on 302 but not on 307", async () => {
     const a = vi
       .fn()

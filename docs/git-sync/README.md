@@ -67,29 +67,36 @@ open there: each one is bound to its own id.
 
 ## Push webhooks
 
-Webhooks make the site update within seconds of a push. They are optional: polling heals a missed delivery either way.
+Webhooks make the site update within seconds of a push. They are optional: every source is also checked on a timer, so
+a missed delivery is picked up at the next check either way.
 
-1. Generate a secret and put it in `GITHUB_WEBHOOK_SECRET`:
+**Once, on the server:** put a random string of at least 32 characters in `GITHUB_WEBHOOK_SECRET`:
 
-   ```bash
-   openssl rand -hex 32
-   ```
+```bash
+openssl rand -hex 32
+```
 
-2. In the repository: **Settings → Webhooks → Add webhook**.
+**For each repository:** the Git Sync page shows, on each repository's card (to people who manage the site), a
+**webhook address and secret that belong to that repository alone**. In the repository, **Settings → Webhooks → Add
+webhook**:
 
-   | Field | Value |
-   | --- | --- |
-   | Payload URL | `https://<your-domain>/api/webhooks/github` |
-   | Content type | `application/json` |
-   | Secret | the same value |
-   | Events | *Just the push event* |
+| Field | Value |
+| --- | --- |
+| Payload URL | `https://<your-domain>/api/webhooks/github/<source id>` — shown on the card |
+| Content type | `application/json` |
+| Secret | the secret shown on the card |
+| Events | *Just the push event* |
 
-The endpoint verifies GitHub's HMAC-SHA256 signature over the raw request body before it reads anything else, and
-refuses every request when no secret is configured. A delivery that is repeated is recognised and ignored. Only
-pushes to a connected source's branch cause a sync, and one push to a repository that feeds several sites updates
-all of them.
+The secret is derived from `GITHUB_WEBHOOK_SECRET` and the repository's connection, so it signs deliveries for that
+connection and nothing else: someone who manages one site's webhook cannot use it to trigger syncs of another site's
+repository, and cannot work out the server's secret from it. If one GitHub repository feeds more than one connection
+(two folders, say), each has its own webhook.
 
-The dashboard shows the exact payload URL for your deployment.
+The endpoint checks GitHub's HMAC-SHA256 signature over the raw request body before it reads anything else, and answers
+"invalid signature" to every request that is not signed for that connection, whether or not it exists. A delivery that
+is repeated is recognised and ignored, and a push to a different branch or repository than the connection follows is
+ignored. Payloads over 5 MB are refused (the proxy in front enforces the same limit); the repository is still checked
+on its timer.
 
 ## What a repository looks like
 
@@ -155,8 +162,9 @@ transaction: it either all lands or none of it does.
   content rather than by name, raster images re-encoded (which removes metadata), SVG sanitised. They are
   de-duplicated by content, so an image used by twenty pages is stored once.
 - **Problems are reported, not skipped silently.** Parsing never throws: a file with bad front matter or an unknown
-  directive is still published, with the problem listed. A file that cannot be read at all (over the size limit,
-  or an error fetching it) keeps its previous content. When any error was found the run is marked *Partly*, but
+  directive is still published, with the problem listed. A file that cannot be read at all (over the size limit, not
+  text, or taking too long to read) leaves the page it made before exactly as it was, and is tried again at the next
+  sync; a new file like that simply makes no page. When any error was found the run is marked *Partly*, but
   everything that could be applied has been.
 - **Diagnostics** — per file and line, with a stable `GS-…` code — are listed under each run. Links to pages that
   don't exist, missing images, unknown directives and files left out of the navigation are warnings you can see.
@@ -207,10 +215,11 @@ describe.
 | --- | --- | --- |
 | `GIT_SYNC_ENCRYPTION_KEY` | — | Required to save an access token for a private repository. `openssl rand -base64 32`. |
 | `GIT_SYNC_ENCRYPTION_KEYS_PREVIOUS` | — | Comma-separated older keys, so tokens saved under them can still be read after a rotation. |
-| `GITHUB_WEBHOOK_SECRET` | — | Verifies push webhooks. Without it webhooks are refused and polling does the work. |
+| `GITHUB_WEBHOOK_SECRET` | — | At least 32 characters. Each repository's webhook secret is derived from it (see [Push webhooks](#push-webhooks)). Without it webhooks are refused and polling does the work. |
 | `GITHUB_API_URL` | `https://api.github.com` | GitHub Enterprise Server: `https://ghe.example.com/api/v3`. |
 | `GIT_SYNC_ALLOWED_HOSTS` | the host of `GITHUB_API_URL` | The only hosts the worker may contact. |
 | `GIT_SYNC_CONCURRENCY` | `2` | Repositories synced at once. |
+| `GIT_SYNC_ORG_ASSET_QUOTA_MB` | `2048` | Most the images and files imported from one organization's repositories may add up to. |
 
 Per source, in the dashboard: the branch, the folder, how often to poll (60 seconds to 24 hours, default 5
 minutes), the delete grace period, and the token.
@@ -231,6 +240,7 @@ Each run's diagnostics carry these codes; the table in [FORMAT.md](FORMAT.md#dia
 | `GS-305` | The branch isn't protected on GitHub. Informational: anyone who can push to it can change the published site. |
 | `GS-306` | The run took longer than 10 minutes and was stopped. Reduce the folder (`rootDir`) or the number of large assets. |
 | `GS-150` / `GS-151` | A file, or the whole repository, is over a [limit](#limits). |
+| `GS-208` | A file took more than 20 seconds to read, or ran out of memory, and was skipped. Usually a very large or oddly structured file (thousands of list items, deeply nested containers); split it up. |
 | `GS-101` | Front matter isn't valid YAML. The line number points at the problem; the page is still published without it. |
 | `GS-120` / `GS-121` | With an explicit navigation, a file isn't listed (so it isn't published), or the navigation lists one that doesn't exist. |
 | `GS-130` / `GS-131` | A link or image points at a file that isn't in the repository. |
@@ -281,7 +291,11 @@ Protect the branch you sync from. Anyone who can push to it can change what your
 | Files per source | 5,000 |
 | One Markdown file | 1 MB |
 | One image or other asset | 20 MB |
+| Markdown read in one run | 100 MB |
+| Time to read one Markdown file | 20 seconds (then it is skipped) |
+| Pixels in one image | 40 million |
 | Assets read in one run | 500 MB |
+| Images and files per organization | 2 GB |
 | `gitcrook.yaml` / `SUMMARY.md` | 256 KB |
 | Front matter | 32,000 characters |
 | One run | 10 minutes |

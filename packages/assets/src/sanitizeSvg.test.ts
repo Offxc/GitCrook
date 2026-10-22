@@ -137,6 +137,16 @@ describe("what is removed", () => {
     expect(svg).toContain("<rect");
   });
 
+  it("drops filter settings that would make a browser do unbounded work, and keeps sensible ones", () => {
+    const heavy = without(wrap('<filter id="f"><feGaussianBlur stdDeviation="100000"/><feMorphology radius="9999"/><feTurbulence numOctaves="500" baseFrequency="0.05"/></filter>'), /100000/, /9999/, /500/);
+    expect(heavy).toContain("<feGaussianBlur");
+    const fine = wrap('<filter id="f"><feGaussianBlur stdDeviation="4 6"/><feMorphology radius="3"/><feTurbulence numOctaves="3" baseFrequency="0.05"/></filter>');
+    const result = sanitizeSvg(Buffer.from(fine));
+    expect(result.ok && result.svg).toContain('stdDeviation="4 6"');
+    expect(result.ok && result.svg).toContain('radius="3"');
+    expect(result.ok && result.svg).toContain('numOctaves="3"');
+  });
+
   it("filters that could load an image", () => {
     without(wrap('<filter id="f"><feImage href="https://evil.example/x.png"/><feGaussianBlur stdDeviation="2"/></filter>'), /feImage/, /evil/);
   });

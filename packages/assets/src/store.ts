@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@gitcrook/db";
-import { writeStoredFile } from "@gitcrook/shared/server";
+import { deleteStoredFile, writeStoredFile } from "@gitcrook/shared/server";
 import type { Processed } from "./process";
 
 export interface StoredAsset {
@@ -39,6 +39,11 @@ export async function storeAsset(input: {
     checksumSha256,
   };
 
+  // The file this path pointed at before, if the new content is different: nothing may be left behind when it is replaced.
+  const previous = input.source
+    ? await prisma.asset.findUnique({ where: { sourceId_sourcePath: { sourceId: input.source.sourceId, sourcePath: input.source.sourcePath } }, select: { storageKey: true } })
+    : null;
+
   const asset = input.source
     ? await prisma.asset.upsert({
         where: { sourceId_sourcePath: { sourceId: input.source.sourceId, sourcePath: input.source.sourcePath } },
@@ -47,5 +52,8 @@ export async function storeAsset(input: {
         select: { id: true },
       })
     : await prisma.asset.create({ data, select: { id: true } });
+  if (previous && previous.storageKey !== storageKey && (await prisma.asset.count({ where: { storageKey: previous.storageKey } })) === 0) {
+    await deleteStoredFile(previous.storageKey).catch(() => undefined);
+  }
   return { id: asset.id, url: `/api/files/${asset.id}` };
 }

@@ -106,6 +106,19 @@ describe("listFiles", () => {
     expect(github.count(/git\/trees/)).toBeGreaterThan(5);
   });
 
+  it("asks for a directory once however many places it appears", async () => {
+    // The same content under many names is one directory in Git.
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 40; i++) files[`copy-${i}/shared/page.md`] = "identical";
+    const { client, options, github } = setup(files);
+    github.maxTreeEntries = 10;
+    const listing = await listFiles(client, await options());
+    expect(listing.walked).toBe(true);
+    expect(listing.files).toHaveLength(40);
+    // The root, one `copy-N` directory (all identical, so one), and its `shared` directory.
+    expect(github.count(/git\/trees/) - github.count(/recursive=1/)).toBeLessThanOrEqual(4);
+  });
+
   it("refuses a repository with more files than the limit", async () => {
     const files: Record<string, string> = {};
     for (let i = 0; i < 12; i++) files[`f${i}.md`] = "x";

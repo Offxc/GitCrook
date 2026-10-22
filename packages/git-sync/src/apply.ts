@@ -100,6 +100,9 @@ export function canonicalJson(value: unknown): string {
 }
 const sameJson = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
 
+/** Old addresses one source may ask to redirect with `redirect_from`. Every one is a row, and every sync reads them all. */
+export const MAX_REDIRECTS_PER_SOURCE = 2_000;
+
 /** A `redirect_from` entry as a site path, or null if it is not one we will write. */
 export function cleanRedirectPath(raw: string): string | null {
   const parts = raw.trim().replace(/[?#].*$/, "").split("/").filter((p) => p !== "" && p !== ".");
@@ -307,7 +310,7 @@ async function reconcileRedirects(
       const rel = cleanRedirectPath(raw);
       if (!rel) continue;
       const from = join([...input.prefix, rel]);
-      if (from !== to && !livePaths.has(from)) wanted.set(from, to);
+      if (from !== to && !livePaths.has(from) && (wanted.has(from) || wanted.size < MAX_REDIRECTS_PER_SOURCE)) wanted.set(from, to);
     }
   }
 

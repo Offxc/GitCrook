@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -78,5 +78,50 @@ describe("the importer", () => {
     const result = await createAssetImporter().import({ organizationId: org.id, siteId: site.id, sourceId: source.id, path: "tool.exe", sha: "s", bytes: new TextEncoder().encode("MZ") });
     expect(result).toEqual({ error: "Unsupported file type" });
     expect(await prisma.asset.count()).toBe(0);
+  });
+});
+
+describe("replacing and limiting imported files", () => {
+  it("deletes the stored file a path used to point at when its content changes, but not one still in use", async () => {
+    const { org, site, source } = await fixture();
+    const importer = createAssetImporter();
+    await importer.import({ organizationId: org.id, siteId: site.id, sourceId: source.id, path: "a.png", sha: "1", bytes: await png(50) });
+    const before = (await prisma.asset.findMany()).map((r) => r.storageKey);
+    expect(existsSync(storagePathFor(before[0]!))).toBe(true);
+
+    await importer.import({ organizationId: org.id, siteId: site.id, sourceId: source.id, path: "a.png", sha: "2", bytes: await png(60) });
+    const after = (await prisma.asset.findMany()).map((r) => r.storageKey);
+    expect(after).toHaveLength(1);
+    expect(after[0]).not.toBe(before[0]);
+    expect(existsSync(storagePathFor(before[0]!))).toBe(false);
+    expect(existsSync(storagePathFor(after[0]!))).toBe(true);
+
+    // Another path with the same content keeps the file alive when the first stops using it.
+    await importer.import({ organizationId: org.id, siteId: site.id, sourceId: source.id, path: "b.png", sha: "3", bytes: await png(60) });
+    await importer.import({ organizationId: org.id, siteId: site.id, sourceId: source.id, path: "a.png", sha: "4", bytes: await png(70) });
+    expect(existsSync(storagePathFor(after[0]!))).toBe(true);
+  });
+
+  it("refuses files past the organization's allowance, and lets a replacement through", async () => {
+    const { org, site, source } = await fixture();
+    const probe = await processAsset(await png(80), { filename: "x.png" });
+    if (!probe.ok) throw new Error("setup");
+    const size = probe.bytes.byteLength;
+    const importer = createAssetImporter(undefined, { maxOrganizationBytes: size * 2 + 5 });
+    const put = async (path: string, shade: number) => importer.import({ organizationId: org.id, siteId: site.id, sourceId: source.id, path, sha: path + shade, bytes: await png(shade) });
+
+    expect("assetId" in (await put("one.png", 81))).toBe(true);
+    expect("assetId" in (await put("two.png", 82))).toBe(true);
+    const third = await put("three.png", 83);
+    expect(third).toMatchObject({ error: expect.stringContaining("already hold") });
+    // Replacing a file that is already counted does not count it twice.
+    expect("assetId" in (await put("one.png", 84))).toBe(true);
+  });
+
+  it("refuses an image with more pixels than it may have", async () => {
+    const result = await processAsset(await png(90), { filename: "big.png" }, { maxImageBytes: 1_000_000, maxFileBytes: 1_000_000, maxPixels: 4 });
+    expect(result).toMatchObject({ ok: false, status: 422 });
+    const fine = await processAsset(await png(91), { filename: "ok.png" }, { maxImageBytes: 1_000_000, maxFileBytes: 1_000_000, maxPixels: 9 });
+    expect(fine.ok).toBe(true);
   });
 });

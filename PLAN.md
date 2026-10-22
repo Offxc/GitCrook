@@ -119,6 +119,20 @@ the format in `docs/git-sync/FORMAT.md`.
 new address (the site's old root included); adding a section whose address is already a top-level page of the
 first section is refused with an explanation. Covered by unit, integration and end-to-end tests.
 
+**Independent security review.** After the build, a separate reviewer read the Git Sync code looking for ways a hostile
+repository or tenant could hurt the instance. Fixed from it: the Markdown parser could be made to run for minutes on a few
+kilobytes of input (a cubic tag regex, nested includes that multiply, and quadratic behaviour inside the Markdown library
+itself), which would have stopped every sync and PDF export on the worker. Files are now read on a separate thread with a
+20-second and a memory limit; include and tag-nesting budgets and a linear tag matcher cover the rest; a repository whose
+reading stops the worker three times is paused; a file that cannot be read leaves its page as it was. Also fixed: webhook
+secrets are per connected repository (derived from `GITHUB_WEBHOOK_SECRET` and the source id) because one shared secret
+let any tenant forge pushes for another's repository; budgets on Markdown bytes, identical-blob fetches, tree
+directories, `redirect_from` rows, image pixels and per-organization imported bytes; replaced image files are deleted;
+token-less GitHub checks are budgeted per organization and per server; the Git Sync page needs edit access; `safeFetch`
+drops credentials when a redirect leaves the host; image addresses are checked at parse time; expensive SVG filter
+settings are dropped. Not done: running Chromium (PDF export) as a separate user, since a same-user browser can read the
+worker's environment either way.
+
 **Open:** GS-18 (GitHub App login; `GITHUB_APP_INSTALLATION` credentials are rejected for now), the dry-run preview in the dashboard
 (the engine supports it: `runSync(..., { dryRun: true })`), A8 (group renames do not create redirects), the editor surface does not yet show tab
 content as tabs (`GS-210`), and the remaining S13–S19 hardening items.
@@ -414,7 +428,7 @@ including when an AI coding agent changes it — without anyone opening the edit
 ### 4.3 Architecture
 
 ```
-GitHub ── push ──► POST /api/webhooks/github ──► GitSyncRun(PENDING)   (verify HMAC, dedupe, 202)
+GitHub ── push ──► POST /api/webhooks/github/<source id> ──► GitSyncRun(PENDING)   (verify HMAC, dedupe, 202)
                                                         │
 worker poll (ETag, every N s) ──────────────────────────┤
 dashboard "Sync now" ───────────────────────────────────┘
