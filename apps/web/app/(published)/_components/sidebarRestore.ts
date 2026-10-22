@@ -31,7 +31,23 @@ export function restoreSidebar(root: HTMLElement, key: string): void {
     // sessionStorage can throw in private-browsing contexts — then there is just nothing to restore
   }
 
-  // Container maths only. scrollIntoView() would also scroll the page itself.
+  // The same logic as revealActive below, written out again because this function's source text is
+  // shipped as-is to the browser and so cannot call anything else in this module.
+  var active = root.querySelector('[aria-current="page"]');
+  if (active) {
+    var box = root.getBoundingClientRect();
+    var rect = active.getBoundingClientRect();
+    if (rect.top < box.top + 8 || rect.bottom > box.bottom - 8) {
+      root.scrollTop += rect.top - box.top - box.height / 3;
+    }
+  }
+}
+
+/**
+ * Scrolls the sidebar (and only the sidebar) so the active item is in view, if it isn't. Container
+ * maths rather than scrollIntoView(), which would also scroll the page itself.
+ */
+export function revealActive(root: HTMLElement): void {
   var active = root.querySelector('[aria-current="page"]');
   if (active) {
     var box = root.getBoundingClientRect();

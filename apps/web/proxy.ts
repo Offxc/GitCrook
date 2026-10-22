@@ -1,5 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { EMBED_FRAME_SRC_HOSTS, GOOGLE_FONTS_CSS_HOST, GOOGLE_FONTS_STATIC_HOST } from "@gitcrook/shared";
+import {
+  EMBED_FRAME_SRC_HOSTS,
+  GOOGLE_FONTS_CSS_HOST,
+  GOOGLE_FONTS_STATIC_HOST,
+  SHARE_COOKIE,
+  SHARE_COOKIE_MAX_AGE_SECONDS,
+  addShareToken,
+  isReservedSlug,
+  isShareToken,
+} from "@gitcrook/shared";
 
 /**
  * Runs on every request (Node.js runtime — this is Next.js 16's renamed
@@ -23,6 +32,12 @@ export default function proxy(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
 
+  // A share link arrives as ?token=… on a page URL. Trade it for a cookie and redirect to the clean URL:
+  // the token then travels with every later request (links, images, search, feeds) instead of dying
+  // after the first page, and it stops sitting in the address bar, history and Referer headers.
+  const shareRedirect = exchangeShareToken(req, nonce);
+  if (shareRedirect) return shareRedirect;
+
   const host = (req.headers.get("host") ?? "").toLowerCase();
   const isRootDomain = host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}`;
 
@@ -43,14 +58,53 @@ export default function proxy(req: NextRequest) {
     // underscore as a "private folder" that opts out of routing entirely, so
     // a route nested under one is silently unreachable (found via testing:
     // `_sites/...` 404'd and silently fell through to the [siteSlug] route).
+    // Custom domains are stored as bare hostnames, so a port on the Host header (a dev or test setup on
+    // a non-standard port) must not become part of the name being looked up.
+    const hostname = host.replace(/:\d+$/, "");
     const url = req.nextUrl.clone();
-    url.pathname = `/site-by-domain/${host}${req.nextUrl.pathname}`;
+    url.pathname = `/site-by-domain/${hostname}${req.nextUrl.pathname}`;
     const res = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
     applySecurityHeaders(res, nonce);
     return res;
   }
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
+  applySecurityHeaders(res, nonce);
+  return res;
+}
+
+function exchangeShareToken(req: NextRequest, nonce: string): NextResponse | null {
+  const token = req.nextUrl.searchParams.get("token");
+  if (!token || !isShareToken(token) || req.method !== "GET") return null;
+
+  // Only published-site pages: not the platform's own routes, and not the marketing root.
+  const pathname = req.nextUrl.pathname;
+  const first = pathname.split("/")[1] ?? "";
+  const host = (req.headers.get("host") ?? "").toLowerCase();
+  if (!/^[a-z0-9.-]+(:\d{1,5})?$/.test(host)) return null; // it goes into a Location header
+  const isRootDomain = host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}`;
+  if (pathname === "/" && isRootDomain) return null;
+  if (isRootDomain && isReservedSlug(first)) return null;
+  if (!isRootDomain && pathname.startsWith("/api/")) return null;
+
+  const clean = new URLSearchParams(req.nextUrl.searchParams);
+  clean.delete("token");
+  const query = clean.toString();
+
+  // The redirect has to carry an absolute URL (the proxy layer rejects a relative Location), built from
+  // the host and scheme the visitor actually used. Behind a reverse proxy the request URL is the internal
+  // one, so those come from the Host and X-Forwarded-Proto headers.
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || req.nextUrl.protocol.replace(/:$/, "");
+  const location = `${proto}://${host}${pathname}${query ? `?${query}` : ""}`;
+  const res = new NextResponse(null, { status: 307, headers: { Location: location } });
+  res.cookies.set(SHARE_COOKIE, addShareToken(req.cookies.get(SHARE_COOKIE)?.value, token), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: proto === "https",
+    path: "/",
+    maxAge: SHARE_COOKIE_MAX_AGE_SECONDS,
+  });
+  res.headers.set("Cache-Control", "private, no-store");
   applySecurityHeaders(res, nonce);
   return res;
 }

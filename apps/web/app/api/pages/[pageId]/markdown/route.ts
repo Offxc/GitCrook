@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@gitcrook/db";
 import { checkRateLimit } from "@gitcrook/shared/server";
-import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
+import { getVisitorAccess } from "@/lib/tenancy/visitorAccess";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 import { blocksToMarkdown } from "@/lib/renderer/toMarkdown";
 
@@ -14,7 +13,7 @@ import { blocksToMarkdown } from "@/lib/renderer/toMarkdown";
  * content is: the same visitor rules as the page itself, so a private or password-protected site
  * does not hand out its text through this URL.
  */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ pageId: string }> }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ pageId: string }> }) {
   const { pageId } = await params;
 
   const page = await prisma.page.findUnique({
@@ -24,13 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ page
   // The same answer for "no such page" and "not yours": nothing to learn from the difference.
   if (!page || page.isDraft || page.isGroup) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [userId, jar] = await Promise.all([getSessionUserId(), cookies()]);
-  const access = await resolveVisitorAccess({
-    site: page.site,
-    userId,
-    passwordProofCookie: jar.get(`vd-pw-${page.site.id}`)?.value,
-    shareLinkToken: req.nextUrl.searchParams.get("token") ?? undefined,
-  });
+  const access = await getVisitorAccess(page.site);
   if (access.status !== "allow") return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const meta = await readRequestMeta();

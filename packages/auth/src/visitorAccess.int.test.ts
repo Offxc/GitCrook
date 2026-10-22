@@ -12,7 +12,7 @@ async function siteIn(audienceMode: AudienceMode) {
   return { site, member, org };
 }
 
-const anonymous = { userId: null, passwordProofCookie: undefined, shareLinkToken: undefined };
+const anonymous = { userId: null, passwordProofCookie: undefined, shareLinkTokens: undefined };
 
 describe("resolveVisitorAccess", () => {
   it("lets everyone into a public site", async () => {
@@ -32,7 +32,13 @@ describe("resolveVisitorAccess", () => {
     it("admit a visitor with a live token for that site", async () => {
       const { site, member } = await siteIn("PRIVATE");
       await prisma.shareLink.create({ data: { siteId: site.id, token: "live", createdById: member.id } });
-      expect(await resolveVisitorAccess({ site, ...anonymous, shareLinkToken: "live" })).toEqual({ status: "allow" });
+      expect(await resolveVisitorAccess({ site, ...anonymous, shareLinkTokens: ["live"] })).toEqual({ status: "allow" });
+    });
+
+    it("admit a visitor when any one of several tokens is live", async () => {
+      const { site, member } = await siteIn("PRIVATE");
+      await prisma.shareLink.create({ data: { siteId: site.id, token: "live", createdById: member.id } });
+      expect(await resolveVisitorAccess({ site, ...anonymous, shareLinkTokens: ["nope", "also-nope", "live"] })).toEqual({ status: "allow" });
     });
 
     it("refuse unknown, revoked and expired tokens", async () => {
@@ -40,7 +46,7 @@ describe("resolveVisitorAccess", () => {
       await prisma.shareLink.create({ data: { siteId: site.id, token: "revoked", createdById: member.id, revokedAt: new Date() } });
       await prisma.shareLink.create({ data: { siteId: site.id, token: "expired", createdById: member.id, expiresAt: new Date(Date.now() - 1000) } });
       for (const token of ["nope", "revoked", "expired"]) {
-        expect(await resolveVisitorAccess({ site, ...anonymous, shareLinkToken: token })).toEqual({ status: "denied" });
+        expect(await resolveVisitorAccess({ site, ...anonymous, shareLinkTokens: [token] })).toEqual({ status: "denied" });
       }
     });
 
@@ -48,7 +54,7 @@ describe("resolveVisitorAccess", () => {
       const a = await siteIn("PRIVATE");
       const b = await siteIn("PRIVATE");
       await prisma.shareLink.create({ data: { siteId: a.site.id, token: "a-only", createdById: a.member.id } });
-      expect(await resolveVisitorAccess({ site: b.site, ...anonymous, shareLinkToken: "a-only" })).toEqual({ status: "denied" });
+      expect(await resolveVisitorAccess({ site: b.site, ...anonymous, shareLinkTokens: ["a-only"] })).toEqual({ status: "denied" });
     });
   });
 

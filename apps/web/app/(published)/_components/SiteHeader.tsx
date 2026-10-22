@@ -1,16 +1,12 @@
 import Link from "next/link";
 import { SearchTrigger } from "./SearchTrigger";
 import { VariantSwitcher } from "./VariantSwitcher";
-import type { VariantOption } from "@/lib/tenancy/resolvePublishedPath";
 import type { ThemeConfig } from "@gitcrook/shared";
 
 export function SiteHeader({
   siteName,
   baseHref,
   siteId,
-  variant,
-  variantOptions,
-  variantPathPrefix,
   header,
   primaryLinkHref,
   externalLinksNewTab,
@@ -19,9 +15,6 @@ export function SiteHeader({
   siteName: string;
   baseHref: string;
   siteId: string;
-  variant?: { id: string; name: string };
-  variantOptions?: VariantOption[];
-  variantPathPrefix?: string[];
   header: ThemeConfig["header"];
   primaryLinkHref: string | null;
   externalLinksNewTab: boolean;
@@ -64,9 +57,7 @@ export function SiteHeader({
       ) : null}
 
       <div className="flex flex-1 shrink-0 items-center justify-end gap-2">
-        {variant && variantOptions ? (
-          <VariantSwitcher current={variant} options={variantOptions} baseHref={baseHref} pathPrefix={variantPathPrefix ?? []} />
-        ) : null}
+        <VariantSwitcher />
         {/* Below md the centred input is hidden, so fall back to the compact
             icon there — otherwise search would vanish entirely on mobile. */}
         {showSearch ? (

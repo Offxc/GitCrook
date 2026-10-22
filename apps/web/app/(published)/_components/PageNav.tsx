@@ -8,7 +8,7 @@ export interface AdjacentPage {
 export function PageNav({ baseHref, prev, next }: { baseHref: string; prev: AdjacentPage | null; next: AdjacentPage | null }) {
   if (!prev && !next) return null;
   return (
-    <nav className="mt-10 flex items-center justify-between border-t border-site-border pt-6">
+    <nav aria-label="Pagination" className="mt-10 flex items-center justify-between border-t border-site-border pt-6">
       {prev ? (
         <Link href={`${baseHref}/${prev.path.join("/")}`} className="group flex flex-col text-sm">
           <span className="text-xs text-site-ink-muted">Previous</span>

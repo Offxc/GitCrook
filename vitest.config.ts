@@ -8,6 +8,7 @@ const pkg = (path: string) => fileURLToPath(new URL(`./packages/${path}`, import
 // opt-in with a clear failure instead of a silent skip:
 //   pnpm test               unit tests — no database, no network
 //   pnpm test:integration   needs TEST_DATABASE_URL (see tests/support/globalSetup.ts)
+//   pnpm test:e2e           needs a running app and its database (see tests/e2e/README.md)
 export default defineConfig({
   // tsconfig says jsx: "preserve" for Next; tests need it compiled.
   esbuild: { jsx: "automatic" },
@@ -47,6 +48,18 @@ export default defineConfig({
           fileParallelism: false,
           testTimeout: 30_000,
           hookTimeout: 60_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "e2e",
+          include: ["tests/e2e/**/*.e2e.test.ts"],
+          environment: "node",
+          // Drives a real browser against a running production build; see tests/e2e/README.md.
+          fileParallelism: false,
+          testTimeout: 90_000,
+          hookTimeout: 120_000,
         },
       },
     ],

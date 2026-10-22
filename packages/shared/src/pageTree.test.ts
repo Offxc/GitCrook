@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ancestorsOf, buildPageTree, flattenNavigablePages, flattenPageTree, pathsForTree, prefixPaths, type PageTreeRow } from "./pageTree";
+import { ancestorIds, ancestorsOf, buildPageTree, flattenNavigablePages, flattenPageTree, pathsForTree, prefixPaths, resolveTreePath, type PageTreeRow } from "./pageTree";
 
 const row = (id: string, parentId: string | null, over: Partial<PageTreeRow> = {}): PageTreeRow => ({
   id,
@@ -93,5 +93,55 @@ describe("paths", () => {
   it("prefixPaths with nothing to add returns the same map", () => {
     const paths = pathsForTree(tree);
     expect(prefixPaths(paths, [])).toBe(paths);
+  });
+});
+
+describe("resolveTreePath", () => {
+  const tree = buildPageTree(rows);
+  const id = (slugs: string[]) => resolveTreePath(tree, slugs)?.id ?? null;
+
+  it("finds a page by its slug chain", () => {
+    expect(id(["intro"])).toBe("intro");
+    expect(id(["g1", "b", "b1"])).toBe("b1");
+    expect(id(["g1", "a"])).toBe("a");
+  });
+
+  it("is null when any segment names nothing", () => {
+    expect(id(["nope"])).toBeNull();
+    expect(id(["g1", "nope"])).toBeNull();
+    expect(id(["intro", "deeper"])).toBeNull();
+  });
+
+  it("lands on a group's first child, since a group has no page of its own", () => {
+    expect(id(["g1"])).toBe("a");
+    expect(id(["g2"])).toBe("c");
+  });
+
+  it("an empty path is the first page a reader can open", () => {
+    expect(id([])).toBe("intro");
+  });
+
+  it("an empty path skips a leading group with no children", () => {
+    const t = buildPageTree([row("empty", null, { isGroup: true }), row("real", null)]);
+    expect(resolveTreePath(t, [])?.id).toBe("real");
+  });
+
+  it("an empty site resolves to nothing", () => {
+    expect(resolveTreePath([], [])).toBeNull();
+    expect(resolveTreePath(buildPageTree([row("only-group", null, { isGroup: true })]), [])).toBeNull();
+  });
+
+  it("a childless group resolves to nothing", () => {
+    const t = buildPageTree([row("g", null, { isGroup: true })]);
+    expect(resolveTreePath(t, ["g"])).toBeNull();
+  });
+});
+
+describe("ancestorIds", () => {
+  const tree = buildPageTree(rows);
+  it("lists ids above a page, outermost first", () => {
+    expect(ancestorIds(tree, "b1")).toEqual(["g1", "b"]);
+    expect(ancestorIds(tree, "intro")).toEqual([]);
+    expect(ancestorIds(tree, "ghost")).toEqual([]);
   });
 });

@@ -1,39 +1,98 @@
-import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
-import type { ThemeConfig } from "@gitcrook/shared";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import { ancestorIds, type ThemeConfig } from "@gitcrook/shared";
+import type { ShellNode } from "@/lib/tenancy/siteLocation";
 import { GitCrookMark } from "@/app/_components/GitCrookMark";
-import { AddNewButton } from "./AddNewButton";
+import { useEditMode } from "./EditModeContext";
+import { useSiteNav } from "./SiteNavProvider";
 import { SidebarList } from "./SidebarList";
-import { SidebarBody } from "./SidebarBody";
 import { SidebarScrollArea } from "./SidebarScrollArea";
 
+// Editing a site's structure (drag and drop, rename, icons) is for members only, so its code — and the
+// icon picker's table of every icon — is fetched only when edit mode is actually switched on.
+const SidebarTree = dynamic(() => import("./SidebarTree").then((m) => m.SidebarTree));
+const AddNewButton = dynamic(() => import("./AddNewButton").then((m) => m.AddNewButton));
+
+type ListStyle = ThemeConfig["sidebarStyle"]["listStyle"];
+
 /**
- * The desktop sidebar is hidden below lg (288px of nav is too much of a
- * small screen), so this is the same tree as a native disclosure above the
- * content — without it, narrow viewports would have no navigation at all.
- * `<details>` rather than a JS sheet keeps it zero-client-JS like the rest
- * of the read-only nav.
+ * The page tree of one variant. It is keyed by variant at the call sites, so switching variant starts a
+ * fresh tree; within a variant it persists, which is what keeps groups the reader opened open.
+ *
+ * Which groups start open is decided once, from the page that is active when the tree first renders.
+ * After that the browser owns each group's open state (see SidebarList). Navigation only ever adds to
+ * it: opening the groups above a newly active page, never closing the ones the reader left open.
  */
-export function MobileNav({
+function VariantTree({
   tree,
   paths,
   baseHref,
-  activePageId,
+  activeId,
   listStyle,
+  edit,
 }: {
-  tree: PageTreeNode[];
+  tree: ShellNode[];
   paths: Map<string, string[]>;
   baseHref: string;
-  activePageId: string;
-  listStyle: ThemeConfig["sidebarStyle"]["listStyle"];
+  activeId: string | null;
+  listStyle: ListStyle;
+  edit: { orgSlug: string; siteId: string } | null;
 }) {
+  const [initialOpen] = useState<ReadonlySet<string>>(() => new Set(activeId ? ancestorIds(tree, activeId) : []));
+  const { editing } = useEditMode();
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!activeId || !root.current) return;
+    for (const id of ancestorIds(tree, activeId)) {
+      const group = root.current.querySelector<HTMLDetailsElement>(`details[data-node-id="${CSS.escape(id)}"]`);
+      if (group) group.open = true;
+    }
+  }, [activeId, tree]);
+
   return (
-    <details className="mb-6 rounded-xl border border-site-border lg:hidden">
+    <div ref={root}>
+      {edit && editing ? (
+        <SidebarTree tree={tree} baseHref={baseHref} paths={paths} activePageId={activeId ?? ""} orgSlug={edit.orgSlug} siteId={edit.siteId} />
+      ) : (
+        <SidebarList tree={tree} paths={paths} baseHref={baseHref} activePageId={activeId} initialOpen={initialOpen} depth={0} listStyle={listStyle} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The desktop sidebar is hidden below lg (288px of nav is too much of a small screen); MobileNav below
+ * is the same tree as a disclosure above the content.
+ */
+export function MobileNav({ listStyle }: { listStyle: ListStyle }) {
+  const nav = useSiteNav();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const lastPath = useRef(pathname);
+
+  // The menu is part of the persistent shell, so it would otherwise stay open after choosing a page.
+  useEffect(() => {
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    setOpen(false);
+  }, [pathname]);
+
+  if (!nav) return null;
+  const { location, paths, baseHref } = nav;
+  const activeId = location.activeNode?.id ?? null;
+
+  return (
+    <details open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)} className="mx-6 mt-6 rounded-xl border border-site-border lg:hidden">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-medium text-site-ink [&::-webkit-details-marker]:hidden">
         <MenuIcon />
         Menu
       </summary>
-      <div className="border-t border-site-border px-2 py-3">
-        <SidebarList tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} depth={0} listStyle={listStyle} />
+      <div className="max-h-[70vh] overflow-y-auto border-t border-site-border px-2 py-3">
+        <VariantTree key={location.variant.id} tree={location.variant.tree} paths={paths} baseHref={baseHref} activeId={activeId} listStyle={listStyle} edit={null} />
       </div>
     </details>
   );
@@ -48,35 +107,27 @@ function MenuIcon() {
 }
 
 export function Sidebar({
-  tree,
-  paths,
-  baseHref,
-  activePageId,
   sidebarStyle,
   showPoweredByBadge,
   canManageContent,
   orgSlug,
-  siteId,
-  variantId,
   nonce,
   belowSectionTabs = false,
 }: {
-  tree: PageTreeNode[];
-  paths: Map<string, string[]>;
-  baseHref: string;
-  activePageId: string;
   sidebarStyle: ThemeConfig["sidebarStyle"];
   showPoweredByBadge: boolean;
   canManageContent: boolean;
   orgSlug: string | null;
-  siteId: string;
-  /** Keys the remembered scroll offset and open groups: a section's or variant's tree must not inherit another's. */
-  variantId: string;
   /** CSP nonce for the pre-hydration scroll-restore script. */
   nonce?: string;
   /** A multi-section site renders SectionTabs between the header and this, which sticks at top-16 too — so this has to start below both. */
   belowSectionTabs?: boolean;
 }) {
+  const nav = useSiteNav();
+  if (!nav) return null;
+
+  const { location, paths, baseHref, siteId } = nav;
+  const activeId = location.activeNode?.id ?? null;
   const editable = canManageContent && orgSlug !== null;
   // "filled" is GitBook's own sidebar-background option, and it's what makes
   // the column read as an inset card (the look in the reference screenshot)
@@ -98,15 +149,24 @@ export function Sidebar({
       aria-label="Table of contents"
     >
       <div className={`flex min-h-0 flex-1 flex-col ${filled ? "rounded-2xl border border-site-border bg-site-surface" : ""}`}>
-        <SidebarScrollArea storageKey={`gitcrook-sidebar:${siteId}:${variantId}`} nonce={nonce} className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
-          {editable ? (
-            <SidebarBody tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} listStyle={sidebarStyle.listStyle} orgSlug={orgSlug} siteId={siteId} />
-          ) : (
-            <SidebarList tree={tree} paths={paths} baseHref={baseHref} activePageId={activePageId} depth={0} listStyle={sidebarStyle.listStyle} />
-          )}
+        <SidebarScrollArea
+          storageKey={`gitcrook-sidebar:${siteId}:${location.variant.id}`}
+          activeId={activeId}
+          nonce={nonce}
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-5"
+        >
+          <VariantTree
+            key={location.variant.id}
+            tree={location.variant.tree}
+            paths={paths}
+            baseHref={baseHref}
+            activeId={activeId}
+            listStyle={sidebarStyle.listStyle}
+            edit={editable ? { orgSlug: orgSlug!, siteId } : null}
+          />
           {editable ? (
             <div className="mt-3 border-t border-site-border pt-3">
-              <AddNewButton orgSlug={orgSlug} siteId={siteId} baseHref={baseHref} />
+              <AddNewButton orgSlug={orgSlug!} siteId={siteId} baseHref={baseHref} />
             </div>
           ) : null}
         </SidebarScrollArea>

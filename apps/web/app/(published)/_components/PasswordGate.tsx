@@ -1,9 +1,15 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { submitSitePassword, type PasswordGateState } from "@/lib/tenancy/passwordGateActions";
 
-export function PasswordGate({ siteId, siteName, redirectTo }: { siteId: string; siteName: string; redirectTo: string }) {
+/**
+ * Asks for the site's password. It sits inside the site's themed frame (the layout draws that around
+ * every state), and takes the visitor back to the page they were on once the password is accepted.
+ */
+export function PasswordGate({ siteId, siteName }: { siteId: string; siteName: string }) {
+  const redirectTo = usePathname();
   const [state, formAction, pending] = useActionState<PasswordGateState, FormData>(submitSitePassword.bind(null, siteId), {});
 
   useEffect(() => {
@@ -11,7 +17,7 @@ export function PasswordGate({ siteId, siteName, redirectTo }: { siteId: string;
   }, [state.redirectTo]);
 
   return (
-    <div data-site-root className="flex min-h-screen flex-col items-center justify-center bg-site-canvas px-6">
+    <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
         <h1 className="text-center text-lg font-semibold text-site-ink">{siteName}</h1>
         <p className="mt-1 text-center text-sm text-site-ink-muted">This site is password-protected.</p>

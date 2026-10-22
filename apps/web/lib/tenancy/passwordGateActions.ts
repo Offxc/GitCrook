@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { prisma } from "@gitcrook/db";
 import { verifySitePassword, signPasswordProof } from "@gitcrook/auth";
+import { safeRedirectPath } from "@gitcrook/shared";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
 
 export interface PasswordGateState {
@@ -45,7 +46,8 @@ export async function submitSitePassword(siteId: string, _prev: PasswordGateStat
   const password = formData.get("password");
   const redirectTo = formData.get("redirectTo");
   if (typeof password !== "string" || !password) return { error: "Enter the password." };
-  const target = typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : "/";
+  // The form field is client-supplied, and the client navigates to whatever comes back: `//evil.com` starts with "/" too.
+  const target = safeRedirectPath(redirectTo);
 
   const forwardedFor = (await headers()).get("x-forwarded-for");
   const visitorKey = forwardedFor?.split(",")[0]?.trim() || "unknown";

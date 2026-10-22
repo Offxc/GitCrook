@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { computePagePaths, prisma } from "@gitcrook/db";
 import { joinUrl } from "@gitcrook/shared";
 import { sitePublishedUrl } from "@gitcrook/shared/server";
-import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
+import { getVisitorAccess } from "@/lib/tenancy/visitorAccess";
 import { extractPlainText } from "@/lib/editor/extractText";
 
 /**
@@ -37,13 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 
   // Same rule as the page itself: a feed for a Private/Password site
   // shouldn't leak its changelog to anyone who has the URL.
-  const [userId, jar] = await Promise.all([getSessionUserId(), cookies()]);
-  const access = await resolveVisitorAccess({
-    site,
-    userId,
-    passwordProofCookie: jar.get(`vd-pw-${site.id}`)?.value,
-    shareLinkToken: req.nextUrl.searchParams.get("token") ?? undefined,
-  });
+  const access = await getVisitorAccess(site);
   if (access.status !== "allow") return new NextResponse("Not found", { status: 404 });
 
   const pages = await prisma.page.findMany({

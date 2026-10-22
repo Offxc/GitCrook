@@ -16,7 +16,7 @@ export function PageActions({ pageId, allowCopy, allowView }: { pageId: string; 
   if (!allowCopy && !allowView) return null;
 
   async function fetchMarkdown(): Promise<string> {
-    const res = await fetch(`/api/pages/${pageId}/markdown${window.location.search.includes("token=") ? window.location.search : ""}`);
+    const res = await fetch(`/api/pages/${pageId}/markdown`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     setMarkdown(text);

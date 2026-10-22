@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeHref, safeMediaUrl } from "./urls";
+import { safeHref, safeMediaUrl, safeRedirectPath } from "./urls";
 
 describe("safeHref", () => {
   it.each([
@@ -59,5 +59,23 @@ describe("safeMediaUrl", () => {
     expect(safeMediaUrl("tel:123")).toBe("");
     expect(safeMediaUrl("javascript:alert(1)")).toBe("");
     expect(safeMediaUrl("data:image/svg+xml,<svg/>")).toBe("");
+  });
+});
+
+describe("safeRedirectPath", () => {
+  it.each(["/", "/docs/page", "/site/page?x=1#h", "/a//b"])("keeps %s", (p) => {
+    expect(safeRedirectPath(p)).toBe(p);
+  });
+
+  it.each(["//evil.com", "//evil.com/x", "https://evil.com", "http://evil.com", "javascript:alert(1)", "/\\evil.com", "\\\\evil.com", "page", "", "/x\ny", "/x\ty"])(
+    "falls back for %j",
+    (p) => {
+      expect(safeRedirectPath(p)).toBe("/");
+    },
+  );
+
+  it("uses the fallback given, and tolerates non-strings", () => {
+    expect(safeRedirectPath("//x", "/home")).toBe("/home");
+    for (const v of [undefined, null, 3, {}]) expect(safeRedirectPath(v, "/z")).toBe("/z");
   });
 });

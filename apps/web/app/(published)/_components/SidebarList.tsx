@@ -1,11 +1,16 @@
 import Link from "next/link";
-import type { PageTreeNode } from "@/lib/tenancy/getPageTree";
 import type { ThemeConfig } from "@gitcrook/shared";
-import { PageIcon } from "./PageIcon";
+import type { ShellNode } from "@/lib/tenancy/siteLocation";
+import { LinkPending } from "./LinkPending";
+import { NodeIcon } from "./NodeIcon";
 
 /**
- * Read-only sidebar nav — zero client JS, used for every visitor who isn't
- * actively reordering (see SidebarBody for the editable swap-in).
+ * Read-only sidebar nav, used for every visitor who isn't actively reordering (see SidebarBody for
+ * the editable swap-in). It lives in the persistent shell, so it is never rebuilt on navigation:
+ * `initialOpen` says which groups start open, and from then on the browser owns each group's state
+ * (the user's toggles, plus VariantTree opening the groups above whichever page becomes active).
+ * It is deliberately NOT derived from the active page on every render: React would then close a
+ * group the reader opened the moment they clicked a link elsewhere.
  *
  * Metrics are taken from a real GitBook site rather than guessed: 14px/400
  * links, 12px/600 group headers, 12px gap between icon and label, and an
@@ -17,13 +22,15 @@ export function SidebarList({
   paths,
   baseHref,
   activePageId,
+  initialOpen,
   depth,
   listStyle,
 }: {
-  tree: PageTreeNode[];
+  tree: ShellNode[];
   paths: Map<string, string[]>;
   baseHref: string;
-  activePageId: string;
+  activePageId: string | null;
+  initialOpen: ReadonlySet<string>;
   depth: number;
   listStyle: ThemeConfig["sidebarStyle"]["listStyle"];
 }) {
@@ -45,11 +52,11 @@ export function SidebarList({
           return (
             <li key={node.id} className={depth === 0 ? "mt-7 border-t border-site-border pt-5 first:mt-1 first:border-t-0 first:pt-0" : "mt-5 first:mt-0"}>
               <p className="mb-2 flex items-center gap-2 px-3 text-[13px] font-bold uppercase tracking-wide text-site-ink">
-                <PageIcon icon={node.icon} className="h-4 w-4 shrink-0" />
+                <NodeIcon icon={node.icon} paths={node.iconPaths} className="h-4 w-4 shrink-0" />
                 {node.title}
               </p>
               {node.children.length > 0 ? (
-                <SidebarList tree={node.children} paths={paths} baseHref={baseHref} activePageId={activePageId} depth={depth} listStyle={listStyle} />
+                <SidebarList tree={node.children} paths={paths} baseHref={baseHref} activePageId={activePageId} initialOpen={initialOpen} depth={depth} listStyle={listStyle} />
               ) : null}
             </li>
           );
@@ -63,8 +70,9 @@ export function SidebarList({
         }`;
         const label = (
           <Link href={href} className={linkClass} aria-current={isActive ? "page" : undefined}>
-            <PageIcon icon={node.icon} className="h-4 w-4 shrink-0" />
+            <NodeIcon icon={node.icon} paths={node.iconPaths} className="h-4 w-4 shrink-0" />
             <span className="truncate">{node.title}</span>
+            <LinkPending />
           </Link>
         );
 
@@ -74,24 +82,20 @@ export function SidebarList({
 
         return (
           <li key={node.id}>
-            <details open={containsActive(node, activePageId)} data-node-id={node.id} className="group">
+            <details open={initialOpen.has(node.id)} data-node-id={node.id} className="group">
               <summary className="flex list-none items-center [&::-webkit-details-marker]:hidden">
                 {label}
                 <span className="ml-auto mr-1 shrink-0 rounded p-1 text-site-ink-muted transition group-open:rotate-90 hover:text-site-ink">
                   <ChevronIcon />
                 </span>
               </summary>
-              <SidebarList tree={node.children} paths={paths} baseHref={baseHref} activePageId={activePageId} depth={depth + 1} listStyle={listStyle} />
+              <SidebarList tree={node.children} paths={paths} baseHref={baseHref} activePageId={activePageId} initialOpen={initialOpen} depth={depth + 1} listStyle={listStyle} />
             </details>
           </li>
         );
       })}
     </ul>
   );
-}
-
-function containsActive(node: PageTreeNode, activePageId: string): boolean {
-  return node.id === activePageId || node.children.some((c) => containsActive(c, activePageId));
 }
 
 function ChevronIcon() {

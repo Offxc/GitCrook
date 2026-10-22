@@ -141,6 +141,61 @@ jobs:
       - name: Seed
         run: pnpm db:seed
 
+  e2e:
+    name: End-to-end (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: gitcrook
+          POSTGRES_PASSWORD: gitcrook
+          POSTGRES_DB: gitcrook
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gitcrook"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://gitcrook:gitcrook@127.0.0.1:5432/gitcrook
+      AUTH_SECRET: ci-placeholder-secret-at-least-32-chars-long
+      ROOT_DOMAIN: localhost:3000
+      ROOT_PROTOCOL: http
+      E2E_BASE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:deploy
+      - run: pnpm build
+
+      - name: Install Chromium
+        run: pnpm exec playwright-core install --with-deps chromium
+
+      # The same standalone server the Docker image runs.
+      - name: Start the app
+        run: |
+          cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+          PORT=3000 HOSTNAME=0.0.0.0 node apps/web/.next/standalone/apps/web/server.js > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs -o /dev/null http://localhost:3000/login && exit 0; sleep 1; done
+          echo "server did not come up"; cat server.log; exit 1
+
+      - name: End-to-end tests
+        run: pnpm test:e2e
+
+      - name: Server log
+        if: failure()
+        run: cat server.log
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

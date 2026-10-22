@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@gitcrook/db";
-import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
+import { getVisitorAccess } from "@/lib/tenancy/visitorAccess";
 import { readStoredFile } from "@/lib/storage/localFs";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ assetId: string }> }) {
@@ -16,13 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ asse
   // itself gets in renderPublishedSite.tsx — an image embedded in a Private
   // site's content shouldn't be fetchable by anyone who has the URL.
   if (asset.site) {
-    const [userId, jar] = await Promise.all([getSessionUserId(), cookies()]);
-    const access = await resolveVisitorAccess({
-      site: asset.site,
-      userId,
-      passwordProofCookie: jar.get(`vd-pw-${asset.site.id}`)?.value,
-      shareLinkToken: req.nextUrl.searchParams.get("token") ?? undefined,
-    });
+    const access = await getVisitorAccess(asset.site);
     if (access.status !== "allow") return new NextResponse(null, { status: 404 });
   }
 

@@ -1,9 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { cookies } from "next/headers";
 import { prisma } from "@gitcrook/db";
-import { getSessionUserId, resolveVisitorAccess } from "@gitcrook/auth";
+import { getVisitorAccess } from "./visitorAccess";
 import { checkRateLimit } from "@gitcrook/shared/server";
 import { computeVisitorHash } from "@/lib/analytics/track";
 import { readRequestMeta } from "@/lib/analytics/requestMeta";
@@ -34,13 +33,7 @@ export async function submitPageFeedback(_prev: FeedbackState, formData: FormDat
   // A rating is a write against a page, so it needs the same access as reading it:
   // knowing a page id (it appears in the page's HTML) must not be enough to rate a
   // page on a site you can't see.
-  const [userId, jar] = await Promise.all([getSessionUserId(), cookies()]);
-  const access = await resolveVisitorAccess({
-    site: page.site,
-    userId,
-    passwordProofCookie: jar.get(`vd-pw-${page.siteId}`)?.value,
-    shareLinkToken: undefined,
-  });
+  const access = await getVisitorAccess(page.site);
   if (access.status !== "allow") return { error: "Page not found." };
 
   const meta = await readRequestMeta();

@@ -22,6 +22,9 @@ pnpm check:migrations    # fails if a migration drops an index Prisma can't see
 TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/postgres pnpm test:integration
 ```
 
+`pnpm test:e2e` drives Chromium against a running production build; see `tests/e2e/README.md`. CI runs it, and it
+is the check that the reader shell stays mounted while you navigate.
+
 `test:integration` creates a throwaway database on the server `TEST_DATABASE_URL` points at, applies every
 migration to it, runs the suite, and drops it. It never touches your development database.
 

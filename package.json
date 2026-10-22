@@ -18,9 +18,10 @@
     "test": "vitest run --project unit",
     "lint": "eslint .",
     "test:integration": "vitest run --project integration",
-    "test:all": "vitest run",
+    "test:all": "vitest run --project unit --project integration",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "typecheck": "pnpm --filter @gitcrook/web exec tsc --noEmit -p . && pnpm --filter @gitcrook/worker exec tsc --noEmit -p . && tsc --noEmit -p tsconfig.json"
+    "typecheck": "pnpm --filter @gitcrook/web exec tsc --noEmit -p . && pnpm --filter @gitcrook/worker exec tsc --noEmit -p . && tsc --noEmit -p tsconfig.json",
+    "test:e2e": "vitest run --project e2e"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -29,6 +30,7 @@
     "eslint-config-next": "16.3.8",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "pg": "8.23.0",
+    "playwright-core": "1.56.1",
     "typescript": "^5.7.3",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"

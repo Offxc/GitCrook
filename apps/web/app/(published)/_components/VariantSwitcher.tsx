@@ -1,40 +1,60 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { variantSegments } from "@gitcrook/shared";
-import type { VariantOption } from "@/lib/tenancy/resolvePublishedPath";
+import { resolveTreePath, variantSegments } from "@gitcrook/shared";
+import { useSiteNav } from "./SiteNavProvider";
 
 /**
- * GitBook's "version" dropdown. A plain <details>/<summary> — no client JS
- * needed for a list of links. Each option links to the same page-slug path
- * resolved against that variant (VariantOption.pagePath), falling back to
- * that variant's root page when no equivalent page exists there.
+ * GitBook's "version" dropdown. A plain <details>/<summary>. Each option links to the same page-slug
+ * path in that variant when the page exists there, and to that variant's first page when it doesn't.
+ * Worked out in the browser from the structure the layout loaded, so it follows the reader around
+ * the site without the header being rebuilt.
  */
-export function VariantSwitcher({
-  current,
-  options,
-  baseHref,
-  pathPrefix,
-}: {
-  current: { id: string; name: string };
-  options: VariantOption[];
-  baseHref: string;
-  pathPrefix: string[];
-}) {
-  if (options.length <= 1) return null;
+export function VariantSwitcher() {
+  const nav = useSiteNav();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDetailsElement>(null);
+
+  // The header is part of the persistent shell, so the menu would otherwise stay open after a choice
+  // is made. Also close it on an outside click or Escape, as a dropdown should.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  if (!nav) return null;
+  const { location, baseHref } = nav;
+  const variants = location.space.variants;
+  if (variants.length <= 1) return null;
 
   return (
-    <details className="group relative">
+    <details ref={ref} open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-placement="variant-switcher" className="group relative">
       <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md border border-site-border px-2.5 py-1 text-xs font-medium text-site-ink-muted transition hover:text-site-ink [&::-webkit-details-marker]:hidden">
-        {current.name}
+        {location.variant.name}
         <ChevronIcon />
       </summary>
       <nav className="absolute right-0 z-10 mt-1 min-w-[10rem] rounded-md border border-site-border bg-site-canvas py-1 shadow-lg">
-        {options.map(({ variant, pagePath }) => {
-          const segs = [...pathPrefix, ...variantSegments(variant), ...(pagePath ?? [])];
-          const isActive = variant.id === current.id;
+        {variants.map((variant) => {
+          const isActive = variant.id === location.variant.id;
+          const hasEquivalent = isActive || (location.rest.length > 0 && resolveTreePath(variant.tree, location.rest) !== null);
+          const segments = [...location.base, ...variantSegments(variant), ...(hasEquivalent ? location.rest : [])];
           return (
             <Link
               key={variant.id}
-              href={`${baseHref}/${segs.join("/")}`}
+              href={`${baseHref}/${segments.join("/")}`}
+              onClick={() => setOpen(false)}
               className={`block px-3 py-1.5 text-sm transition hover:bg-site-surface ${isActive ? "font-semibold text-site-primary" : "text-site-ink"}`}
             >
               {variant.name}

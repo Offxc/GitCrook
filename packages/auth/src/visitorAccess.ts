@@ -19,13 +19,14 @@ export async function resolveVisitorAccess(params: {
   site: { id: string; audienceMode: AudienceMode };
   userId: string | null;
   passwordProofCookie: string | undefined;
-  shareLinkToken: string | undefined;
+  /** Tokens the visitor holds (from the share cookie); any one that is live for this site admits them. */
+  shareLinkTokens?: readonly string[];
 }): Promise<VisitorAccessResult> {
-  const { site, userId, passwordProofCookie, shareLinkToken } = params;
+  const { site, userId, passwordProofCookie, shareLinkTokens = [] } = params;
 
   if (site.audienceMode === "PUBLIC") return { status: "allow" };
 
-  if (shareLinkToken && (await isShareLinkValid(site.id, shareLinkToken))) return { status: "allow" };
+  if (shareLinkTokens.length > 0 && (await hasLiveShareLink(site.id, shareLinkTokens))) return { status: "allow" };
 
   if (userId && (await canUserDoX(userId, "content.view", { type: "site", id: site.id }))) return { status: "allow" };
 
@@ -40,12 +41,13 @@ export async function resolveVisitorAccess(params: {
   return { status: "denied" };
 }
 
-async function isShareLinkValid(siteId: string, token: string): Promise<boolean> {
-  const link = await prisma.shareLink.findUnique({ where: { token } });
-  if (!link || link.siteId !== siteId) return false;
-  if (link.revokedAt) return false;
-  if (link.expiresAt && link.expiresAt < new Date()) return false;
-  return true;
+async function hasLiveShareLink(siteId: string, tokens: readonly string[]): Promise<boolean> {
+  const now = new Date();
+  const link = await prisma.shareLink.findFirst({
+    where: { siteId, token: { in: [...tokens] }, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    select: { id: true },
+  });
+  return link !== null;
 }
 
 // ----------------------------------------------------------------------

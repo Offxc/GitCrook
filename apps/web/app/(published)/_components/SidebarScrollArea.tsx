@@ -1,37 +1,37 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { RESTORE_SIDEBAR_SOURCE, restoreSidebar, sidebarOpenKey, sidebarScrollKey } from "./sidebarRestore";
+import { RESTORE_SIDEBAR_SOURCE, restoreSidebar, revealActive, sidebarOpenKey, sidebarScrollKey } from "./sidebarRestore";
 
 /** Scroll and toggle events caused by our own restore land in this window and must not be saved as if the reader did them. */
 const QUIET_MS = 300;
 
 /**
- * The reader shell is rebuilt on every navigation (it is rendered by the page,
- * not a layout), so everything the sidebar holds in the DOM — its scroll offset
- * and which groups are open — is lost on each click. Until the shell moves into
- * a persistent layout (see PLAN.md, A2), remember both per site and variant and
- * put them back.
+ * The sidebar's scroll container. It lives in the site's layout and so is not rebuilt when the reader
+ * navigates: the scroll offset and the open groups simply stay as they are. What is left for this
+ * component to do:
  *
- * - Restored from the ref callback, which runs during commit before paint, so
- *   the column never visibly jumps.
- * - Saved immediately when a link is clicked (not only on a debounce): a click
- *   a few milliseconds after a scroll used to navigate before the offset was
- *   written.
- * - A restore never overwrites what was stored. If the restored offset is
- *   clamped (the tree changed), the scroll event that causes is ignored.
- * - On a hard load the page is server-rendered with the sidebar at the top and
- *   React can't restore anything until it hydrates. The inline script below
- *   runs as the HTML is parsed, so the sidebar is already in place when it's
- *   first painted.
+ * - On a hard load or reload, put back the offset and open groups the reader left (per site and
+ *   variant, in sessionStorage). The page is server-rendered with the sidebar at the top, and React
+ *   can't restore anything until it hydrates, so an inline script runs as the HTML is parsed and the
+ *   sidebar is already in place when it is first painted. The same restore runs from the ref callback
+ *   (before paint) when the variant changes, since that swaps the tree inside this same container.
+ * - When navigation lands on a page that is out of view (a link in the page body, search, a deep link),
+ *   scroll it into view. A click on a link that is already visible leaves the offset alone.
+ * - Remember the offset and open groups. The offset is saved when a link is clicked, not only on a
+ *   debounce: a click a few milliseconds after a scroll used to navigate before it was written. A
+ *   restore never overwrites what was stored; the scroll event it causes is ignored.
  */
 export function SidebarScrollArea({
   storageKey,
+  activeId,
   nonce,
   className,
   children,
 }: {
   storageKey: string;
+  /** The page being read; when it changes, make sure it is visible. */
+  activeId: string | null;
   nonce?: string;
   className?: string;
   children: React.ReactNode;
@@ -81,6 +81,18 @@ export function SidebarScrollArea({
     },
     [storageKey, saveOpenGroups],
   );
+
+  // Navigation moved the active item: bring it into view if it isn't. Not on first mount, where the
+  // restore above already did it.
+  const lastActive = useRef(activeId);
+  useEffect(() => {
+    if (lastActive.current === activeId) return;
+    lastActive.current = activeId;
+    const node = nodeRef.current;
+    if (!node || !activeId) return;
+    quietUntil.current = performance.now() + QUIET_MS;
+    revealActive(node);
+  }, [activeId]);
 
   useEffect(() => {
     window.addEventListener("pagehide", saveScroll);
