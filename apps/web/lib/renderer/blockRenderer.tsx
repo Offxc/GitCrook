@@ -237,7 +237,10 @@ function renderBlock(block: RenderBlock, ctx: RenderContext): React.ReactNode {
                 <HintIcon style={style} />
               </span>
             )}
-            <p className="hint-text text-[15px] leading-7">{renderInline(block.content)}</p>
+            <div className="hint-text min-w-0 flex-1">
+              <p className="text-[15px] leading-7">{renderInline(block.content)}</p>
+              {block.children?.length ? <div className="mt-2">{renderBlocks(block.children, ctx)}</div> : null}
+            </div>
           </div>
         </div>
       );

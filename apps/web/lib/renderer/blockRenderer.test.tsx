@@ -261,6 +261,25 @@ describe("structure and safety", () => {
     expect(out.match(/rounded-full bg-site-surface/g)).toHaveLength(2); // the empty tag from the trailing comma is dropped
   });
 
+  it("draws the blocks inside a callout after its text", () => {
+    const out = html([
+      {
+        id: "h",
+        type: "hint",
+        props: { hintStyle: "info" },
+        content: [text("Intro")],
+        children: [
+          { id: "l1", type: "bulletListItem", content: [text("first item")] },
+          { id: "c1", type: "codeBlock", props: { language: "text" }, content: [text("a code line")] },
+        ],
+      },
+    ]);
+    expect(out).toContain("Intro");
+    expect(out).toContain("first item");
+    expect(out).toContain("a code line");
+    expect(out.indexOf("Intro")).toBeLessThan(out.indexOf("first item"));
+  });
+
   it("lays out a step list with numbers", () => {
     const out = html([{ id: "s", type: "stepper", children: [{ id: "s1", type: "step", props: { index: 1 }, content: [text("First")] }] }]);
     expect(out).toContain(">1</span>");
