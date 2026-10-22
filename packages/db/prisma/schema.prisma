@@ -31,6 +31,8 @@ model User {
   pageVersions       PageVersion[]
   exportJobs         ExportJob[]
   invitationsSent    Invitation[]        @relation("InvitationsSent")
+  gitSourcesCreated  GitSource[]
+  gitCredentials     GitCredential[]
 }
 
 model Account {
@@ -98,6 +100,8 @@ model Organization {
   auditLogs      AuditLog[]
   reusableBlocks ReusableBlock[]
   invitations    Invitation[]
+  gitSources     GitSource[]
+  gitCredentials GitCredential[]
 }
 
 // Someone invited by email who has no account yet. Sign-up is closed by default, so an
@@ -176,6 +180,7 @@ model Site {
   pages           Page[]
   analyticsEvents AnalyticsEvent[]
   dailyRollups    AnalyticsDailyRollup[]
+  gitSources      GitSource[]
 
   @@index([organizationId])
 }
@@ -308,15 +313,16 @@ model Variant {
   order     Int
   createdAt DateTime @default(now())
 
-  space Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  pages Page[]
+  space     Space      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  pages     Page[]
+  gitSource GitSource?
 
   @@unique([spaceId, slug])
   @@index([spaceId])
 }
 
 model Page {
-  id             String    @id @default(cuid())
+  id             String                   @id @default(cuid())
   variantId      String
   siteId         String // denormalized from variant->space->section->site: one indexed filter
   // for search/analytics instead of a 4-way join, and no cross-tenant join bugs possible.
@@ -325,7 +331,7 @@ model Page {
   slug           String
   description    String?
   icon           String?
-  isGroup        Boolean   @default(false) // a page group (GitBook's term): title/icon/slug, no
+  isGroup        Boolean                  @default(false) // a page group (GitBook's term): title/icon/slug, no
   // content, not itself navigable — just a header in the sidebar for the pages nested under it.
   // Always top-level (enforced in the create action, not the schema): GitBook's own page groups
   // can't nest inside each other either.
@@ -333,7 +339,7 @@ model Page {
   content        Json // BlockNote document (array of Block) — unused for a group; kept required
   // rather than nullable so every other query touching Page.content doesn't need a null check
   // for the one row-kind that doesn't use it.
-  contentText    String                        @default("") @db.Text // plain-text extract of
+  contentText    String                   @default("") @db.Text // plain-text extract of
   // `content`, kept in sync on every save; feeds searchVector below.
   searchVector   Unsupported("tsvector")? // generated column + GIN index, set up in a raw-SQL
   // migration (Prisma can't express GENERATED ALWAYS AS ... STORED) — see migration.sql for
@@ -348,12 +354,28 @@ model Page {
   // index (found the hard way: it stayed dropped, with search still
   // "working" via a slow seq scan, until an unrelated later migration's own
   // drift check surfaced it).
-  contentVersion Int                           @default(1) // optimistic concurrency for autosave
+  contentVersion Int                      @default(1) // optimistic concurrency for autosave
   order          Int
-  isDraft        Boolean   @default(false)
+  isDraft        Boolean                  @default(false)
   publishedAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  // Git Sync. A page is managed by the editor or by a repository; a repository-managed page is
+  // read-only in the editor and its content is replaced by each sync. `sourcePath` is the file's
+  // path under the source's root directory and, with `sourceId`, identifies the page across syncs
+  // (the unique index below). `sourceBlobSha` lets a sync skip a file that has not changed.
+  // `frontMatterId` is the file's `id:` — an identity that survives renames and moves.
+  // A file that disappears from the repository is soft-deleted: `deletedAt` is set and the page is
+  // also marked a draft so every reader query that already skips drafts stops serving it. A page
+  // with `deletedAt` set does not hold its URL (see the partial slug indexes) and is removed for
+  // good once the source's grace period has passed.
+  managedBy     PageManagedBy @default(EDITOR)
+  sourceId      String?
+  sourcePath    String?
+  sourceBlobSha String?
+  frontMatterId String?
+  deletedAt     DateTime?
 
   variant     Variant          @relation(fields: [variantId], references: [id], onDelete: Cascade)
   site        Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -365,27 +387,46 @@ model Page {
   versions    PageVersion[]
   exportJobs  ExportJob[]
   analytics   AnalyticsEvent[]
+  source      GitSource?       @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   // Sibling slugs are unique, enforced by two PARTIAL unique indexes the schema language can't
-  // express (migration 20261022170000_page_slug_uniqueness): one on (variantId, slug) WHERE
-  // parentId IS NULL and one on (variantId, parentId, slug) WHERE parentId IS NOT NULL. A single
+  // express (migration 20261022170000_page_slug_uniqueness, narrowed to live pages by
+  // 20261022190000_git_sync): one on (variantId, slug) WHERE parentId IS NULL and one on
+  // (variantId, parentId, slug) WHERE parentId IS NOT NULL, both AND deletedAt IS NULL. A single
   // @@unique can't do both because Postgres treats NULLs as distinct. They are invisible to
   // `prisma migrate dev`, which will try to drop them — see the searchVector warning above and
   // delete those statements from any generated migration. Writers should go through
   // apps/web/lib/pages/withFreeSlug.ts, which retries on the P2002 these indexes raise.
+  @@unique([sourceId, sourcePath])
   @@index([variantId, parentId, slug])
   @@index([variantId])
   @@index([siteId])
   @@index([parentId])
+  @@index([sourceId, frontMatterId])
+  @@index([deletedAt])
+}
+
+enum PageManagedBy {
+  EDITOR
+  GIT
+}
+
+enum PageVersionOrigin {
+  EDITOR
+  GIT
+  RESTORE
 }
 
 model PageVersion {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   pageId      String
   content     Json
   version     Int
   createdById String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime          @default(now())
+  // Where this version came from; a sync records the commit it read.
+  origin      PageVersionOrigin @default(EDITOR)
+  commitSha   String?
 
   page      Page  @relation(fields: [pageId], references: [id], onDelete: Cascade)
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -521,14 +562,136 @@ model Asset {
   checksumSha256 String
   createdAt      DateTime  @default(now())
 
+  // Git Sync: an image or file imported from a repository. (sourceId, sourcePath) is the file's
+  // identity; sourceBlobSha says whether it has changed since the last import.
+  sourceId      String?
+  sourcePath    String?
+  sourceBlobSha String?
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploader     User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
   site         Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  source       GitSource?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   exportJobs   ExportJob[]
 
+  @@unique([sourceId, sourcePath])
   @@index([siteId])
+  @@index([organizationId])
+}
+
+// =================================== Git Sync ===================================
+
+enum GitProvider {
+  GITHUB
+}
+
+enum GitSyncStatus {
+  IDLE
+  SYNCING
+  ERROR
+  PAUSED
+}
+
+enum GitSyncTrigger {
+  WEBHOOK
+  POLL
+  MANUAL
+  FULL
+}
+
+enum GitSyncRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+// A repository, branch and directory whose Markdown becomes one variant's page tree. Other
+// variants, sections and the rest of the site stay editor-managed, so ownership is never partial
+// within a tree.
+model GitSource {
+  id              String        @id @default(cuid())
+  organizationId  String
+  siteId          String
+  variantId       String        @unique
+  provider        GitProvider   @default(GITHUB)
+  owner           String
+  repo            String
+  branch          String
+  rootDir         String        @default("")
+  credentialId    String?
+  status          GitSyncStatus @default(IDLE)
+  lastSyncedSha   String?
+  lastSyncedAt    DateTime?
+  lastCheckedAt   DateTime?
+  lastError       String?
+  etag            String?
+  pollIntervalSec Int           @default(300)
+  deleteGraceDays Int           @default(14)
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  variant      Variant        @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  credential   GitCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  createdBy    User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  runs         GitSyncRun[]
+  pages        Page[]
+  assets       Asset[]
+
+  // The poller picks up sources that are due.
+  @@index([status, lastCheckedAt])
+  @@index([organizationId])
+  @@index([siteId])
+}
+
+// A token or app installation a source reads with. The secret is encrypted (AES-256-GCM, see
+// packages/shared/src/secrets.ts) and never selected by default: read it only where it is used, and
+// never log or return it. `keyId` names the key that sealed it so keys can be rotated.
+model GitCredential {
+  id               String   @id @default(cuid())
+  organizationId   String
+  label            String   @default("")
+  kind             String // GITHUB_APP_INSTALLATION | TOKEN
+  installationId   String?
+  secretCiphertext Bytes?
+  keyId            String
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sources      GitSource[]
 
   @@index([organizationId])
+}
+
+// One attempt to bring a site up to a commit. `deliveryId` is the webhook's delivery id, so the same
+// delivery arriving twice creates one run. `stats` and `diagnostics` are capped JSON.
+model GitSyncRun {
+  id          String           @id @default(cuid())
+  sourceId    String
+  trigger     GitSyncTrigger
+  deliveryId  String?          @unique
+  fromSha     String?
+  toSha       String
+  status      GitSyncRunStatus @default(PENDING)
+  startedAt   DateTime?
+  heartbeatAt DateTime? // refreshed while running; a run that stops updating it is reaped
+  finishedAt  DateTime?
+  stats       Json?
+  diagnostics Json?
+  error       String?
+  createdAt   DateTime         @default(now())
+
+  source GitSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, createdAt])
+  @@index([status, createdAt])
 }
 
 // =========================== Visitor feedback & analytics ===========================
@@ -608,17 +771,17 @@ enum ExportJobStatus {
 }
 
 model ExportJob {
-  id             String          @id @default(cuid())
-  pageId         String
-  requestedById  String
-  status         ExportJobStatus @default(PENDING)
-  resultAssetId  String?
-  error          String?
-  createdAt      DateTime        @default(now())
-  completedAt    DateTime?
+  id            String          @id @default(cuid())
+  pageId        String
+  requestedById String
+  status        ExportJobStatus @default(PENDING)
+  resultAssetId String?
+  error         String?
+  createdAt     DateTime        @default(now())
+  completedAt   DateTime?
 
-  page        Page  @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  requestedBy User  @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+  page        Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  requestedBy User   @relation(fields: [requestedById], references: [id], onDelete: Cascade)
   resultAsset Asset? @relation(fields: [resultAssetId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
