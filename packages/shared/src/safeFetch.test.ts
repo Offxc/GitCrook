@@ -209,7 +209,7 @@ describe("safeFetch rules", () => {
   });
 
   it("passes the method, headers and a deadline signal to the network layer", async () => {
-    const impl = vi.fn(async (_url: string, _init: Record<string, unknown>) => ok());
+    const impl = vi.fn((...args: [string, Record<string, unknown>]) => Promise.resolve(args && ok()));
     await run(impl)("https://example.com/", { method: "POST", headers: { authorization: "Bearer t" }, body: "{}" });
     const init = impl.mock.calls[0]![1] as Record<string, unknown>;
     expect(init).toMatchObject({ method: "POST", headers: { authorization: "Bearer t" }, body: "{}", redirect: "manual" });

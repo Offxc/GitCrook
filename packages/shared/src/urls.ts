@@ -15,7 +15,6 @@ export function safeHref(url: unknown): string {
   if (typeof url !== "string") return "";
   const value = url.trim();
   if (value === "") return "";
-  // eslint-disable-next-line no-control-regex -- the point is to catch control characters
   if (/[\u0000-\u001f\u007f]/.test(value)) return "";
   if (value.startsWith("//")) return value; // protocol-relative: inherits the page's https
   // A scheme is letters/digits/+-. up to the first ":" - but only if that ":" comes before any "/", "?" or "#".
@@ -37,7 +36,6 @@ export function safeMediaUrl(url: unknown): string {
  */
 export function safeRedirectPath(value: unknown, fallback = "/"): string {
   if (typeof value !== "string") return fallback;
-  // eslint-disable-next-line no-control-regex -- the point is to catch control characters
   if (/[\u0000-\u001f\u007f]/.test(value)) return fallback;
   if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return fallback;
   return value;
