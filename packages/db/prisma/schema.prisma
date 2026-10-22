@@ -177,6 +177,9 @@ model CustomDomain {
 model SitePassword {
   siteId       String   @id
   passwordHash String // argon2id
+  // Bound into every issued proof cookie. Bumped when the password changes and when the
+  // site's audience changes, so previously issued proofs stop working at once.
+  version      Int      @default(1)
   updatedAt    DateTime @updatedAt
 
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)

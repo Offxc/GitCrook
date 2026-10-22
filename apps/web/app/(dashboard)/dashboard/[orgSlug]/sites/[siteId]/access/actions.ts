@@ -31,6 +31,8 @@ export async function updateAudienceMode(orgSlug: string, siteId: string, _prev:
   }
 
   await prisma.site.update({ where: { id: ctx.site.id }, data: { audienceMode: parsed.data } });
+  // Visitors who proved the password under the old audience must prove it again.
+  await prisma.sitePassword.updateMany({ where: { siteId: ctx.site.id }, data: { version: { increment: 1 } } });
   await prisma.auditLog.create({
     data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "site.setAudienceMode", targetType: "Site", targetId: ctx.site.id, metadata: { mode: parsed.data } },
   });
@@ -50,7 +52,8 @@ export async function setSitePassword(orgSlug: string, siteId: string, _prev: Ac
   await prisma.sitePassword.upsert({
     where: { siteId: ctx.site.id },
     create: { siteId: ctx.site.id, passwordHash },
-    update: { passwordHash },
+    // A new password invalidates every proof issued under the old one.
+    update: { passwordHash, version: { increment: 1 } },
   });
   await prisma.auditLog.create({
     data: { organizationId: ctx.organization.id, actorId: ctx.userId, action: "site.setPassword", targetType: "Site", targetId: ctx.site.id },

@@ -30,7 +30,10 @@ export async function resolveVisitorAccess(params: {
   if (userId && (await canUserDoX(userId, "content.view", { type: "site", id: site.id }))) return { status: "allow" };
 
   if (site.audienceMode === "PASSWORD") {
-    if (verifyPasswordProof(site.id, passwordProofCookie)) return { status: "allow" };
+    // The proof is bound to the password's current version, so changing the password
+    // (or the audience) signs everyone out; a site with no password set can't be proven.
+    const record = passwordProofCookie ? await prisma.sitePassword.findUnique({ where: { siteId: site.id }, select: { version: true } }) : null;
+    if (record && verifyPasswordProof(site.id, record.version, passwordProofCookie)) return { status: "allow" };
     return { status: "passwordRequired" };
   }
 
@@ -59,36 +62,44 @@ const PASSWORD_ATTEMPT_LIMIT = 10;
 const PASSWORD_ATTEMPT_WINDOW_MS = 1000 * 60 * 15;
 
 /** Rate-limited by visitorKey (caller supplies the requester's IP or similar) — never by siteId alone, or one visitor could lock out every other visitor to the same site. */
-export async function verifySitePassword(siteId: string, plaintext: string, visitorKey: string): Promise<{ ok: boolean; rateLimited: boolean }> {
+export async function verifySitePassword(
+  siteId: string,
+  plaintext: string,
+  visitorKey: string,
+): Promise<{ ok: boolean; rateLimited: boolean; version: number }> {
   const rl = checkRateLimit(`password-gate:${siteId}:${visitorKey}`, PASSWORD_ATTEMPT_LIMIT, PASSWORD_ATTEMPT_WINDOW_MS);
-  if (!rl.allowed) return { ok: false, rateLimited: true };
+  if (!rl.allowed) return { ok: false, rateLimited: true, version: 0 };
 
   const record = await prisma.sitePassword.findUnique({ where: { siteId } });
-  if (!record) return { ok: false, rateLimited: false };
+  if (!record) return { ok: false, rateLimited: false, version: 0 };
 
   const ok = await argon2.verify(record.passwordHash, plaintext).catch(() => false);
-  return { ok, rateLimited: false };
+  return { ok, rateLimited: false, version: record.version };
 }
 
 function proofSecret(): Buffer {
   return createHash("sha256").update(`gitcrook-password-proof:${getEnv().AUTH_SECRET}`).digest();
 }
 
-/** `{expiryMs}.{hmac(siteId + expiryMs)}` — an opaque bearer token, not a JWT (no need for the extra format/library for one signed field). */
-export function signPasswordProof(siteId: string): string {
+/**
+ * `{expiryMs}.{hmac(siteId + version + expiryMs)}` — an opaque bearer token, not a JWT (no
+ * need for the extra format/library for one signed field). `version` is the site password's
+ * current version, so a token issued before a password or audience change no longer verifies.
+ */
+export function signPasswordProof(siteId: string, version: number): string {
   const expiry = Date.now() + PASSWORD_PROOF_TTL_MS;
-  const signature = createHmac("sha256", proofSecret()).update(`${siteId}.${expiry}`).digest("base64url");
+  const signature = createHmac("sha256", proofSecret()).update(`${siteId}.${version}.${expiry}`).digest("base64url");
   return `${expiry}.${signature}`;
 }
 
-export function verifyPasswordProof(siteId: string, token: string | undefined): boolean {
+export function verifyPasswordProof(siteId: string, version: number, token: string | undefined): boolean {
   if (!token) return false;
   const [expiryStr, signature] = token.split(".");
   if (!expiryStr || !signature) return false;
   const expiry = Number(expiryStr);
   if (!Number.isFinite(expiry) || expiry < Date.now()) return false;
 
-  const expected = createHmac("sha256", proofSecret()).update(`${siteId}.${expiry}`).digest("base64url");
+  const expected = createHmac("sha256", proofSecret()).update(`${siteId}.${version}.${expiry}`).digest("base64url");
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);

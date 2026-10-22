@@ -62,7 +62,7 @@ export async function submitSitePassword(siteId: string, _prev: PasswordGateStat
   await logPasswordAttempt(siteId, "success");
 
   const jar = await cookies();
-  jar.set(`vd-pw-${siteId}`, signPasswordProof(siteId), {
+  jar.set(`vd-pw-${siteId}`, signPasswordProof(siteId, verification.version), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
