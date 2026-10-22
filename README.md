@@ -234,6 +234,14 @@ app are on an internal network with no published ports.
 **Redeploying:** `git pull && docker compose up -d --build`. The `migrate` service runs before the
 new `web` container starts.
 
+**Upgrading to a release with Git Sync:** `git pull && docker compose up -d --build` is still the whole procedure. The
+`migrate` service applies the new migrations before `web` starts (they add tables and columns; nothing is dropped except
+two page-slug indexes that are recreated narrower). Both the `web` and `worker` images change, so both are rebuilt. Nothing
+needs setting to keep running as before. To use Git Sync with private repositories set `GIT_SYNC_ENCRYPTION_KEY`
+(`openssl rand -base64 32`), and for push webhooks set `GITHUB_WEBHOOK_SECRET` (`openssl rand -hex 32`); see
+[docs/git-sync/README.md](docs/git-sync/README.md). Sign-up is closed by default: set `ALLOWED_DISCORD_IDS` to your own
+Discord ID before exposing a fresh deployment.
+
 **Custom domains:** the tenant points the domain at your server, then adds a TXT record at
 `_gitcrook-challenge.<their-hostname>` with the `gitcrook-verify=…` value the dashboard shows. Caddy
 only issues a certificate for a hostname once it is verified.

@@ -139,7 +139,8 @@ content as tabs (`GS-210`), and the remaining S13–S19 hardening items.
 
 **Deploying Git Sync:** three new migrations (`20261022190000_git_sync`, `…200000_git_sync_page_meta`,
 `…210000_git_sync_one_pending_run`) run through the `migrate` service. Rebuild **both** `web` and `worker`.
-Set `GIT_SYNC_ENCRYPTION_KEY` to save tokens for private repositories, `GITHUB_WEBHOOK_SECRET` for push
+Set `GIT_SYNC_ENCRYPTION_KEY` to save tokens for private repositories, `GITHUB_WEBHOOK_SECRET` (32+ characters;
+each repository's webhook address and secret are derived from it and shown on the Git Sync page) for push
 webhooks, and optionally `GITHUB_API_URL`, `GIT_SYNC_ALLOWED_HOSTS`, `GIT_SYNC_CONCURRENCY`.
 
 How the engine differs from the first sketch in §4, and why:
